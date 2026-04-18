@@ -34,39 +34,49 @@ for i in {1..30}; do
   fi
 done
 
-echo "[INFO] Seeding deterministic E2E user..."
-docker compose exec -T postgres psql -U karma -d karma_yogi -c \
-  "INSERT INTO users (id,email,full_name,avatar_url,google_sub)
-   VALUES ('11111111-1111-1111-1111-111111111111','e2e@example.com','E2E User','','e2e-sub')
-   ON CONFLICT (id) DO UPDATE SET full_name=EXCLUDED.full_name, email=EXCLUDED.email, avatar_url=EXCLUDED.avatar_url, google_sub=EXCLUDED.google_sub;" >/dev/null
-
-JWT_SECRET_VALUE="$(grep -E '^JWT_SECRET=' .env | sed 's/^JWT_SECRET=//')"
-if [[ -z "${JWT_SECRET_VALUE}" ]]; then
-  echo "[ERROR] JWT_SECRET is empty in .env"
+echo "[INFO] Creating and authenticating E2E user via public auth APIs..."
+E2E_EMAIL="e2e.$(date +%s)@example.com"
+E2E_PASSWORD="password123"
+REGISTER_RESP="$(curl -fsS -X POST "http://localhost:8080/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$E2E_EMAIL\",\"fullName\":\"E2E User\",\"password\":\"$E2E_PASSWORD\",\"secretAnswer\":\"hyderabad\"}")"
+USER_ID="$(printf "%s" "$REGISTER_RESP" | jq -r '.user.id')"
+ACCESS_TOKEN="$(printf "%s" "$REGISTER_RESP" | jq -r '.accessToken')"
+if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
+  echo "[ERROR] Register did not return access token."
+  exit 1
+fi
+LOGIN_RESP="$(curl -fsS -X POST "http://localhost:8080/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$E2E_EMAIL\",\"password\":\"$E2E_PASSWORD\"}")"
+LOGIN_TOKEN="$(printf "%s" "$LOGIN_RESP" | jq -r '.accessToken')"
+if [[ -z "$LOGIN_TOKEN" || "$LOGIN_TOKEN" == "null" ]]; then
+  echo "[ERROR] Login did not return access token."
   exit 1
 fi
 
-ACCESS_TOKEN="$(
-  JWT_SECRET="$JWT_SECRET_VALUE" python3 - <<'PY'
-import base64, hashlib, hmac, json, os, time
-secret = os.environ["JWT_SECRET"].encode()
-header = {"alg":"HS256","typ":"JWT"}
-payload = {
-  "userId":"11111111-1111-1111-1111-111111111111",
-  "email":"e2e@example.com",
-  "sub":"11111111-1111-1111-1111-111111111111",
-  "iat": int(time.time()),
-  "exp": int(time.time()) + 900
-}
-def b64(o):
-  return base64.urlsafe_b64encode(json.dumps(o, separators=(",", ":")).encode()).rstrip(b"=").decode()
-head = b64(header)
-body = b64(payload)
-msg = f"{head}.{body}".encode()
-sig = base64.urlsafe_b64encode(hmac.new(secret, msg, hashlib.sha256).digest()).rstrip(b"=").decode()
-print(f"{head}.{body}.{sig}")
-PY
-)"
+echo "[INFO] Verifying password reset via secret answer..."
+NEW_PASSWORD="password456"
+curl -fsS -X POST "http://localhost:8080/api/v1/auth/password-reset" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$E2E_EMAIL\",\"secretAnswer\":\"hyderabad\",\"newPassword\":\"$NEW_PASSWORD\"}" >/dev/null
+
+BAD_LOGIN_CODE="$(curl -sS -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$E2E_EMAIL\",\"password\":\"$E2E_PASSWORD\"}")"
+if [[ "$BAD_LOGIN_CODE" != "401" ]]; then
+  echo "[ERROR] Expected old password login to fail with 401 after reset, got $BAD_LOGIN_CODE"
+  exit 1
+fi
+
+LOGIN_AFTER_RESET="$(curl -fsS -X POST "http://localhost:8080/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$E2E_EMAIL\",\"password\":\"$NEW_PASSWORD\"}")"
+ACCESS_TOKEN="$(printf "%s" "$LOGIN_AFTER_RESET" | jq -r '.accessToken')"
+if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
+  echo "[ERROR] Login after password reset did not return access token."
+  exit 1
+fi
 
 api_call() {
   local method="$1"
@@ -111,7 +121,7 @@ RAW_REFRESH="refresh-e2e-token"
 REFRESH_HASH="$(printf "%s" "$RAW_REFRESH" | shasum -a 256 | awk '{print $1}')"
 docker compose exec -T postgres psql -U karma -d karma_yogi -c \
   "INSERT INTO refresh_tokens (id,user_id,token_hash,expires_at)
-   VALUES ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','$REFRESH_HASH', now() + interval '1 day')
+   VALUES ('22222222-2222-2222-2222-222222222222','$USER_ID','$REFRESH_HASH', now() + interval '1 day')
    ON CONFLICT (id) DO UPDATE SET token_hash=EXCLUDED.token_hash, expires_at=EXCLUDED.expires_at, revoked_at=NULL;" >/dev/null
 
 REFRESH_RESP="$(curl -fsS -X POST "http://localhost:8080/api/v1/auth/refresh" \

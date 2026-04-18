@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, UserCircle2 } from 'lucide-react';
+import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, UserCircle2, LogOut } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { LotusIcon } from '@/components/LotusIcon';
 
@@ -11,7 +11,7 @@ const navLinks = [
   { to: '/profile', label: 'Profile', icon: UserCircle2 },
 ] as const;
 
-export function TopNav() {
+export function TopNav({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const currentPath = location.pathname;
   const { isDark, toggleTheme } = useStore();
@@ -57,6 +57,14 @@ export function TopNav() {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
+            <button
+              onClick={onLogout}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:border-foreground/20"
+              style={{ boxShadow: 'var(--shadow-sm)' }}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden md:inline">Logout</span>
+            </button>
           </div>
         </div>
       </header>
@@ -70,12 +78,21 @@ export function TopNav() {
             </div>
             <span className="text-base font-bold text-foreground tracking-tight">Karma Yogi</span>
           </Link>
-          <button
-            onClick={toggleTheme}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={onLogout}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </header>
 

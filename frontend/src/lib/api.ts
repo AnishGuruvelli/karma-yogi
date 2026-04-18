@@ -10,17 +10,40 @@ type BackendGoal = { id: string; targetMinutes: number };
 type BackendSubject = { id: string; name: string; color: string; icon?: string; createdAt: string };
 const authKey = 'karma_auth';
 
+async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+  const raw = (await res.text()).trim();
+  if (!raw) return fallback;
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json') || raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw) as { error?: string; message?: string };
+      const msg = (parsed.error || parsed.message || '').trim();
+      if (msg) return msg;
+    } catch {
+      // fall through to raw text
+    }
+  }
+  return raw || fallback;
+}
+
 export function getAuthState(): AuthState | null {
   const raw = localStorage.getItem(authKey);
   if (!raw) return null;
   try { return JSON.parse(raw) as AuthState; } catch { return null; }
 }
 
-function setAuthState(next: AuthState) { localStorage.setItem(authKey, JSON.stringify(next)); }
-export function clearAuthState() { localStorage.removeItem(authKey); }
+function notifyAuthChanged() { window.dispatchEvent(new Event('karma-auth-changed')); }
+function setAuthState(next: AuthState) {
+  localStorage.setItem(authKey, JSON.stringify(next));
+  notifyAuthChanged();
+}
+export function clearAuthState() {
+  localStorage.removeItem(authKey);
+  notifyAuthChanged();
+}
 
 export async function ensureDevAuth(): Promise<void> {
-  const enabled = (import.meta.env.VITE_DEV_AUTO_LOGIN ?? 'true') === 'true';
+  const enabled = (import.meta.env.VITE_DEV_AUTO_LOGIN ?? 'false') === 'true';
   if (!enabled) return;
 
   const auth = getAuthState();
@@ -72,10 +95,58 @@ async function request(path: string, init: RequestInit = {}, retry = true): Prom
 
 export async function loginWithGoogle(token: string) {
   const res = await fetch(`${API_BASE}/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-  if (!res.ok) throw new Error('Google login failed');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Google login failed'));
   const data = await res.json();
   setAuthState({ accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken });
   return mapUser(data.user);
+}
+
+export async function loginWithPassword(email: string, password: string) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Email/password login failed'));
+  const data = await res.json();
+  setAuthState({ accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken });
+  return mapUser(data.user);
+}
+
+export async function registerWithPassword(email: string, fullName: string, password: string, secretAnswer: string) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, fullName, password, secretAnswer }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Sign up failed'));
+  const data = await res.json();
+  setAuthState({ accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken });
+  return mapUser(data.user);
+}
+
+export async function resetPasswordWithSecret(email: string, secretAnswer: string, newPassword: string) {
+  const res = await fetch(`${API_BASE}/auth/password-reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, secretAnswer, newPassword }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to reset password'));
+}
+
+export async function logout(): Promise<void> {
+  const auth = getAuthState();
+  try {
+    if (auth?.refreshId) {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshId: auth.refreshId }),
+      });
+    }
+  } finally {
+    clearAuthState();
+  }
 }
 
 async function refreshToken(refreshId: string, refreshToken: string): Promise<AuthState> {

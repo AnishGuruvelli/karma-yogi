@@ -2,15 +2,21 @@ package database
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/karma-yogi/backend/internal/domain"
 )
 
+var ErrUserNotFound = errors.New("user not found")
+
 type UserRepository interface {
 	UpsertGoogleUser(ctx context.Context, email, fullName, avatarURL, googleSub string) (domain.User, error)
+	CreateWithPassword(ctx context.Context, email, fullName, passwordHash, secretAnswerHash string) (domain.User, error)
+	GetByEmail(ctx context.Context, email string) (domain.User, error)
 	GetByID(ctx context.Context, id string) (domain.User, error)
 	UpdateProfile(ctx context.Context, id, fullName, username, phone, avatarURL string) (domain.User, error)
+	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 }
 
 type SessionRepository interface {

@@ -27,6 +27,9 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Post("/auth/google", h.Auth.GoogleLogin)
+		api.Post("/auth/register", h.Auth.RegisterWithPassword)
+		api.Post("/auth/login", h.Auth.LoginWithPassword)
+		api.Post("/auth/password-reset", h.Auth.ResetPasswordWithSecret)
 		api.Post("/auth/dev-login", h.Auth.DevLogin)
 		api.Post("/auth/refresh", h.Auth.Refresh)
 		api.Post("/auth/logout", h.Auth.Logout)

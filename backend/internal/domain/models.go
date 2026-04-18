@@ -3,15 +3,17 @@ package domain
 import "time"
 
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	FullName  string    `json:"fullName"`
-	Username  string    `json:"username"`
-	Phone     string    `json:"phone"`
-	AvatarURL string    `json:"avatarUrl"`
-	GoogleSub string    `json:"-"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID               string    `json:"id"`
+	Email            string    `json:"email"`
+	FullName         string    `json:"fullName"`
+	Username         string    `json:"username"`
+	Phone            string    `json:"phone"`
+	AvatarURL        string    `json:"avatarUrl"`
+	GoogleSub        string    `json:"-"`
+	PasswordHash     string    `json:"-"`
+	SecretAnswerHash string    `json:"-"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 type Session struct {

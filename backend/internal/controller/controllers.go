@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -50,6 +51,66 @@ func (h *AuthHandler) DevLogin(w http.ResponseWriter, r *http.Request) {
 	res, err := h.svc.DevLogin(r.Context(), req.Email)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+func (h *AuthHandler) RegisterWithPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email        string `json:"email"`
+		FullName     string `json:"fullName"`
+		Password     string `json:"password"`
+		SecretAnswer string `json:"secretAnswer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	res, err := h.svc.RegisterWithPassword(r.Context(), req.Email, req.FullName, req.Password, req.SecretAnswer)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *AuthHandler) ResetPasswordWithSecret(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email        string `json:"email"`
+		SecretAnswer string `json:"secretAnswer"`
+		NewPassword  string `json:"newPassword"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := h.svc.ResetPasswordWithSecret(r.Context(), req.Email, req.SecretAnswer, req.NewPassword); err != nil {
+		switch {
+		case errors.Is(err, service.ErrPasswordResetInvalidCreds):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrPasswordResetGoogleOnly):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		case errors.Is(err, service.ErrPasswordResetMissingSecret):
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		default:
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unable to reset password"})
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+func (h *AuthHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	res, err := h.svc.LoginWithPassword(r.Context(), req.Email, req.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	writeJSON(w, http.StatusOK, res)

@@ -34,23 +34,58 @@ type pgUserRepo struct{ pool *pgxpool.Pool }
 func (r *pgUserRepo) UpsertGoogleUser(ctx context.Context, email, fullName, avatarURL, googleSub string) (domain.User, error) {
 	q := `INSERT INTO users (id,email,full_name,username,phone,avatar_url,google_sub) VALUES ($1,$2,$3,split_part($2,'@',1),'',$4,$5)
 	ON CONFLICT (email) DO UPDATE SET full_name=EXCLUDED.full_name, avatar_url=EXCLUDED.avatar_url, google_sub=EXCLUDED.google_sub, updated_at=now()
-	RETURNING id,email,full_name,username,phone,avatar_url,google_sub,created_at,updated_at`
+	RETURNING id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at`
 	id := uuid.NewString()
 	var u domain.User
-	err := r.pool.QueryRow(ctx, q, id, email, fullName, avatarURL, googleSub).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.CreatedAt, &u.UpdatedAt)
+	err := r.pool.QueryRow(ctx, q, id, email, fullName, avatarURL, googleSub).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
-func (r *pgUserRepo) GetByID(ctx context.Context, id string) (domain.User, error) {
-	q := `SELECT id,email,full_name,username,phone,avatar_url,google_sub,created_at,updated_at FROM users WHERE id=$1`
+
+func (r *pgUserRepo) CreateWithPassword(ctx context.Context, email, fullName, passwordHash, secretAnswerHash string) (domain.User, error) {
+	q := `INSERT INTO users (id,email,full_name,username,phone,avatar_url,google_sub,password_hash,secret_answer_hash)
+	VALUES ($1,$2,$3,split_part($2,'@',1),'','','',$4,$5)
+	RETURNING id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at`
+	id := uuid.NewString()
 	var u domain.User
-	err := r.pool.QueryRow(ctx, q, id).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.CreatedAt, &u.UpdatedAt)
+	err := r.pool.QueryRow(ctx, q, id, email, fullName, passwordHash, secretAnswerHash).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
+	return u, err
+}
+
+func (r *pgUserRepo) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+	q := `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at FROM users WHERE email=$1`
+	var u domain.User
+	err := r.pool.QueryRow(ctx, q, email).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.User{}, ErrUserNotFound
+		}
+		return domain.User{}, err
+	}
+	return u, nil
+}
+
+func (r *pgUserRepo) GetByID(ctx context.Context, id string) (domain.User, error) {
+	q := `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at FROM users WHERE id=$1`
+	var u domain.User
+	err := r.pool.QueryRow(ctx, q, id).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
 func (r *pgUserRepo) UpdateProfile(ctx context.Context, id, fullName, username, phone, avatarURL string) (domain.User, error) {
-	q := `UPDATE users SET full_name=$2, username=$3, phone=$4, avatar_url=$5, updated_at=now() WHERE id=$1 RETURNING id,email,full_name,username,phone,avatar_url,google_sub,created_at,updated_at`
+	q := `UPDATE users SET full_name=$2, username=$3, phone=$4, avatar_url=$5, updated_at=now() WHERE id=$1 RETURNING id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at`
 	var u domain.User
-	err := r.pool.QueryRow(ctx, q, id, fullName, username, phone, avatarURL).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.CreatedAt, &u.UpdatedAt)
+	err := r.pool.QueryRow(ctx, q, id, fullName, username, phone, avatarURL).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
+}
+
+func (r *pgUserRepo) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
+	ct, err := r.pool.Exec(ctx, `UPDATE users SET password_hash=$2, updated_at=now() WHERE id=$1`, userID, passwordHash)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return errors.New("user not found")
+	}
+	return nil
 }
 
 type pgSessionRepo struct{ pool *pgxpool.Pool }

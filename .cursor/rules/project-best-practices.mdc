@@ -1,0 +1,26 @@
+---
+description: Enforce project best practices for all AI edits
+alwaysApply: true
+---
+
+# Karma Yogi Best Practices
+
+- Prefer secure defaults: never commit secrets, `.env`, API keys, or tokens.
+- Keep auth production-safe: hash passwords with bcrypt, validate inputs, and return generic auth errors.
+- Preserve API contracts: when backend request/response shapes change, update frontend callers in the same change.
+- Keep API docs in sync: whenever public HTTP routes, request/response shapes, or auth flows change, update `docs/openapi.yaml` in the same change.
+- Keep E2E current: update `scripts/e2e.sh` whenever auth, routes, or key user flows change.
+- Validate before finishing: run focused checks (`go test ./...`, frontend build/lint, smoke API calls).
+- Prefer additive migrations: use forward/backward SQL migrations for schema changes, avoid destructive edits.
+- Keep commits clean: no generated binaries, no `node_modules`, no temporary files.
+- Minimize regressions: avoid changing unrelated behavior; keep changes scoped and reversible.
+- Use consistent ports and CORS: ensure frontend dev ports are reflected in backend CORS config.
+- Document notable conventions in `README.md` or `docs/` when introducing new patterns.
+- Commit identity for this repo: use `user.email` as `guruvellianish@gmail.com` and `user.name` as `Anish Guruvelli` unless explicitly changed by the user.
+- Commit message policy: do not add trailers like `Made-with: Cursor`; use concise, intent-first messages focused on why the change exists.
+- Commit only relevant files for the task; do not include unrelated edits, noise, or broad refactors without user request.
+- Plan before editing: understand the root cause, affected paths, and rollback/risk profile before writing code.
+- Production-grade expectation: choose robust, maintainable solutions with clear error handling and backward-compatible behavior.
+- Validate each change path: run targeted tests and quick runtime checks for impacted flows before declaring done.
+- Add comments only when they clarify non-obvious logic; keep comments accurate, brief, and high signal.
+- Think ahead for operations: startup reliability, retries/timeouts, schema compatibility, and failure modes should be considered during implementation.

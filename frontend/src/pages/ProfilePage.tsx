@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Flame, Clock3, BookOpen, CalendarDays, Pencil, Save } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { activeDaysUntilToday, currentStreakUntilToday, totalHours, maxStreak } from "@/lib/stats";
@@ -10,6 +10,13 @@ export default function ProfilePage() {
   const [username, setUsername] = useState(user.username);
   const [phone, setPhone] = useState(user.phone);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (editing) return;
+    setName(user.name);
+    setUsername(user.username);
+    setPhone(user.phone);
+  }, [user.id, user.name, user.username, user.phone, user.email, editing]);
 
   const stats = useMemo(
     () => ({
@@ -50,7 +57,17 @@ export default function ProfilePage() {
           </div>
           <button
             type="button"
-            onClick={() => setEditing((prev) => !prev)}
+            onClick={() => {
+              setEditing((prev) => {
+                const next = !prev;
+                if (!next) {
+                  setName(user.name);
+                  setUsername(user.username);
+                  setPhone(user.phone);
+                }
+                return next;
+              });
+            }}
             className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Pencil className="h-4 w-4" /> {editing ? "Cancel" : "Edit"}
