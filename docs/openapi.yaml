@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: Karma Yogi API
+  version: 1.0.0
+servers:
+  - url: /api/v1
+paths:
+  /auth/google:
+    post:
+      summary: Login via Google token exchange
+  /auth/refresh:
+    post:
+      summary: Rotate and refresh access token
+  /users/me:
+    get:
+      summary: Fetch authenticated user profile
+  /sessions:
+    get:
+      summary: List sessions
+    post:
+      summary: Create session
+  /sessions/{id}:
+    patch:
+      summary: Update session
+  /subjects:
+    get:
+      summary: List subjects
+    post:
+      summary: Create subject
+  /subjects/{id}:
+    delete:
+      summary: Delete subject
+  /goals:
+    get:
+      summary: List goals
+    post:
+      summary: Create goal
+  /insights:
+    get:
+      summary: Fetch user insights snapshot

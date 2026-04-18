@@ -1,0 +1,193 @@
+import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { MOOD_EMOJIS } from "@/lib/types";
+import { Plus, Trash2, X } from "lucide-react";
+
+export default function DataPage() {
+  const { subjects, sessions, getSubject, addSubject, deleteSubject, deleteSession } = useStore();
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState("cyan");
+
+  const colorMap: Record<string, string> = {
+    green: "#4ade80",
+    cyan: "#22d3ee",
+    orange: "#fb923c",
+    pink: "#f472b6",
+    purple: "#a78bfa",
+  };
+
+  const formatDuration = (m: number) => {
+    if (m >= 60) {
+      const h = Math.floor(m / 60);
+      const mins = m % 60;
+      return mins > 0 ? `${h}h ${mins}m` : `${h}h`;
+    }
+    return `${m}m`;
+  };
+
+  const handleAddSubject = () => {
+    if (!newName.trim()) return;
+    addSubject(newName.trim().toUpperCase(), newColor);
+    setNewName("");
+    setAddOpen(false);
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <h1 className="mb-8 text-3xl font-bold tracking-tight text-foreground">Data</h1>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">📚 Subjects</h2>
+            <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-primary-foreground">
+              {subjects.length}
+            </span>
+          </div>
+          <div className="glass-card max-h-[70vh] overflow-hidden overflow-y-auto rounded-2xl">
+            {subjects.map((sub) => {
+              const sessionCount = sessions.filter((s) => s.subjectId === sub.id).length;
+              const totalMins = sessions.filter((s) => s.subjectId === sub.id).reduce((sum, s) => sum + s.duration, 0);
+              return (
+                <div
+                  key={sub.id}
+                  className="flex items-center gap-3 border-b border-border/50 px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/30"
+                >
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: colorMap[sub.color] + "1A" }}
+                  >
+                    <span className="text-base">{sub.icon || sub.name.charAt(0)}</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-foreground">{sub.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {sessionCount} sessions · {formatDuration(totalMins)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteSubject(sub.id)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="flex w-full items-center gap-2 px-4 py-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
+            >
+              <Plus className="h-4 w-4" /> Add Subject
+            </button>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">⏱ Sessions</h2>
+            <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-primary-foreground">
+              {sessions.length}
+            </span>
+          </div>
+          <div className="glass-card max-h-[70vh] overflow-hidden overflow-y-auto rounded-2xl">
+            {sessions.map((session) => {
+              const subject = getSubject(session.subjectId);
+              return (
+                <div
+                  key={session.id}
+                  className="flex items-center gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-0 hover:bg-muted/30"
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: (colorMap[subject?.color || "cyan"]) + "1A" }}
+                  >
+                    <span className="text-sm">{subject?.icon || subject?.name.charAt(0) || "?"}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-foreground">{subject?.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">{session.topic}</div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-sm font-semibold text-neon-green">{formatDuration(session.duration)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {session.date} · {MOOD_EMOJIS[session.moodRating]}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteSession(session.id)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {addOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setAddOpen(false)}
+        >
+          <div className="glass-modal w-full max-w-md rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Add Subject</h2>
+              <button
+                type="button"
+                onClick={() => setAddOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Subject name"
+                className="input-field w-full rounded-xl p-3 text-foreground placeholder:text-muted-foreground/60"
+              />
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">Color</label>
+                <div className="flex gap-3">
+                  {Object.entries(colorMap).map(([key, val]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        setNewColor(key);
+                      }}
+                      onClick={() => setNewColor(key)}
+                      aria-pressed={newColor === key}
+                      className={`h-9 w-9 rounded-full transition-all ${newColor === key ? "scale-110 border-2 border-primary/60 ring-2 ring-primary ring-offset-2 ring-offset-card" : "border border-transparent hover:scale-105"}`}
+                      style={{
+                        backgroundColor: val,
+                        boxShadow: newColor === key ? "var(--shadow-md)" : "var(--shadow-sm)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddSubject}
+                className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90"
+                style={{ boxShadow: "var(--shadow-md)" }}
+              >
+                Add Subject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

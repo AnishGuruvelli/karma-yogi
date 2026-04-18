@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS goals;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;
