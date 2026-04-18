@@ -29,9 +29,19 @@ func main() {
 		log.Fatal(err)
 	}
 	ctx := context.Background()
-	pool, err := database.NewPool(ctx, cfg.PostgresDSN())
-	if err != nil {
-		log.Fatal(err)
+	dsn := cfg.PostgresDSN()
+	var pool *pgxpool.Pool
+	for attempt := 1; attempt <= 15; attempt++ {
+		var err error
+		pool, err = database.NewPool(ctx, dsn)
+		if err == nil {
+			break
+		}
+		if attempt == 15 {
+			log.Fatalf("database: %v", err)
+		}
+		log.Printf("database unavailable (attempt %d/15), retrying: %v", attempt, err)
+		time.Sleep(time.Second)
 	}
 	defer pool.Close()
 	if err := runMigrations(ctx, pool); err != nil {

@@ -20,9 +20,27 @@ function setAuthState(next: AuthState) { localStorage.setItem(authKey, JSON.stri
 export function clearAuthState() { localStorage.removeItem(authKey); }
 
 export async function ensureDevAuth(): Promise<void> {
-  if (getAuthState()) return;
   const enabled = (import.meta.env.VITE_DEV_AUTO_LOGIN ?? 'true') === 'true';
   if (!enabled) return;
+
+  const auth = getAuthState();
+  if (auth) {
+    try {
+      const res = await fetch(`${API_BASE}/users/me`, {
+        headers: { Authorization: `Bearer ${auth.accessToken}`, 'Content-Type': 'application/json' },
+      });
+      if (res.ok) return;
+      // Keep tokens on server errors so a brief outage does not wipe a good session.
+      if (res.status >= 500) return;
+      clearAuthState();
+    } catch {
+      // Network / CORS while backend is down — keep existing tokens.
+      return;
+    }
+  }
+
+  if (getAuthState()) return;
+
   const res = await fetch(`${API_BASE}/auth/dev-login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -40,9 +58,14 @@ async function request(path: string, init: RequestInit = {}, retry = true): Prom
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (res.status === 401 && auth && retry) {
-    const refreshed = await refreshToken(auth.refreshId, auth.refreshToken);
-    setAuthState(refreshed);
-    return request(path, init, false);
+    try {
+      const refreshed = await refreshToken(auth.refreshId, auth.refreshToken);
+      setAuthState(refreshed);
+      return request(path, init, false);
+    } catch {
+      clearAuthState();
+      return res;
+    }
   }
   return res;
 }
