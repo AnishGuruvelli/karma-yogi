@@ -1,48 +1,45 @@
 # Karma Yogi Production-Style Local Runbook
 
-This document consolidates architecture, startup, API E2E testing, troubleshooting, and release-oriented local validation for this repository.
+Architecture, startup, API E2E testing, troubleshooting, and release-oriented local validation.
 
-## 1) Repository Layout
+## 1) Repository layout
 
 - `frontend/`: React + Vite SPA (`react-router-dom`)
-- `backend/`: Go API service with 3-layer structure
-  - `internal/controller`: HTTP handlers
-  - `internal/service`: business logic
-  - `internal/database`: repositories + DB access
-- `deploy/nginx/default.conf`: reverse proxy config
-- `docker-compose.yml`: local production-like orchestration
-- `scripts/e2e.sh`: one-command E2E API test flow
+- `backend/`: Go API (controller / service / database)
+- `deploy/nginx/default.conf`: reverse proxy — forwards `/api/` to the API container
+- `docker-compose.yml`: Postgres, API, Nginx
+- `scripts/e2e.sh`: one-command API smoke test
+- `docs/openapi.yaml`: public HTTP contract
 
-## 2) Service Topology (Local)
+## 2) Service topology (local)
 
-- `frontend` (dev): `http://localhost:8081`
-- `nginx`: `http://localhost:80`
-- `api`: `http://localhost:8080`
-- `postgres`: `localhost:5432`
+| Service | URL |
+|---------|-----|
+| Frontend (dev) | `http://localhost:8081` (Vite default in this repo; next free port if busy) |
+| API (direct) | `http://localhost:8080` |
+| Nginx | `http://localhost:80` |
+| Postgres | `localhost:5432` |
 
-Typical production-like path:
+Typical path in production: browser → Nginx → Go API (`/api/*`) → PostgreSQL.
 
-- Browser -> Nginx -> Go API (`/api/*`)
-- Go API -> PostgreSQL
+**Important:** Nginx is configured with `location /api/` and `proxy_pass http://api:8080;` (URI is passed through). The API serves **`GET /healthz` on the server root**, not under `/api/v1`. So **`curl http://localhost/api/healthz` hits `/api/healthz` on the API and will 404** unless you add a dedicated Nginx `location` rewrite. For local checks, use the direct API URL below.
 
-## 3) First-Time Setup
+## 3) First-time setup
 
-1. Install prerequisites:
-   - Docker Desktop (running)
-   - Node.js + npm
-   - `jq` (required by E2E script)
-2. Ensure env file exists:
-   - `cp .env.example .env` (if not already present)
+1. Docker Desktop (or compatible engine) running
+2. Node.js + npm
+3. `jq` (required by `scripts/e2e.sh`)
+4. Environment file: `cp .env.example .env` and set secrets (especially `JWT_SECRET`, Google keys for real OAuth)
 
-## 4) Run Locally
+## 4) Run locally
 
-### A. Backend + Postgres + Nginx
+### A) Backend + Postgres + Nginx
 
 ```bash
 docker compose up --build -d
 ```
 
-### B. Frontend
+### B) Frontend
 
 ```bash
 cd frontend
@@ -50,79 +47,74 @@ npm install
 npm run dev
 ```
 
-## 5) One-Command E2E API Testing
+Ensure `CORS_ALLOWED_ORIGINS` in `.env` includes your actual SPA origin (scheme + host + port).
 
-Run from repo root:
+## 5) One-command E2E API testing
+
+From repo root:
 
 ```bash
 ./scripts/e2e.sh
 ```
 
-What it validates:
+What it validates (high level):
 
-- API health endpoint
-- Auth-protected route access
-- End-to-end CRUD flow for sessions and goals
-- Insights endpoint aggregation
-- Refresh token rotation and logout
-- Nginx proxy path (`/api/*`)
-- Google auth invalid-token handling (expects 401)
+- API **`GET /healthz`** on port 8080
+- **`POST /api/v1/auth/register`** (email, password, `secretAnswer`)
+- **`POST /api/v1/auth/login`**
+- **`POST /api/v1/auth/password-reset`** then login with old password fails (`401`) and with new password succeeds
+- Authenticated **`GET /api/v1/users/me`**
+- Subject create + session create/update/list + goal create/update/list + insights
+- Subject delete cascades sessions (assertion)
+- Goal delete
+- **`POST /api/v1/auth/refresh`** and **`POST /api/v1/auth/logout`**
+- **Nginx:** `GET http://localhost/api/v1/users/me` with Bearer token (proxied `/api/v1/...`)
+- **`POST /api/v1/auth/google`** with invalid token returns `401`
 
-## 6) Manual Health Checks
+## 6) Manual health checks
 
-- Direct API health:
-  - `curl -i http://localhost:8080/healthz`
-- Proxied API health:
-  - `curl -i http://localhost/api/healthz`
-- Compose service status:
-  - `docker compose ps`
+- **API health (correct):** `curl -i http://localhost:8080/healthz`
+- **Not valid via default Nginx config:** `http://localhost/api/healthz` (no matching route on API without extra Nginx rules)
+- Compose status: `docker compose ps`
 
-## 7) Troubleshooting Guide
+## 7) Troubleshooting
 
 ### Port already in use
 
-- Check listeners:
-  - `lsof -nP -iTCP:8080 -sTCP:LISTEN`
-  - `lsof -nP -iTCP:8081 -sTCP:LISTEN`
-- Kill conflicting process if needed.
+- `lsof -nP -iTCP:8080 -sTCP:LISTEN`
+- `lsof -nP -iTCP:8081 -sTCP:LISTEN`
+- `lsof -nP -iTCP:5432 -sTCP:LISTEN` (Postgres; change host mapping in `docker-compose.yml` if you run another Postgres on 5432)
 
-### API starts but DB tables are missing
+### API starts but tables are missing
 
-- Confirm migrations are in API image:
-  - `docker compose exec -T api ls -la /app/migrations`
-- Check relations:
-  - `docker compose exec -T postgres psql -U karma -d karma_yogi -c "\\dt"`
-- Rebuild stack:
-  - `docker compose down`
-  - `docker compose up --build -d`
+- `docker compose exec -T api ls -la /app/migrations` (paths may vary by image layout)
+- `docker compose exec -T postgres psql -U karma -d karma_yogi -c "\dt"`
+- Rebuild: `docker compose down && docker compose up --build -d`
 
-### Nginx `/api/*` returns 404
+### Nginx `/api/v1/...` returns 404
 
-- Ensure `deploy/nginx/default.conf` uses:
-  - `proxy_pass http://api:8080;`
-- Recreate nginx container:
-  - `docker compose up --build -d nginx`
+- Confirm `deploy/nginx/default.conf` proxies to `api:8080`
+- Recreate: `docker compose up --build -d nginx`
 
-### E2E script fails with `jq` missing
+### E2E fails with `jq` missing
 
-- Install `jq` and rerun:
-  - macOS with Homebrew: `brew install jq`
+- macOS: `brew install jq`
 
-## 8) Recommended Pre-Deployment Local Gate
-
-Before pushing production release changes:
+## 8) Recommended pre-deployment local gate
 
 1. `docker compose up --build -d`
 2. `cd backend && go test ./...`
 3. `cd frontend && npm run lint && npm run build`
 4. `./scripts/e2e.sh`
-5. Verify `docker compose ps` healthy state
+5. `docker compose ps` — all services healthy
 
-## 9) Useful Commands Cheat Sheet
+## 9) Command cheat sheet
 
-- Start stack: `docker compose up --build -d`
-- Stop stack: `docker compose down`
-- API logs: `docker compose logs -f api`
-- DB shell: `docker compose exec -it postgres psql -U karma -d karma_yogi`
-- Frontend dev: `cd frontend && npm run dev`
-- E2E APIs: `./scripts/e2e.sh`
+| Action | Command |
+|--------|---------|
+| Start stack | `docker compose up --build -d` |
+| Stop stack | `docker compose down` |
+| API logs | `docker compose logs -f api` |
+| DB shell | `docker compose exec -it postgres psql -U karma -d karma_yogi` |
+| Frontend dev | `cd frontend && npm run dev` |
+| E2E | `./scripts/e2e.sh` |
