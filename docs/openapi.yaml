@@ -8,6 +8,18 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /healthz:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Service-level health endpoint exposed at server root (not under `/api/v1`).
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusOk"
   /auth/google:
     post:
       tags: [Auth]
@@ -477,6 +489,60 @@ paths:
                 $ref: "#/components/schemas/Insights"
         "400":
           description: Bad request
+  /timer-state:
+    get:
+      tags: [Timer]
+      summary: Get persisted timer state for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Timer state payload or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimerStateResponse"
+        "400":
+          description: Bad request
+    put:
+      tags: [Timer]
+      summary: Upsert persisted timer state for current user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusOk"
+        "400":
+          description: Bad request
+    delete:
+      tags: [Timer]
+      summary: Clear persisted timer state for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusOk"
+        "400":
+          description: Bad request
 components:
   securitySchemes:
     bearerAuth:
@@ -670,3 +736,10 @@ components:
           type: integer
         goalCompletion:
           type: integer
+    TimerStateResponse:
+      type: object
+      properties:
+        state:
+          type: object
+          nullable: true
+          additionalProperties: true

@@ -50,6 +50,9 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 			p.Patch("/goals/{id}", h.Goals.Update)
 			p.Delete("/goals/{id}", h.Goals.Delete)
 			p.Get("/insights", h.Insights.Get)
+			p.Get("/timer-state", h.Timer.Get)
+			p.Put("/timer-state", h.Timer.Upsert)
+			p.Delete("/timer-state", h.Timer.Delete)
 		})
 	})
 	return r
@@ -67,7 +70,7 @@ func simpleCORS(allowed []string) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
+				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 			}
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

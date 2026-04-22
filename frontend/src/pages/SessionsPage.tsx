@@ -4,6 +4,7 @@ import { MOOD_EMOJIS } from "@/lib/types";
 import { Play, Plus } from "lucide-react";
 import { TimerModal } from "@/components/TimerModal";
 import { LogSessionModal } from "@/components/LogSessionModal";
+import { toLocalDateKey } from "@/lib/date";
 
 export default function SessionsPage() {
   const { sessions, getSubject, editSession } = useStore();
@@ -28,8 +29,10 @@ export default function SessionsPage() {
     return `${m}m`;
   };
 
-  const today = new Date().toISOString().split("T")[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  const today = toLocalDateKey(new Date());
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = toLocalDateKey(yesterdayDate);
 
   const grouped: { label: string; sessions: typeof sessions }[] = [];
   const todaySessions = sessions.filter((s) => s.date === today);
@@ -102,7 +105,7 @@ export default function SessionsPage() {
         ))}
       </div>
 
-      <TimerModal open={timerOpen} onClose={() => setTimerOpen(false)} />
+      <TimerModal open={timerOpen} onClose={() => setTimerOpen(false)} onRequestOpen={() => setTimerOpen(true)} />
       <LogSessionModal open={logOpen} onClose={() => setLogOpen(false)} />
       {editing && (
         <LogSessionModal

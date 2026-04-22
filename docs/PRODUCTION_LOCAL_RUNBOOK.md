@@ -68,6 +68,7 @@ What it validates (high level):
 - Subject delete cascades sessions (assertion)
 - Goal delete
 - **`POST /api/v1/auth/refresh`** and **`POST /api/v1/auth/logout`**
+- **`GET/PUT/DELETE /api/v1/timer-state`** for persisted active timer state across refresh/tab switches
 - **Nginx:** `GET http://localhost/api/v1/users/me` with Bearer token (proxied `/api/v1/...`)
 - **`POST /api/v1/auth/google`** with invalid token returns `401`
 

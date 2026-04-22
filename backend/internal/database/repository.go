@@ -40,6 +40,12 @@ type GoalRepository interface {
 	Delete(ctx context.Context, id, userID string) error
 }
 
+type TimerStateRepository interface {
+	Get(ctx context.Context, userID string) ([]byte, error)
+	Upsert(ctx context.Context, userID string, state []byte) error
+	Delete(ctx context.Context, userID string) error
+}
+
 type AuthRepository interface {
 	SaveRefreshToken(ctx context.Context, token domain.RefreshToken) error
 	GetRefreshToken(ctx context.Context, id string) (domain.RefreshToken, error)

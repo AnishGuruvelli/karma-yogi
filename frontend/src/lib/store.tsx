@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import type { Subject, Session, Goal, UserProfile } from '@/lib/types';
 import { createOrUpdateGoal, createSession, createSubject, ensureDevAuth, fetchGoals, fetchMe, fetchSessions, fetchSubjects, removeSession, removeSubject, updateMe, updateSession } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
+import { toLocalDateKey } from '@/lib/date';
 
 interface TimerState {
   isRunning: boolean;
@@ -37,7 +38,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [goal, setGoal] = useState<Goal>({ id: 'default', targetHours: 20, currentProgress: 0 });
-  const [user, setUser] = useState<UserProfile>({ id: 'anon', email: '', name: 'Guest', username: '', phone: '', currentStreak: 0, lastActiveDate: new Date().toISOString().split('T')[0] });
+  const [user, setUser] = useState<UserProfile>({ id: 'anon', email: '', name: 'Guest', username: '', phone: '', currentStreak: 0, lastActiveDate: toLocalDateKey(new Date()) });
   const [isDark, setIsDark] = useState(false);
   const [timer, setTimer] = useState<TimerState>({ isRunning: false, elapsed: 0, subjectId: null, topic: '' });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -146,7 +147,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       duration,
       startTime: `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`,
       endTime: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
-      date: now.toISOString().split('T')[0],
+      date: toLocalDateKey(now),
       moodRating: 3,
       isManualLog: false,
     };

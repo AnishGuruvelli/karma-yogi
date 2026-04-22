@@ -1,4 +1,5 @@
 import type { Session } from '@/lib/types';
+import { fromLocalDateKey } from '@/lib/date';
 
 function todayDateStr(): string {
   const now = new Date();
@@ -34,8 +35,8 @@ export function maxStreak(sessions: Session[]): number {
   let best = 1;
   let current = 1;
   for (let i = 1; i < uniqueDates.length; i += 1) {
-    const prev = new Date(uniqueDates[i - 1]);
-    const cur = new Date(uniqueDates[i]);
+    const prev = fromLocalDateKey(uniqueDates[i - 1]);
+    const cur = fromLocalDateKey(uniqueDates[i]);
     const diffDays = Math.round((cur.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays === 1) {
       current += 1;

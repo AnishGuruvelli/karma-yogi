@@ -20,10 +20,19 @@ type Handlers struct {
 	Sessions *SessionHandler
 	Goals    *GoalHandler
 	Insights *InsightsHandler
+	Timer    *TimerStateHandler
 }
 
-func NewHandlers(a *service.AuthService, u *service.UserService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, i *service.InsightsService) Handlers {
-	return Handlers{Auth: &AuthHandler{svc: a}, Users: &UserHandler{svc: u}, Subjects: &SubjectHandler{svc: sub}, Sessions: &SessionHandler{svc: s}, Goals: &GoalHandler{svc: g}, Insights: &InsightsHandler{svc: i}}
+func NewHandlers(a *service.AuthService, u *service.UserService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, i *service.InsightsService, t *service.TimerStateService) Handlers {
+	return Handlers{
+		Auth:     &AuthHandler{svc: a},
+		Users:    &UserHandler{svc: u},
+		Subjects: &SubjectHandler{svc: sub},
+		Sessions: &SessionHandler{svc: s},
+		Goals:    &GoalHandler{svc: g},
+		Insights: &InsightsHandler{svc: i},
+		Timer:    &TimerStateHandler{svc: t},
+	}
 }
 
 type AuthHandler struct{ svc *service.AuthService }
@@ -331,6 +340,7 @@ func (h *GoalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 type InsightsHandler struct{ svc *service.InsightsService }
+type TimerStateHandler struct{ svc *service.TimerStateService }
 
 func (h *InsightsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
@@ -340,6 +350,49 @@ func (h *InsightsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ins)
+}
+
+func (h *TimerStateHandler) Get(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	state, err := h.svc.Get(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if state == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"state": nil})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"state": state})
+}
+
+func (h *TimerStateHandler) Upsert(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		State map[string]any `json:"state"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.State == nil {
+		http.Error(w, "state is required", http.StatusBadRequest)
+		return
+	}
+	if err := h.svc.Upsert(r.Context(), claims.UserID, req.State); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *TimerStateHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	if err := h.svc.Delete(r.Context(), claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

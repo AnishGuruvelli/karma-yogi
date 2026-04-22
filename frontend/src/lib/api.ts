@@ -1,4 +1,5 @@
 import type { Goal, Session, Subject, UserProfile } from '@/lib/types';
+import { toLocalDateKey } from '@/lib/date';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
 
@@ -8,6 +9,7 @@ type BackendSession = { id: string; startedAt: string; durationMin: number; subj
 type BackendSessionV2 = { id: string; startedAt: string; durationMin: number; subjectId?: string; topic?: string; mood?: string | number };
 type BackendGoal = { id: string; targetMinutes: number };
 type BackendSubject = { id: string; name: string; color: string; icon?: string; createdAt: string };
+type TimerStatePayload = Record<string, unknown>;
 const authKey = 'karma_auth';
 
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -215,19 +217,36 @@ export async function fetchSubjects(): Promise<Subject[]> {
   const res = await request('/subjects');
   if (!res.ok) throw new Error('Unable to fetch subjects');
   const data = (await res.json()) as BackendSubject[];
-  return data.map((s) => ({ id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: new Date(s.createdAt).toISOString().split('T')[0] }));
+  return data.map((s) => ({ id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) }));
 }
 
 export async function createSubject(name: string, color: string): Promise<Subject> {
   const res = await request('/subjects', { method: 'POST', body: JSON.stringify({ name, color }) });
   if (!res.ok) throw new Error('Unable to create subject');
   const s = (await res.json()) as BackendSubject;
-  return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: new Date(s.createdAt).toISOString().split('T')[0] };
+  return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) };
 }
 
 export async function removeSubject(id: string): Promise<void> {
   const res = await request(`/subjects/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Unable to delete subject');
+}
+
+export async function fetchTimerState(): Promise<TimerStatePayload | null> {
+  const res = await request('/timer-state');
+  if (!res.ok) throw new Error('Unable to fetch timer state');
+  const data = (await res.json()) as { state?: TimerStatePayload | null };
+  return data.state ?? null;
+}
+
+export async function saveTimerState(state: TimerStatePayload): Promise<void> {
+  const res = await request('/timer-state', { method: 'PUT', body: JSON.stringify({ state }) });
+  if (!res.ok) throw new Error('Unable to save timer state');
+}
+
+export async function clearTimerState(): Promise<void> {
+  const res = await request('/timer-state', { method: 'DELETE' });
+  if (!res.ok) throw new Error('Unable to clear timer state');
 }
 
 export async function createOrUpdateGoal(targetHours: number): Promise<Goal> {
@@ -253,7 +272,7 @@ function mapUser(raw: BackendUser): UserProfile {
     username: raw.username || '',
     phone: raw.phone || '',
     currentStreak: 0,
-    lastActiveDate: new Date().toISOString().split('T')[0],
+    lastActiveDate: toLocalDateKey(new Date()),
   };
 }
 
@@ -269,7 +288,7 @@ function mapSession(raw: BackendSession | BackendSessionV2): Session {
     duration: raw.durationMin,
     startTime: `${started.getHours().toString().padStart(2, '0')}:${started.getMinutes().toString().padStart(2, '0')}`,
     endTime: `${end.getHours().toString().padStart(2, '0')}:${end.getMinutes().toString().padStart(2, '0')}`,
-    date: started.toISOString().split('T')[0],
+    date: toLocalDateKey(started),
     moodRating: Number(raw.mood || 3),
     isManualLog: false,
   };

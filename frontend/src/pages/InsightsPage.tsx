@@ -3,6 +3,7 @@ import { useStore } from "@/lib/store";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { Clock, BarChart3, BookOpen, List, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
+import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 
 type PeriodMode = "week" | "month" | "all";
 
@@ -50,7 +51,7 @@ export default function InsightsPage() {
   const filteredSessions = useMemo(
     () =>
       sessions.filter((s) => {
-        const d = new Date(s.date);
+        const d = fromLocalDateKey(s.date);
         return d >= start && d <= end;
       }),
     [sessions, start, end],
@@ -76,7 +77,7 @@ export default function InsightsPage() {
     endCursor.setHours(0, 0, 0, 0);
 
     while (cursor <= endCursor) {
-      const dateStr = cursor.toISOString().split("T")[0];
+      const dateStr = toLocalDateKey(cursor);
       totals[cursor.getDay()] += dailyTotals.get(dateStr) || 0;
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -100,9 +101,9 @@ export default function InsightsPage() {
       return dayNames.map((name, i) => {
         const targetDate = new Date(start);
         targetDate.setDate(targetDate.getDate() + i);
-        const dateStr = targetDate.toISOString().split("T")[0];
+        const dateStr = toLocalDateKey(targetDate);
         const mins = filteredSessions.filter((s) => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
-        const isToday = dateStr === now.toISOString().split("T")[0];
+        const isToday = dateStr === toLocalDateKey(now);
         return { name, hours: +(mins / 60).toFixed(1), minutes: mins, isToday };
       });
     }
@@ -112,7 +113,7 @@ export default function InsightsPage() {
         const day = i + 1;
         const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         const mins = filteredSessions.filter((s) => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
-        const isToday = dateStr === now.toISOString().split("T")[0];
+        const isToday = dateStr === toLocalDateKey(now);
         return { name: String(day), hours: +(mins / 60).toFixed(1), minutes: mins, isToday };
       });
     }
@@ -121,7 +122,7 @@ export default function InsightsPage() {
       const monthEnd = new Date(start.getFullYear(), i + 1, 0, 23, 59, 59, 999);
       const mins = sessions
         .filter((s) => {
-          const d = new Date(s.date);
+          const d = fromLocalDateKey(s.date);
           return d >= monthStart && d <= monthEnd;
         })
         .reduce((sum, s) => sum + s.duration, 0);
@@ -168,7 +169,7 @@ export default function InsightsPage() {
     const days: { date: string; minutes: number; month: string; dayOfWeek: number }[] = [];
     const cursor = new Date(startDate);
     while (cursor <= endDate) {
-      const dateStr = cursor.toISOString().split("T")[0];
+      const dateStr = toLocalDateKey(cursor);
       days.push({
         date: dateStr,
         minutes: dailyTotals.get(dateStr) || 0,

@@ -108,6 +108,18 @@ GOAL_ID="$(printf "%s" "$GOAL_CREATE" | jq -r '.id')"
 GOAL_UPDATE="$(api_call PATCH "/api/v1/goals/$GOAL_ID" '{"title":"Weekly Goal Updated","targetMinutes":360,"deadline":"2026-05-20T00:00:00Z"}')"
 GOAL_LIST="$(api_call GET "/api/v1/goals")"
 INSIGHTS="$(api_call GET "/api/v1/insights")"
+api_call PUT "/api/v1/timer-state" '{"state":{"mode":"stopwatch","subjectId":"'"$SUBJECT_ID"'","topic":"E2E Timer","isRunning":true}}' >/dev/null
+TIMER_STATE="$(api_call GET "/api/v1/timer-state")"
+if [[ "$(printf "%s" "$TIMER_STATE" | jq -r '.state.topic')" != "E2E Timer" ]]; then
+  echo "[ERROR] Timer state round-trip failed."
+  exit 1
+fi
+api_call DELETE "/api/v1/timer-state" >/dev/null
+TIMER_EMPTY="$(api_call GET "/api/v1/timer-state")"
+if [[ "$(printf "%s" "$TIMER_EMPTY" | jq -r '.state')" != "null" ]]; then
+  echo "[ERROR] Timer state was not cleared."
+  exit 1
+fi
 api_call DELETE "/api/v1/subjects/$SUBJECT_ID" >/dev/null
 CASCaded_LIST="$(api_call GET "/api/v1/sessions")"
 if printf "%s" "$CASCaded_LIST" | jq -e --arg sid "$SESSION_ID" '.[] | select(.id == $sid)' >/dev/null; then

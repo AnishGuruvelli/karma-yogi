@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -140,4 +141,34 @@ func (s *InsightsService) Get(ctx context.Context, userID string) (domain.Insigh
 		}
 	}
 	return domain.Insights{TotalMinutes: total, SessionCount: len(all), WeeklyMinutes: weeklyTotal, GoalCompletion: goalCompletion}, nil
+}
+
+type TimerStateService struct{ repo database.TimerStateRepository }
+
+func NewTimerStateService(repo database.TimerStateRepository) *TimerStateService {
+	return &TimerStateService{repo: repo}
+}
+
+func (s *TimerStateService) Get(ctx context.Context, userID string) (map[string]any, error) {
+	raw, err := s.repo.Get(ctx, userID)
+	if err != nil || len(raw) == 0 {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *TimerStateService) Upsert(ctx context.Context, userID string, state map[string]any) error {
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return s.repo.Upsert(ctx, userID, raw)
+}
+
+func (s *TimerStateService) Delete(ctx context.Context, userID string) error {
+	return s.repo.Delete(ctx, userID)
 }

@@ -82,6 +82,7 @@ The API supports:
 | Refresh | `POST /api/v1/auth/refresh` | Rotates refresh token |
 | Logout | `POST /api/v1/auth/logout` | Body: `refreshId` |
 | Dev login | `POST /api/v1/auth/dev-login` | Optional `{"email":"..."}`; intended for local convenience—creates or reuses a dev user |
+| Timer state sync | `GET/PUT/DELETE /api/v1/timer-state` | Persists active timer UI state per user so running timers can recover after tab switches or page refresh |
 
 Frontend env (see `.env.example`):
 

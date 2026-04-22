@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Clock, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import type { Session } from '@/lib/types';
+import { fromLocalDateKey, toLocalDateKey } from '@/lib/date';
 
 interface WeeklyStatsProps {
   sessions: Session[];
@@ -29,7 +30,7 @@ export function WeeklyStats({ sessions }: WeeklyStatsProps) {
     const label = weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : `${startLabel} – ${endLabel}`;
 
     const weekSessions = sessions.filter(s => {
-      const d = new Date(s.date);
+      const d = fromLocalDateKey(s.date);
       return d >= start && d <= end;
     });
 
@@ -37,9 +38,9 @@ export function WeeklyStats({ sessions }: WeeklyStatsProps) {
     const data = dayNames.map((name, i) => {
       const targetDate = new Date(start);
       targetDate.setDate(targetDate.getDate() + i);
-      const dateStr = targetDate.toISOString().split('T')[0];
+      const dateStr = toLocalDateKey(targetDate);
       const mins = weekSessions.filter(s => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
-      const isToday = dateStr === now.toISOString().split('T')[0];
+      const isToday = dateStr === toLocalDateKey(now);
       return { name, hours: +(mins / 60).toFixed(1), minutes: mins, isToday };
     });
 

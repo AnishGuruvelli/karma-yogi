@@ -6,6 +6,7 @@ import { TimerModal } from "@/components/TimerModal";
 import { LogSessionModal } from "@/components/LogSessionModal";
 import { GoalEditModal } from "@/components/GoalEditModal";
 import { currentStreakUntilToday } from "@/lib/stats";
+import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 
 export default function DashboardPage() {
   const { user, sessions, subjects, goal, getSubject } = useStore();
@@ -13,7 +14,7 @@ export default function DashboardPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateKey(new Date());
   const todaySessions = sessions.filter((s) => s.date === today);
   const todayMinutes = todaySessions.reduce((sum, s) => sum + s.duration, 0);
 
@@ -21,7 +22,7 @@ export default function DashboardPage() {
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay() + 1);
   startOfWeek.setHours(0, 0, 0, 0);
-  const weekSessions = sessions.filter((s) => new Date(s.date) >= startOfWeek);
+  const weekSessions = sessions.filter((s) => fromLocalDateKey(s.date) >= startOfWeek);
   const weekMinutes = weekSessions.reduce((sum, s) => sum + s.duration, 0);
 
   const weekBySubject = subjects
@@ -43,6 +44,12 @@ export default function DashboardPage() {
     }
     return `${m}m`;
   };
+
+  const formatSessionDate = (date: string) =>
+    new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
 
   const greeting = () => {
     const h = now.getHours();
@@ -189,7 +196,7 @@ export default function DashboardPage() {
                       <div className="text-sm font-semibold text-neon-green">{formatDuration(session.duration)}</div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         {session.isManualLog ? "📝" : MOOD_EMOJIS[session.moodRating]}
-                        <span>{session.startTime}</span>
+                        <span>{formatSessionDate(session.date)} · {session.startTime}</span>
                       </div>
                     </div>
                   </div>
@@ -268,7 +275,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <TimerModal open={timerOpen} onClose={() => setTimerOpen(false)} />
+      <TimerModal open={timerOpen} onClose={() => setTimerOpen(false)} onRequestOpen={() => setTimerOpen(true)} />
       <LogSessionModal open={logOpen} onClose={() => setLogOpen(false)} />
       <GoalEditModal open={goalOpen} onClose={() => setGoalOpen(false)} />
     </div>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
+import { clearTimerState, fetchTimerState, saveTimerState } from '@/lib/api';
+import { toLocalDateKey } from '@/lib/date';
 
 type TimerMode = 'stopwatch' | 'pomodoro';
 type PomodoroPhase = 'focus' | 'break';
@@ -8,12 +10,13 @@ type PomodoroPhase = 'focus' | 'break';
 interface TimerModalProps {
   open: boolean;
   onClose: () => void;
+  onRequestOpen?: () => void;
 }
 
 const POMODORO_FOCUS = 25 * 60;
 const POMODORO_BREAK = 5 * 60;
 
-export function TimerModal({ open, onClose }: TimerModalProps) {
+export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const { subjects, addSession, addSubject } = useStore();
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
   const [topic, setTopic] = useState('');
@@ -30,6 +33,11 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
   const [elapsed, setElapsed] = useState(0);
   const [totalStudied, setTotalStudied] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
+  const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
+  const [pauseStartedAtMs, setPauseStartedAtMs] = useState<number | null>(null);
+  const [pausedAccumMs, setPausedAccumMs] = useState(0);
+  const [tickNowMs, setTickNowMs] = useState(Date.now());
+  const [restoredOnce, setRestoredOnce] = useState(false);
 
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(POMODORO_FOCUS);
@@ -39,6 +47,13 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<Date | null>(null);
+
+  const computedStopwatchElapsed = (() => {
+    if (!startedAtMs) return elapsed;
+    const effectiveNow = isPaused && pauseStartedAtMs ? pauseStartedAtMs : tickNowMs;
+    const seconds = Math.floor((effectiveNow - startedAtMs - pausedAccumMs) / 1000);
+    return Math.max(0, seconds);
+  })();
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -54,10 +69,75 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
   }, [subjectId, subjects]);
 
   useEffect(() => {
+    const handleVisible = () => setTickNowMs(Date.now());
+    document.addEventListener('visibilitychange', handleVisible);
+    window.addEventListener('focus', handleVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.removeEventListener('focus', handleVisible);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (restoredOnce) return;
+    let cancelled = false;
+    void fetchTimerState()
+      .then((state) => {
+        if (cancelled) return;
+        setRestoredOnce(true);
+        if (cancelled || !state || typeof state !== 'object') return;
+        const modeValue = state.mode === 'pomodoro' ? 'pomodoro' : 'stopwatch';
+        const subjectValue = typeof state.subjectId === 'string' ? state.subjectId : '';
+        const topicValue = typeof state.topic === 'string' ? state.topic : '';
+        const runningValue = Boolean(state.isRunning);
+        const pausedValue = Boolean(state.isPaused);
+        const startedValue = Boolean(state.hasStarted);
+        const startedMsValue = typeof state.startedAtMs === 'number' ? state.startedAtMs : null;
+        const pauseMsValue = typeof state.pauseStartedAtMs === 'number' ? state.pauseStartedAtMs : null;
+        const pausedTotalMsValue = typeof state.pausedAccumMs === 'number' ? state.pausedAccumMs : 0;
+        const elapsedValue = typeof state.elapsed === 'number' ? state.elapsed : 0;
+        const totalStudiedValue = typeof state.totalStudied === 'number' ? state.totalStudied : 0;
+        const pomodoroCountValue = typeof state.pomodoroCount === 'number' ? state.pomodoroCount : 0;
+        const focusDurationValue = typeof state.focusDuration === 'number' ? state.focusDuration : 25;
+        const breakDurationValue = typeof state.breakDuration === 'number' ? state.breakDuration : 5;
+        const pomodoroPhaseValue = state.pomodoroPhase === 'break' ? 'break' : 'focus';
+        const pomodoroRemainingValue =
+          typeof state.pomodoroRemaining === 'number' ? state.pomodoroRemaining : focusDurationValue * 60;
+
+        setMode(modeValue);
+        setSubjectId(subjectValue);
+        setTopic(topicValue);
+        setIsRunning(runningValue);
+        setIsPaused(pausedValue);
+        setHasStarted(startedValue);
+        setElapsed(elapsedValue);
+        setTotalStudied(totalStudiedValue);
+        setPomodoroCount(pomodoroCountValue);
+        setFocusDuration(focusDurationValue);
+        setBreakDuration(breakDurationValue);
+        setPomodoroPhase(pomodoroPhaseValue);
+        setPomodoroRemaining(pomodoroRemainingValue);
+        setStartedAtMs(startedMsValue);
+        setPauseStartedAtMs(pauseMsValue);
+        setPausedAccumMs(pausedTotalMsValue);
+        setTickNowMs(Date.now());
+        startTimeRef.current = startedMsValue ? new Date(startedMsValue) : null;
+        if ((startedValue || runningValue) && !open) {
+          onRequestOpen?.();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [restoredOnce, open, onRequestOpen]);
+
+  useEffect(() => {
     if (isRunning && !isPaused) {
       intervalRef.current = setInterval(() => {
+        setTickNowMs(Date.now());
         if (mode === 'stopwatch') {
-          setElapsed(prev => prev + 1);
+          return;
         } else {
           setPomodoroRemaining(prev => {
             if (prev <= 1) {
@@ -79,6 +159,52 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
     return clearTimer;
   }, [isRunning, isPaused, mode, pomodoroPhase, focusDuration, breakDuration, clearTimer]);
 
+  useEffect(() => {
+    if (!hasStarted) return;
+    const baseState = {
+      mode,
+      subjectId,
+      topic,
+      isRunning,
+      isPaused,
+      elapsed,
+      totalStudied,
+      hasStarted,
+      startedAtMs,
+      pauseStartedAtMs,
+      pausedAccumMs,
+    };
+    const modeState =
+      mode === 'pomodoro'
+        ? {
+            pomodoroPhase,
+            pomodoroRemaining,
+            pomodoroCount,
+            focusDuration,
+            breakDuration,
+          }
+        : {};
+    const state = { ...baseState, ...modeState };
+    void saveTimerState(state).catch(() => {});
+  }, [
+    mode,
+    subjectId,
+    topic,
+    isRunning,
+    isPaused,
+    elapsed,
+    totalStudied,
+    hasStarted,
+    pomodoroPhase,
+    pomodoroRemaining,
+    pomodoroCount,
+    focusDuration,
+    breakDuration,
+    startedAtMs,
+    pauseStartedAtMs,
+    pausedAccumMs,
+  ]);
+
   if (!open) return null;
 
   const formatTime = (seconds: number) => {
@@ -91,7 +217,12 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
 
   const handleStart = () => {
     if (!subjectId) return;
-    startTimeRef.current = new Date();
+    const now = Date.now();
+    startTimeRef.current = new Date(now);
+    setStartedAtMs(now);
+    setPauseStartedAtMs(null);
+    setPausedAccumMs(0);
+    setTickNowMs(now);
     setIsRunning(true);
     setIsPaused(false);
     setHasStarted(true);
@@ -104,7 +235,10 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
 
   const handleStop = () => {
     clearTimer();
-    const totalSeconds = mode === 'stopwatch' ? elapsed : totalStudied + (pomodoroPhase === 'focus' ? (focusDuration * 60 - pomodoroRemaining) : 0);
+    const totalSeconds =
+      mode === 'stopwatch'
+        ? computedStopwatchElapsed
+        : totalStudied + (pomodoroPhase === 'focus' ? focusDuration * 60 - pomodoroRemaining : 0);
     const duration = Math.round(totalSeconds / 60);
     if (duration >= 1 && startTimeRef.current) {
       const now = new Date();
@@ -114,11 +248,12 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
         duration,
         startTime: `${startTimeRef.current.getHours().toString().padStart(2, '0')}:${startTimeRef.current.getMinutes().toString().padStart(2, '0')}`,
         endTime: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
-        date: now.toISOString().split('T')[0],
+        date: toLocalDateKey(now),
         moodRating: 3,
         isManualLog: false,
       });
     }
+    void clearTimerState().catch(() => {});
     resetAll();
     onClose();
   };
@@ -132,6 +267,10 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
     setPomodoroCount(0);
     setPomodoroPhase('focus');
     setPomodoroRemaining(focusDuration * 60);
+    setStartedAtMs(null);
+    setPauseStartedAtMs(null);
+    setPausedAccumMs(0);
+    setTickNowMs(Date.now());
     startTimeRef.current = null;
   };
 
@@ -340,7 +479,7 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
                   </div>
                 </>
               ) : (
-                <div className="text-6xl font-mono font-bold text-foreground tracking-tight">{formatTime(elapsed)}</div>
+                <div className="text-6xl font-mono font-bold text-foreground tracking-tight">{formatTime(computedStopwatchElapsed)}</div>
               )}
               <p className="mt-3 text-sm text-muted-foreground">
                 {subjects.find(s => s.id === subjectId)?.name} — {topic || 'General study'}
@@ -355,7 +494,11 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
             {/* Controls */}
             <div className="flex items-center justify-center gap-4">
               <button
-                onClick={() => { clearTimer(); resetAll(); }}
+                onClick={() => {
+                  clearTimer();
+                  void clearTimerState().catch(() => {});
+                  resetAll();
+                }}
                 className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-all"
                 style={{ boxShadow: 'var(--shadow-sm)' }}
               >
@@ -364,14 +507,24 @@ export function TimerModal({ open, onClose }: TimerModalProps) {
 
               {isPaused ? (
                 <button
-                  onClick={() => setIsPaused(false)}
+                  onClick={() => {
+                    if (mode === 'stopwatch' && pauseStartedAtMs) {
+                      setPausedAccumMs((prev) => prev + (Date.now() - pauseStartedAtMs));
+                      setPauseStartedAtMs(null);
+                    }
+                    setTickNowMs(Date.now());
+                    setIsPaused(false);
+                  }}
                   className="flex h-14 w-14 items-center justify-center rounded-full bg-neon-green text-white transition-all hover:opacity-90 neon-glow-green"
                 >
                   <Play className="h-6 w-6" />
                 </button>
               ) : (
                 <button
-                  onClick={() => setIsPaused(true)}
+                  onClick={() => {
+                    if (mode === 'stopwatch') setPauseStartedAtMs(Date.now());
+                    setIsPaused(true);
+                  }}
                   className="flex h-14 w-14 items-center justify-center rounded-full bg-neon-orange text-white transition-all hover:opacity-90 neon-glow-orange"
                 >
                   <Pause className="h-6 w-6" />

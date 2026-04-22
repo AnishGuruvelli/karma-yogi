@@ -16,6 +16,7 @@ type Repositories struct {
 	Subjects SubjectRepository
 	Sessions SessionRepository
 	Goals    GoalRepository
+	Timer    TimerStateRepository
 	Auth     AuthRepository
 }
 
@@ -25,6 +26,7 @@ func NewRepositories(pool *pgxpool.Pool) Repositories {
 		Subjects: &pgSubjectRepo{pool: pool},
 		Sessions: &pgSessionRepo{pool: pool},
 		Goals:    &pgGoalRepo{pool: pool},
+		Timer:    &pgTimerStateRepo{pool: pool},
 		Auth:     &pgAuthRepo{pool: pool},
 	}
 }
@@ -236,6 +238,31 @@ func (r *pgGoalRepo) Delete(ctx context.Context, id, userID string) error {
 }
 
 type pgAuthRepo struct{ pool *pgxpool.Pool }
+
+type pgTimerStateRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgTimerStateRepo) Get(ctx context.Context, userID string) ([]byte, error) {
+	var state []byte
+	err := r.pool.QueryRow(ctx, `SELECT state FROM user_timer_state WHERE user_id=$1`, userID).Scan(&state)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return state, nil
+}
+
+func (r *pgTimerStateRepo) Upsert(ctx context.Context, userID string, state []byte) error {
+	_, err := r.pool.Exec(ctx, `INSERT INTO user_timer_state (user_id,state,updated_at) VALUES ($1,$2,now())
+		ON CONFLICT (user_id) DO UPDATE SET state=EXCLUDED.state, updated_at=now()`, userID, state)
+	return err
+}
+
+func (r *pgTimerStateRepo) Delete(ctx context.Context, userID string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM user_timer_state WHERE user_id=$1`, userID)
+	return err
+}
 
 func (r *pgAuthRepo) SaveRefreshToken(ctx context.Context, t domain.RefreshToken) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO refresh_tokens (id,user_id,token_hash,expires_at) VALUES ($1,$2,$3,$4)`, t.ID, t.UserID, t.TokenHash, t.ExpiresAt)
