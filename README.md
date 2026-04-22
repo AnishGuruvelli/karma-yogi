@@ -1,18 +1,34 @@
 # Karma Yogi Monorepo
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-karma--yogi--web.onrender.com-4f46e5?logo=render&logoColor=white)](https://karma-yogi-web.onrender.com/)
-[![Backend Health](https://img.shields.io/badge/Backend%20Health-OK-16a34a?logo=render&logoColor=white)](https://karma-yogi-api.onrender.com/healthz)
+<p align="center">
+  <a href="https://karma-yogi-web.onrender.com/">
+    <img alt="Live Demo" src="https://img.shields.io/badge/Live%20Demo-karma--yogi--web.onrender.com-4f46e5?logo=render&logoColor=white" />
+  </a>
+  <a href="https://karma-yogi-api.onrender.com/healthz">
+    <img alt="Backend Health" src="https://img.shields.io/badge/Backend%20Health-OK-16a34a?logo=render&logoColor=white" />
+  </a>
+</p>
 
-Production-ready split frontend (React + Vite) and backend (Go + Chi + Postgres).
+<p align="center">
+  Production-ready split frontend (React + Vite) and backend (Go + Chi + Postgres).
+</p>
 
-<img width="1578" height="787" alt="image" src="https://github.com/user-attachments/assets/40453b4f-4deb-4003-b898-30d7691737cb" />
-<img width="1585" height="781" alt="image" src="https://github.com/user-attachments/assets/57188331-3d9e-4cd9-9e0d-202548afdf0b" />
-<img width="1584" height="774" alt="image" src="https://github.com/user-attachments/assets/d4d56e5b-44e6-4310-b312-671442e50c90" />
-<img width="1581" height="795" alt="image" src="https://github.com/user-attachments/assets/6ca7231e-214e-49bd-9eff-e24094eb850a" />
-<img width="1585" height="791" alt="image" src="https://github.com/user-attachments/assets/98c4d3b1-9cb4-4b8f-98fa-858cb660d69a" />
-<img width="1571" height="775" alt="image" src="https://github.com/user-attachments/assets/ca2c93a0-f4ae-4b0b-a188-ee50f321250d" />
-<img width="1576" height="774" alt="image" src="https://github.com/user-attachments/assets/82f82304-c7ee-4887-a69d-2e10341e5813" />
-<img width="1577" height="781" alt="image" src="https://github.com/user-attachments/assets/c8defb99-ff98-4724-9cfb-ab5757d673a6" />
+## Product gallery
+
+All current UI screenshots:
+
+| | |
+|---|---|
+| <img width="100%" alt="Karma Yogi screenshot 1" src="https://github.com/user-attachments/assets/40453b4f-4deb-4003-b898-30d7691737cb" /> | <img width="100%" alt="Karma Yogi screenshot 2" src="https://github.com/user-attachments/assets/57188331-3d9e-4cd9-9e0d-202548afdf0b" /> |
+| <img width="100%" alt="Karma Yogi screenshot 3" src="https://github.com/user-attachments/assets/d4d56e5b-44e6-4310-b312-671442e50c90" /> | <img width="100%" alt="Karma Yogi screenshot 4" src="https://github.com/user-attachments/assets/6ca7231e-214e-49bd-9eff-e24094eb850a" /> |
+| <img width="100%" alt="Karma Yogi screenshot 5" src="https://github.com/user-attachments/assets/98c4d3b1-9cb4-4b8f-98fa-858cb660d69a" /> | <img width="100%" alt="Karma Yogi screenshot 6" src="https://github.com/user-attachments/assets/ca2c93a0-f4ae-4b0b-a188-ee50f321250d" /> |
+| <img width="100%" alt="Karma Yogi screenshot 7" src="https://github.com/user-attachments/assets/82f82304-c7ee-4887-a69d-2e10341e5813" /> | <img width="100%" alt="Karma Yogi screenshot 8" src="https://github.com/user-attachments/assets/c8defb99-ff98-4724-9cfb-ab5757d673a6" /> |
+
+## Quick links
+
+- Official web app: [https://karma-yogi-web.onrender.com/](https://karma-yogi-web.onrender.com/)
+- Backend health: [https://karma-yogi-api.onrender.com/healthz](https://karma-yogi-api.onrender.com/healthz)
+- OpenAPI spec: `docs/openapi.yaml`
 
 ## Official deployment
 
