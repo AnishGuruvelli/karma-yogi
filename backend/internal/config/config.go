@@ -11,6 +11,7 @@ type Config struct {
 	API struct {
 		Port string
 	}
+	DatabaseURL string
 	Postgres struct {
 		Host     string
 		Port     string
@@ -33,6 +34,7 @@ type Config struct {
 func Load() (Config, error) {
 	cfg := Config{}
 	cfg.API.Port = getEnv("API_PORT", "8080")
+	cfg.DatabaseURL = getEnv("DATABASE_URL", "")
 	cfg.Postgres.Host = getEnv("POSTGRES_HOST", "localhost")
 	cfg.Postgres.Port = getEnv("POSTGRES_PORT", "5432")
 	cfg.Postgres.DB = getEnv("POSTGRES_DB", "karma_yogi")
@@ -54,6 +56,10 @@ func Load() (Config, error) {
 }
 
 func (c Config) PostgresDSN() string {
+	// Prefer full DATABASE_URL when provided (useful for managed DBs like Neon/Render).
+	if c.DatabaseURL != "" {
+		return c.DatabaseURL
+	}
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", c.Postgres.User, c.Postgres.Password, c.Postgres.Host, c.Postgres.Port, c.Postgres.DB, c.Postgres.SSLMode)
 }
 

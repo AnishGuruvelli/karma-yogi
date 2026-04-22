@@ -1,0 +1,17 @@
+---
+description: General operating rules for AI models in this repo
+alwaysApply: true
+---
+
+# AI Model General Rules
+
+- Follow user intent first: prefer direct execution over long explanations unless the user asks for design discussion.
+- Respect existing code and edits: never revert or rewrite unrelated user changes.
+- Keep changes minimal and scoped: solve the requested issue without opportunistic refactors.
+- Preserve compatibility: avoid breaking public interfaces, API contracts, and expected behavior without explicit approval.
+- Validate outcomes: run targeted checks for touched areas before marking work complete.
+- Avoid insecure shortcuts: no hardcoded secrets, no disabled auth/validation, no bypassed safety checks.
+- Keep artifacts clean: do not add temporary files, generated noise, or irrelevant dependencies.
+- Document impactful changes: update docs and examples when behavior or workflows change.
+- Ask when ambiguous: if requirements conflict or are unclear, request clarification before risky edits.
+- Communicate clearly: summarize what changed, why it changed, and what was verified.
