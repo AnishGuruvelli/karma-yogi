@@ -5,6 +5,15 @@
 
 Production-ready split frontend (React + Vite) and backend (Go + Chi + Postgres).
 
+<img width="1578" height="787" alt="image" src="https://github.com/user-attachments/assets/40453b4f-4deb-4003-b898-30d7691737cb" />
+<img width="1585" height="781" alt="image" src="https://github.com/user-attachments/assets/57188331-3d9e-4cd9-9e0d-202548afdf0b" />
+<img width="1584" height="774" alt="image" src="https://github.com/user-attachments/assets/d4d56e5b-44e6-4310-b312-671442e50c90" />
+<img width="1581" height="795" alt="image" src="https://github.com/user-attachments/assets/6ca7231e-214e-49bd-9eff-e24094eb850a" />
+<img width="1585" height="791" alt="image" src="https://github.com/user-attachments/assets/98c4d3b1-9cb4-4b8f-98fa-858cb660d69a" />
+<img width="1571" height="775" alt="image" src="https://github.com/user-attachments/assets/ca2c93a0-f4ae-4b0b-a188-ee50f321250d" />
+<img width="1576" height="774" alt="image" src="https://github.com/user-attachments/assets/82f82304-c7ee-4887-a69d-2e10341e5813" />
+<img width="1577" height="781" alt="image" src="https://github.com/user-attachments/assets/c8defb99-ff98-4724-9cfb-ab5757d673a6" />
+
 ## Official deployment
 
 - Frontend (official website): [https://karma-yogi-web.onrender.com/](https://karma-yogi-web.onrender.com/)
