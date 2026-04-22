@@ -1,6 +1,14 @@
 # Karma Yogi Monorepo
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-karma--yogi--web.onrender.com-4f46e5?logo=render&logoColor=white)](https://karma-yogi-web.onrender.com/)
+[![Backend Health](https://img.shields.io/badge/Backend%20Health-OK-16a34a?logo=render&logoColor=white)](https://karma-yogi-api.onrender.com/healthz)
+
 Production-ready split frontend (React + Vite) and backend (Go + Chi + Postgres).
+
+## Official deployment
+
+- Frontend (official website): [https://karma-yogi-web.onrender.com/](https://karma-yogi-web.onrender.com/)
+- Backend health check: [https://karma-yogi-api.onrender.com/healthz](https://karma-yogi-api.onrender.com/healthz)
 
 ## Structure
 

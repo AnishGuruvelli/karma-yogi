@@ -206,7 +206,8 @@ export async function updateSession(id: string, payload: { topic: string; durati
 export async function fetchGoals(): Promise<Goal[]> {
   const res = await request('/goals');
   if (!res.ok) throw new Error('Unable to fetch goals');
-  const data = await res.json();
+  const data = (await res.json()) as BackendGoal[] | null;
+  if (!Array.isArray(data)) return [];
   return data.map(mapGoal);
 }
 

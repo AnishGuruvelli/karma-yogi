@@ -210,7 +210,7 @@ func (r *pgGoalRepo) ListByUser(ctx context.Context, userID string) ([]domain.Go
 		return nil, err
 	}
 	defer rows.Close()
-	var out []domain.Goal
+	out := []domain.Goal{}
 	for rows.Next() {
 		var g domain.Goal
 		if err := rows.Scan(&g.ID, &g.UserID, &g.Title, &g.TargetMinutes, &g.Deadline, &g.CreatedAt, &g.UpdatedAt); err != nil {
