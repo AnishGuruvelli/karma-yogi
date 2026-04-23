@@ -2,12 +2,29 @@ import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { MOOD_EMOJIS } from "@/lib/types";
 import { Plus, Trash2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function DataPage() {
   const { subjects, sessions, getSubject, addSubject, deleteSubject, deleteSession } = useStore();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("cyan");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    type: "subject" | "session";
+    id: string;
+    title: string;
+    description: string;
+  } | null>(null);
 
   const colorMap: Record<string, string> = {
     green: "#4ade80",
@@ -31,6 +48,37 @@ export default function DataPage() {
     addSubject(newName.trim().toUpperCase(), newColor);
     setNewName("");
     setAddOpen(false);
+  };
+
+  const requestDeleteSubject = (id: string, name: string) => {
+    setPendingDelete({
+      type: "subject",
+      id,
+      title: `Delete subject "${name}"?`,
+      description: "This will also delete all sessions under this subject. This action cannot be undone.",
+    });
+    setDeleteDialogOpen(true);
+  };
+
+  const requestDeleteSession = (id: string, topic: string) => {
+    setPendingDelete({
+      type: "session",
+      id,
+      title: "Delete this session?",
+      description: `Session topic: "${topic || "General study"}". This action cannot be undone.`,
+    });
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    if (pendingDelete.type === "subject") {
+      deleteSubject(pendingDelete.id);
+    } else {
+      deleteSession(pendingDelete.id);
+    }
+    setDeleteDialogOpen(false);
+    setPendingDelete(null);
   };
 
   return (
@@ -68,7 +116,7 @@ export default function DataPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => deleteSubject(sub.id)}
+                    onClick={() => requestDeleteSubject(sub.id, sub.name)}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -119,7 +167,7 @@ export default function DataPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => deleteSession(session.id)}
+                    onClick={() => requestDeleteSession(session.id, session.topic)}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -133,10 +181,10 @@ export default function DataPage() {
 
       {addOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center"
           onClick={() => setAddOpen(false)}
         >
-          <div className="glass-modal w-full max-w-md rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="glass-modal max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl p-5 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">Add Subject</h2>
               <button
@@ -188,6 +236,32 @@ export default function DataPage() {
           </div>
         </div>
       )}
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDelete?.title || "Confirm delete"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete?.description || "Are you sure you want to delete this item?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

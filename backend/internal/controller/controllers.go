@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -21,9 +22,10 @@ type Handlers struct {
 	Goals    *GoalHandler
 	Insights *InsightsHandler
 	Timer    *TimerStateHandler
+	Friends  *FriendHandler
 }
 
-func NewHandlers(a *service.AuthService, u *service.UserService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, i *service.InsightsService, t *service.TimerStateService) Handlers {
+func NewHandlers(a *service.AuthService, u *service.UserService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService) Handlers {
 	return Handlers{
 		Auth:     &AuthHandler{svc: a},
 		Users:    &UserHandler{svc: u},
@@ -32,6 +34,7 @@ func NewHandlers(a *service.AuthService, u *service.UserService, sub *service.Su
 		Goals:    &GoalHandler{svc: g},
 		Insights: &InsightsHandler{svc: i},
 		Timer:    &TimerStateHandler{svc: t},
+		Friends:  &FriendHandler{svc: f},
 	}
 }
 
@@ -342,6 +345,7 @@ func (h *GoalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 type InsightsHandler struct{ svc *service.InsightsService }
 type TimerStateHandler struct{ svc *service.TimerStateService }
+type FriendHandler struct{ svc *service.FriendService }
 
 func (h *InsightsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
@@ -394,6 +398,122 @@ func (h *TimerStateHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *FriendHandler) Users(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	users, err := h.svc.Users(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
+func (h *FriendHandler) ListFriends(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	users, err := h.svc.ListFriends(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, users)
+}
+
+func (h *FriendHandler) IncomingRequests(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	reqs, err := h.svc.IncomingRequests(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, reqs)
+}
+
+func (h *FriendHandler) OutgoingRequests(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	reqs, err := h.svc.OutgoingRequests(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, reqs)
+}
+
+func (h *FriendHandler) SendRequest(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		ReceiverID string `json:"receiverId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.SendRequest(r.Context(), claims.UserID, req.ReceiverID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *FriendHandler) AcceptRequest(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	if err := h.svc.AcceptRequest(r.Context(), chi.URLParam(r, "id"), claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *FriendHandler) RejectRequest(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	if err := h.svc.RejectRequest(r.Context(), chi.URLParam(r, "id"), claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *FriendHandler) WeeklyLeaderboard(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	weekOffset := 0
+	if raw := r.URL.Query().Get("weekOffset"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			http.Error(w, "invalid weekOffset", http.StatusBadRequest)
+			return
+		}
+		weekOffset = parsed
+	}
+	rows, err := h.svc.WeeklyLeaderboard(r.Context(), claims.UserID, weekOffset)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, rows)
+}
+
+func (h *FriendHandler) CreateFriendSession(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		FriendIDs   []string  `json:"friendIds"`
+		SubjectName string    `json:"subjectName"`
+		Topic       string    `json:"topic"`
+		DurationMin int       `json:"durationMin"`
+		Mood        string    `json:"mood"`
+		StartedAt   time.Time `json:"startedAt"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.CreateFriendSession(r.Context(), claims.UserID, req.FriendIDs, req.SubjectName, req.Topic, req.Mood, req.DurationMin, req.StartedAt)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *TimerStateHandler) Start(w http.ResponseWriter, r *http.Request) {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -171,4 +173,126 @@ func (s *TimerStateService) Upsert(ctx context.Context, userID string, state map
 
 func (s *TimerStateService) Delete(ctx context.Context, userID string) error {
 	return s.repo.Delete(ctx, userID)
+}
+
+type FriendService struct {
+	friends  database.FriendRepository
+	subjects database.SubjectRepository
+	sessions database.SessionRepository
+}
+
+func NewFriendService(f database.FriendRepository, sub database.SubjectRepository, sess database.SessionRepository) *FriendService {
+	return &FriendService{friends: f, subjects: sub, sessions: sess}
+}
+
+func (s *FriendService) Users(ctx context.Context, userID string) ([]domain.FriendUser, error) {
+	return s.friends.ListUsersWithStatus(ctx, userID)
+}
+
+func (s *FriendService) ListFriends(ctx context.Context, userID string) ([]domain.User, error) {
+	return s.friends.ListFriends(ctx, userID)
+}
+
+func (s *FriendService) IncomingRequests(ctx context.Context, userID string) ([]domain.FriendRequest, error) {
+	return s.friends.ListIncomingRequests(ctx, userID)
+}
+
+func (s *FriendService) OutgoingRequests(ctx context.Context, userID string) ([]domain.FriendRequest, error) {
+	return s.friends.ListOutgoingRequests(ctx, userID)
+}
+
+func (s *FriendService) SendRequest(ctx context.Context, senderID, receiverID string) (domain.FriendRequest, error) {
+	if senderID == receiverID {
+		return domain.FriendRequest{}, errors.New("cannot send friend request to yourself")
+	}
+	return s.friends.SendRequest(ctx, domain.FriendRequest{
+		ID:         uuid.NewString(),
+		SenderID:   senderID,
+		ReceiverID: receiverID,
+		Status:     "pending",
+	})
+}
+
+func (s *FriendService) AcceptRequest(ctx context.Context, requestID, userID string) error {
+	return s.friends.AcceptRequest(ctx, requestID, userID)
+}
+
+func (s *FriendService) RejectRequest(ctx context.Context, requestID, userID string) error {
+	return s.friends.RejectRequest(ctx, requestID, userID)
+}
+
+func (s *FriendService) WeeklyLeaderboard(ctx context.Context, userID string, weekOffset int) ([]domain.FriendLeaderboardEntry, error) {
+	now := time.Now()
+	weekStart := now.AddDate(0, 0, -int((int(now.Weekday())+6)%7)+(weekOffset*7))
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekEnd := weekStart.AddDate(0, 0, 7)
+	return s.friends.ListWeeklyLeaderboard(ctx, userID, weekStart, weekEnd)
+}
+
+func (s *FriendService) CreateFriendSession(ctx context.Context, userID string, friendIDs []string, subjectName, topic, mood string, duration int, startedAt time.Time) ([]domain.Session, error) {
+	if duration <= 0 {
+		return nil, errors.New("duration must be positive")
+	}
+	if strings.TrimSpace(subjectName) == "" {
+		return nil, errors.New("subject name is required")
+	}
+	friendSet := map[string]bool{}
+	for _, id := range friendIDs {
+		id = strings.TrimSpace(id)
+		if id == "" || id == userID {
+			continue
+		}
+		friendSet[id] = true
+	}
+	confirmed, err := s.friends.ListFriends(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	userIDs := []string{userID}
+	for _, f := range confirmed {
+		if friendSet[f.ID] {
+			userIDs = append(userIDs, f.ID)
+		}
+	}
+	if len(userIDs) == 1 {
+		return nil, errors.New("choose at least one confirmed friend")
+	}
+	out := make([]domain.Session, 0, len(userIDs))
+	for _, uid := range userIDs {
+		sub, err := s.subjects.GetByUserAndName(ctx, uid, subjectName)
+		if err != nil {
+			if errors.Is(err, database.ErrUserNotFound) {
+				prevIcon, iconErr := s.subjects.GetLatestIcon(ctx, uid)
+				if iconErr != nil {
+					return nil, iconErr
+				}
+				sub, err = s.subjects.Create(ctx, domain.Subject{
+					ID:     uuid.NewString(),
+					UserID: uid,
+					Name:   subjectName,
+					Color:  "green",
+					Icon:   pickStudyIcon(prevIcon),
+				})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+		sess, err := s.sessions.Create(ctx, domain.Session{
+			ID:          uuid.NewString(),
+			UserID:      uid,
+			SubjectID:   sub.ID,
+			Topic:       topic,
+			DurationMin: duration,
+			Mood:        mood,
+			StartedAt:   startedAt,
+		})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, sess)
+	}
+	return out, nil
 }

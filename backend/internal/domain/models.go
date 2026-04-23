@@ -60,3 +60,27 @@ type RefreshToken struct {
 	ExpiresAt time.Time
 	RevokedAt *time.Time
 }
+
+type FriendRequest struct {
+	ID         string     `json:"id"`
+	SenderID   string     `json:"senderId"`
+	ReceiverID string     `json:"receiverId"`
+	Status     string     `json:"status"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	RespondedAt *time.Time `json:"respondedAt,omitempty"`
+}
+
+type FriendUser struct {
+	ID               string `json:"id"`
+	Email            string `json:"email"`
+	FullName         string `json:"fullName"`
+	Username         string `json:"username"`
+	FriendshipStatus string `json:"friendshipStatus"`
+}
+
+type FriendLeaderboardEntry struct {
+	UserID       string `json:"userId"`
+	FullName     string `json:"fullName"`
+	Username     string `json:"username"`
+	WeeklyMinutes int   `json:"weeklyMinutes"`
+}

@@ -34,6 +34,29 @@ export interface UserProfile {
   lastActiveDate: string;
 }
 
+export interface FriendUser {
+  id: string;
+  email: string;
+  fullName: string;
+  username: string;
+  friendshipStatus: "none" | "incoming" | "outgoing" | "friends";
+}
+
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  fullName: string;
+  username: string;
+  weeklyMinutes: number;
+}
+
 export const MOOD_EMOJIS: Record<number, string> = {
   1: '😞',
   2: '😐',

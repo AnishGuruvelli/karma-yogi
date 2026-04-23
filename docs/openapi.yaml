@@ -507,6 +507,9 @@ paths:
     put:
       tags: [Timer]
       summary: Upsert persisted timer state for current user
+      description: |
+        Persists arbitrary timer UI state JSON for the current user.
+        Used by both the main timer flow (`timerType: main`) and friend live timer flow (`timerType: friend`).
       security:
         - bearerAuth: []
       requestBody:
@@ -520,6 +523,7 @@ paths:
                 state:
                   type: object
                   additionalProperties: true
+                  description: Flexible timer payload (example keys: `timerType`, `mode`, `isRunning`, `startedAtMs`, `friendIds`)
       responses:
         "200":
           description: Saved
@@ -558,6 +562,187 @@ paths:
                 $ref: "#/components/schemas/TimerStartResponse"
         "400":
           description: Bad request
+  /friends/users:
+    get:
+      tags: [Friends]
+      summary: List all users with friendship status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Users with friendship status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendUser"
+  /friends:
+    get:
+      tags: [Friends]
+      summary: List confirmed friends
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Friends list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+  /friends/requests/incoming:
+    get:
+      tags: [Friends]
+      summary: List incoming pending friend requests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Incoming requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendRequest"
+  /friends/requests/outgoing:
+    get:
+      tags: [Friends]
+      summary: List outgoing pending friend requests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Outgoing requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendRequest"
+  /friends/requests:
+    post:
+      tags: [Friends]
+      summary: Send a friend request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiverId]
+              properties:
+                receiverId:
+                  type: string
+      responses:
+        "200":
+          description: Request sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRequest"
+  /friends/requests/{id}/accept:
+    post:
+      tags: [Friends]
+      summary: Accept incoming friend request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusOk"
+  /friends/requests/{id}/reject:
+    post:
+      tags: [Friends]
+      summary: Reject incoming friend request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusOk"
+  /friends/leaderboard:
+    get:
+      tags: [Friends]
+      summary: Weekly study leaderboard for confirmed friends (includes current user)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekOffset
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Week offset from current week (`0` current week, `-1` previous week)
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendLeaderboardEntry"
+  /friends/sessions:
+    post:
+      tags: [Friends]
+      summary: Create shared friend session for self and selected confirmed friends
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [friendIds, subjectName, topic, durationMin, mood, startedAt]
+              properties:
+                friendIds:
+                  type: array
+                  items:
+                    type: string
+                subjectName:
+                  type: string
+                topic:
+                  type: string
+                durationMin:
+                  type: integer
+                mood:
+                  type: string
+                startedAt:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Sessions created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
 components:
   securitySchemes:
     bearerAuth:
@@ -760,6 +945,44 @@ components:
           type: object
           nullable: true
           additionalProperties: true
+    FriendRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    FriendUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        username:
+          type: string
+        friendshipStatus:
+          type: string
+    FriendLeaderboardEntry:
+      type: object
+      properties:
+        userId:
+          type: string
+        fullName:
+          type: string
+        username:
+          type: string
+        weeklyMinutes:
+          type: integer
     TimerStartResponse:
       type: object
       required: [startedAt, startedAtMs]

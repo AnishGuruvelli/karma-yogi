@@ -17,6 +17,7 @@ type Repositories struct {
 	Sessions SessionRepository
 	Goals    GoalRepository
 	Timer    TimerStateRepository
+	Friends  FriendRepository
 	Auth     AuthRepository
 }
 
@@ -27,6 +28,7 @@ func NewRepositories(pool *pgxpool.Pool) Repositories {
 		Sessions: &pgSessionRepo{pool: pool},
 		Goals:    &pgGoalRepo{pool: pool},
 		Timer:    &pgTimerStateRepo{pool: pool},
+		Friends:  &pgFriendRepo{pool: pool},
 		Auth:     &pgAuthRepo{pool: pool},
 	}
 }
@@ -71,6 +73,23 @@ func (r *pgUserRepo) GetByID(ctx context.Context, id string) (domain.User, error
 	var u domain.User
 	err := r.pool.QueryRow(ctx, q, id).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
+}
+func (r *pgUserRepo) ListOthers(ctx context.Context, userID string) ([]domain.User, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at
+		FROM users WHERE id <> $1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.User{}
+	for rows.Next() {
+		var u domain.User
+		if err := rows.Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
 }
 func (r *pgUserRepo) UpdateProfile(ctx context.Context, id, fullName, username, phone, avatarURL string) (domain.User, error) {
 	q := `UPDATE users SET full_name=$2, username=$3, phone=$4, avatar_url=$5, updated_at=now() WHERE id=$1 RETURNING id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at`
@@ -178,6 +197,18 @@ func (r *pgSubjectRepo) ListByUser(ctx context.Context, userID string) ([]domain
 	}
 	return out, rows.Err()
 }
+func (r *pgSubjectRepo) GetByUserAndName(ctx context.Context, userID, name string) (domain.Subject, error) {
+	var s domain.Subject
+	err := r.pool.QueryRow(ctx, `SELECT id,user_id,name,color,icon,created_at FROM subjects WHERE user_id=$1 AND lower(name)=lower($2) LIMIT 1`, userID, name).
+		Scan(&s.ID, &s.UserID, &s.Name, &s.Color, &s.Icon, &s.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Subject{}, ErrUserNotFound
+		}
+		return domain.Subject{}, err
+	}
+	return s, nil
+}
 func (r *pgSubjectRepo) GetLatestIcon(ctx context.Context, userID string) (string, error) {
 	var icon string
 	err := r.pool.QueryRow(ctx, `SELECT icon FROM subjects WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1`, userID).Scan(&icon)
@@ -238,6 +269,7 @@ func (r *pgGoalRepo) Delete(ctx context.Context, id, userID string) error {
 }
 
 type pgAuthRepo struct{ pool *pgxpool.Pool }
+type pgFriendRepo struct{ pool *pgxpool.Pool }
 
 type pgTimerStateRepo struct{ pool *pgxpool.Pool }
 
@@ -262,6 +294,174 @@ func (r *pgTimerStateRepo) Upsert(ctx context.Context, userID string, state []by
 func (r *pgTimerStateRepo) Delete(ctx context.Context, userID string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM user_timer_state WHERE user_id=$1`, userID)
 	return err
+}
+
+func (r *pgFriendRepo) SendRequest(ctx context.Context, req domain.FriendRequest) (domain.FriendRequest, error) {
+	q := `INSERT INTO friend_requests (id,sender_id,receiver_id,status)
+		VALUES ($1,$2,$3,$4)
+		ON CONFLICT (sender_id, receiver_id) DO UPDATE
+		SET status='pending', responded_at=NULL, created_at=now()
+		RETURNING id,sender_id,receiver_id,status,created_at,responded_at`
+	err := r.pool.QueryRow(ctx, q, req.ID, req.SenderID, req.ReceiverID, req.Status).
+		Scan(&req.ID, &req.SenderID, &req.ReceiverID, &req.Status, &req.CreatedAt, &req.RespondedAt)
+	return req, err
+}
+
+func (r *pgFriendRepo) ListIncomingRequests(ctx context.Context, userID string) ([]domain.FriendRequest, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id,sender_id,receiver_id,status,created_at,responded_at
+		FROM friend_requests WHERE receiver_id=$1 AND status='pending' ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.FriendRequest{}
+	for rows.Next() {
+		var fr domain.FriendRequest
+		if err := rows.Scan(&fr.ID, &fr.SenderID, &fr.ReceiverID, &fr.Status, &fr.CreatedAt, &fr.RespondedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, fr)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgFriendRepo) ListOutgoingRequests(ctx context.Context, userID string) ([]domain.FriendRequest, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id,sender_id,receiver_id,status,created_at,responded_at
+		FROM friend_requests WHERE sender_id=$1 AND status='pending' ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.FriendRequest{}
+	for rows.Next() {
+		var fr domain.FriendRequest
+		if err := rows.Scan(&fr.ID, &fr.SenderID, &fr.ReceiverID, &fr.Status, &fr.CreatedAt, &fr.RespondedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, fr)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgFriendRepo) AcceptRequest(ctx context.Context, requestID, userID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var senderID, receiverID string
+	err = tx.QueryRow(ctx, `UPDATE friend_requests SET status='accepted', responded_at=now()
+		WHERE id=$1 AND receiver_id=$2 AND status='pending'
+		RETURNING sender_id,receiver_id`, requestID, userID).Scan(&senderID, &receiverID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("friend request not found")
+		}
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO friends (user_id,friend_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, senderID, receiverID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO friends (user_id,friend_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, receiverID, senderID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *pgFriendRepo) RejectRequest(ctx context.Context, requestID, userID string) error {
+	ct, err := r.pool.Exec(ctx, `UPDATE friend_requests SET status='rejected', responded_at=now()
+		WHERE id=$1 AND receiver_id=$2 AND status='pending'`, requestID, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return errors.New("friend request not found")
+	}
+	return nil
+}
+
+func (r *pgFriendRepo) ListFriends(ctx context.Context, userID string) ([]domain.User, error) {
+	rows, err := r.pool.Query(ctx, `SELECT u.id,u.email,u.full_name,u.username,u.phone,u.avatar_url,u.google_sub,COALESCE(u.password_hash,''),COALESCE(u.secret_answer_hash,''),u.created_at,u.updated_at
+		FROM friends f JOIN users u ON u.id=f.friend_id
+		WHERE f.user_id=$1 ORDER BY u.full_name ASC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.User{}
+	for rows.Next() {
+		var u domain.User
+		if err := rows.Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgFriendRepo) ListUsersWithStatus(ctx context.Context, userID string) ([]domain.FriendUser, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+		  u.id,
+		  u.email,
+		  u.full_name,
+		  u.username,
+		  CASE
+		    WHEN f.user_id IS NOT NULL THEN 'friends'
+		    WHEN incoming.id IS NOT NULL THEN 'incoming'
+		    WHEN outgoing.id IS NOT NULL THEN 'outgoing'
+		    ELSE 'none'
+		  END AS friendship_status
+		FROM users u
+		LEFT JOIN friends f ON f.user_id=$1 AND f.friend_id=u.id
+		LEFT JOIN friend_requests incoming ON incoming.sender_id=u.id AND incoming.receiver_id=$1 AND incoming.status='pending'
+		LEFT JOIN friend_requests outgoing ON outgoing.sender_id=$1 AND outgoing.receiver_id=u.id AND outgoing.status='pending'
+		WHERE u.id <> $1
+		ORDER BY u.full_name ASC, u.email ASC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.FriendUser{}
+	for rows.Next() {
+		var fu domain.FriendUser
+		if err := rows.Scan(&fu.ID, &fu.Email, &fu.FullName, &fu.Username, &fu.FriendshipStatus); err != nil {
+			return nil, err
+		}
+		out = append(out, fu)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgFriendRepo) ListWeeklyLeaderboard(ctx context.Context, userID string, from, to time.Time) ([]domain.FriendLeaderboardEntry, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+		  u.id,
+		  u.full_name,
+		  u.username,
+		  COALESCE(SUM(s.duration_min),0) AS weekly_minutes
+		FROM users u
+		LEFT JOIN friends f ON f.user_id=$1 AND f.friend_id=u.id
+		LEFT JOIN sessions s ON s.user_id=u.id AND s.started_at >= $2 AND s.started_at < $3
+		WHERE u.id=$1 OR f.user_id IS NOT NULL
+		GROUP BY u.id,u.full_name,u.username
+		ORDER BY weekly_minutes DESC, u.full_name ASC
+	`, userID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.FriendLeaderboardEntry{}
+	for rows.Next() {
+		var e domain.FriendLeaderboardEntry
+		if err := rows.Scan(&e.UserID, &e.FullName, &e.Username, &e.WeeklyMinutes); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 func (r *pgAuthRepo) SaveRefreshToken(ctx context.Context, t domain.RefreshToken) error {

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, UserCircle2, LogOut } from 'lucide-react';
+import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, UserCircle2, LogOut, Users } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { LotusIcon } from '@/components/LotusIcon';
 
@@ -7,6 +7,7 @@ const navLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/sessions', label: 'Sessions', icon: Timer },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
+  { to: '/friends', label: 'Friends', icon: Users },
   { to: '/data', label: 'Data', icon: Database },
   { to: '/profile', label: 'Profile', icon: UserCircle2 },
 ] as const;

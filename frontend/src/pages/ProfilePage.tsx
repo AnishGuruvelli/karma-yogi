@@ -44,8 +44,8 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Profile</h1>
       <p className="mt-1 text-muted-foreground">Manage your account information</p>
 
-      <section className="glass-card mt-6 rounded-2xl p-6">
-        <div className="flex items-start justify-between gap-3">
+      <section className="glass-card mt-6 rounded-2xl p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-3xl text-foreground">
               {user.name?.charAt(0).toUpperCase() || "U"}
@@ -68,7 +68,7 @@ export default function ProfilePage() {
                 return next;
               });
             }}
-            className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:w-auto"
           >
             <Pencil className="h-4 w-4" /> {editing ? "Cancel" : "Edit"}
           </button>
@@ -95,8 +95,8 @@ export default function ProfilePage() {
         )}
       </section>
 
-      <section className="glass-card mt-6 rounded-2xl p-6">
-        <h3 className="text-2xl font-bold tracking-tight text-foreground">Your Stats</h3>
+      <section className="glass-card mt-6 rounded-2xl p-4 sm:p-6">
+        <h3 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Your Stats</h3>
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <StatCard icon={<Flame className="h-5 w-5 text-neon-orange" />} value={`${stats.currentStreak}`} label="Current Streak" />
           <StatCard icon={<Flame className="h-5 w-5 text-neon-orange" />} value={`${stats.maxStreak}`} label="Max Streak" />
@@ -105,6 +105,7 @@ export default function ProfilePage() {
           <StatCard icon={<CalendarDays className="h-5 w-5 text-neon-green" />} value={`${stats.activeDays}`} label="Active Days" />
         </div>
       </section>
+
     </div>
   );
 }

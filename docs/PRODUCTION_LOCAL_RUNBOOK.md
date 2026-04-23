@@ -69,6 +69,8 @@ What it validates (high level):
 - Goal delete
 - **`POST /api/v1/auth/refresh`** and **`POST /api/v1/auth/logout`**
 - **`GET/PUT/DELETE /api/v1/timer-state`** for persisted active timer state across refresh/tab switches
+- **Friends flow:** discover users, send/accept friend requests, create shared sessions, and fetch weekly leaderboard (current + previous week via `weekOffset`)
+- **Friend live timer persistence payload:** timer state round-trip with `timerType=friend` and live session metadata
 - **Nginx:** `GET http://localhost/api/v1/users/me` with Bearer token (proxied `/api/v1/...`)
 - **`POST /api/v1/auth/google`** with invalid token returns `401`
 

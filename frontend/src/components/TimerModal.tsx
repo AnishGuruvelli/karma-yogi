@@ -87,6 +87,8 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
         if (cancelled) return;
         setRestoredOnce(true);
         if (cancelled || !state || typeof state !== 'object') return;
+        const timerTypeValue = typeof state.timerType === 'string' ? state.timerType : 'main';
+        if (timerTypeValue === 'friend') return;
         const modeValue = state.mode === 'pomodoro' ? 'pomodoro' : 'stopwatch';
         const subjectValue = typeof state.subjectId === 'string' ? state.subjectId : '';
         const topicValue = typeof state.topic === 'string' ? state.topic : '';
@@ -163,6 +165,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   useEffect(() => {
     if (!hasStarted) return;
     const baseState = {
+      timerType: 'main',
       mode,
       subjectId,
       topic,

@@ -59,8 +59,9 @@ func main() {
 	goalSvc := service.NewGoalService(repos.Goals)
 	insSvc := service.NewInsightsService(repos.Sessions, repos.Goals)
 	timerSvc := service.NewTimerStateService(repos.Timer)
+	friendSvc := service.NewFriendService(repos.Friends, repos.Subjects, repos.Sessions)
 
-	h := controller.NewHandlers(authSvc, userSvc, subjectSvc, sessSvc, goalSvc, insSvc, timerSvc)
+	h := controller.NewHandlers(authSvc, userSvc, subjectSvc, sessSvc, goalSvc, insSvc, timerSvc, friendSvc)
 	router := httpx.NewRouter(h, tm, cfg.CORSAllowedOrigins)
 
 	srv := &http.Server{Addr: ":" + cfg.API.Port, Handler: router, ReadHeaderTimeout: 5 * time.Second}

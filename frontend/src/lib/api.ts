@@ -1,4 +1,4 @@
-import type { Goal, Session, Subject, UserProfile } from '@/lib/types';
+import type { FriendRequest, FriendUser, Goal, LeaderboardEntry, Session, Subject, UserProfile } from '@/lib/types';
 import { toLocalDateKey } from '@/lib/date';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
@@ -256,6 +256,65 @@ export async function saveTimerState(state: TimerStatePayload): Promise<void> {
 export async function clearTimerState(): Promise<void> {
   const res = await request('/timer-state', { method: 'DELETE' });
   if (!res.ok) throw new Error('Unable to clear timer state');
+}
+
+export async function fetchDiscoverUsers(): Promise<FriendUser[]> {
+  const res = await request('/friends/users');
+  if (!res.ok) throw new Error('Unable to fetch users');
+  return await res.json();
+}
+
+export async function fetchFriends(): Promise<UserProfile[]> {
+  const res = await request('/friends');
+  if (!res.ok) throw new Error('Unable to fetch friends');
+  const users = await res.json();
+  return users.map(mapUser);
+}
+
+export async function fetchIncomingFriendRequests(): Promise<FriendRequest[]> {
+  const res = await request('/friends/requests/incoming');
+  if (!res.ok) throw new Error('Unable to fetch incoming requests');
+  return await res.json();
+}
+
+export async function fetchOutgoingFriendRequests(): Promise<FriendRequest[]> {
+  const res = await request('/friends/requests/outgoing');
+  if (!res.ok) throw new Error('Unable to fetch outgoing requests');
+  return await res.json();
+}
+
+export async function sendFriendRequest(receiverId: string): Promise<void> {
+  const res = await request('/friends/requests', { method: 'POST', body: JSON.stringify({ receiverId }) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to send friend request'));
+}
+
+export async function acceptFriendRequest(requestId: string): Promise<void> {
+  const res = await request(`/friends/requests/${requestId}/accept`, { method: 'POST' });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to accept request'));
+}
+
+export async function rejectFriendRequest(requestId: string): Promise<void> {
+  const res = await request(`/friends/requests/${requestId}/reject`, { method: 'POST' });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to reject request'));
+}
+
+export async function fetchFriendsLeaderboard(weekOffset = 0): Promise<LeaderboardEntry[]> {
+  const qs = weekOffset === 0 ? "" : `?weekOffset=${encodeURIComponent(String(weekOffset))}`;
+  const res = await request(`/friends/leaderboard${qs}`);
+  if (!res.ok) throw new Error('Unable to fetch friends leaderboard');
+  return await res.json();
+}
+
+export async function createFriendSession(payload: {
+  friendIds: string[];
+  subjectName: string;
+  topic: string;
+  durationMin: number;
+  mood: string;
+  startedAt: string;
+}): Promise<void> {
+  const res = await request('/friends/sessions', { method: 'POST', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create friend session'));
 }
 
 export async function createOrUpdateGoal(targetHours: number): Promise<Goal> {

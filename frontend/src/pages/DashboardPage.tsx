@@ -174,16 +174,14 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="glass-card rounded-2xl p-5">
+          <div className="glass-card rounded-2xl p-4 sm:p-5">
             <h2 className="mb-4 font-semibold text-foreground">Recent Sessions</h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {recentSessions.map((session) => {
                 const subject = getSubject(session.subjectId);
                 return (
-                  <div
-                    key={session.id}
-                    className="flex items-center gap-3 rounded-xl bg-muted/40 p-3 transition-colors hover:bg-muted/70"
-                  >
+                  <div key={session.id} className="rounded-xl bg-muted/40 p-3 transition-colors hover:bg-muted/70">
+                    <div className="flex items-start gap-3">
                     <div
                       className="w-1 self-stretch rounded-full"
                       style={{ backgroundColor: colorMap[subject?.color || "cyan"] }}
@@ -194,10 +192,11 @@ export default function DashboardPage() {
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-sm font-semibold text-neon-green">{formatDuration(session.duration)}</div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="mt-0.5 flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
                         {session.isManualLog ? "📝" : MOOD_EMOJIS[session.moodRating]}
                         <span>{formatSessionDate(session.date)} · {session.startTime}</span>
                       </div>
+                    </div>
                     </div>
                   </div>
                 );
@@ -207,7 +206,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="glass-card rounded-2xl p-5">
+          <div className="glass-card rounded-2xl p-4 sm:p-5">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-semibold text-foreground">Weekly Goal</h2>
               <button
@@ -218,8 +217,8 @@ export default function DashboardPage() {
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div className="flex items-center justify-center py-6">
-              <svg width="180" height="180" viewBox="0 0 180 180">
+            <div className="flex items-center justify-center py-4 sm:py-6">
+              <svg width="170" height="170" viewBox="0 0 180 180" className="sm:h-[180px] sm:w-[180px]">
                 <circle cx="90" cy="90" r="70" fill="none" stroke="var(--color-muted)" strokeWidth="10" />
                 <circle
                   cx="90"

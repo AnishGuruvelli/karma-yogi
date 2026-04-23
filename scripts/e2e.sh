@@ -78,6 +78,19 @@ if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
   exit 1
 fi
 
+echo "[INFO] Creating second user for friends flow..."
+FRIEND_EMAIL="friend.$(date +%s)@example.com"
+FRIEND_PASSWORD="password123"
+FRIEND_REGISTER_RESP="$(curl -fsS -X POST "http://localhost:8080/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$FRIEND_EMAIL\",\"fullName\":\"Friend User\",\"password\":\"$FRIEND_PASSWORD\",\"secretAnswer\":\"hyderabad\"}")"
+FRIEND_USER_ID="$(printf "%s" "$FRIEND_REGISTER_RESP" | jq -r '.user.id')"
+FRIEND_TOKEN="$(printf "%s" "$FRIEND_REGISTER_RESP" | jq -r '.accessToken')"
+if [[ -z "$FRIEND_TOKEN" || "$FRIEND_TOKEN" == "null" ]]; then
+  echo "[ERROR] Friend register did not return access token."
+  exit 1
+fi
+
 api_call() {
   local method="$1"
   local path="$2"
@@ -90,6 +103,21 @@ api_call() {
   else
     curl -fsS -X "$method" "http://localhost:8080$path" \
       -H "Authorization: Bearer $ACCESS_TOKEN"
+  fi
+}
+
+friend_api_call() {
+  local method="$1"
+  local path="$2"
+  local data="${3:-}"
+  if [[ -n "$data" ]]; then
+    curl -fsS -X "$method" "http://localhost:8080$path" \
+      -H "Authorization: Bearer $FRIEND_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "$data"
+  else
+    curl -fsS -X "$method" "http://localhost:8080$path" \
+      -H "Authorization: Bearer $FRIEND_TOKEN"
   fi
 }
 
@@ -108,10 +136,71 @@ GOAL_ID="$(printf "%s" "$GOAL_CREATE" | jq -r '.id')"
 GOAL_UPDATE="$(api_call PATCH "/api/v1/goals/$GOAL_ID" '{"title":"Weekly Goal Updated","targetMinutes":360,"deadline":"2026-05-20T00:00:00Z"}')"
 GOAL_LIST="$(api_call GET "/api/v1/goals")"
 INSIGHTS="$(api_call GET "/api/v1/insights")"
+echo "[INFO] Running friends flow..."
+api_call POST "/api/v1/friends/requests" "{\"receiverId\":\"$FRIEND_USER_ID\"}" >/dev/null
+INCOMING_REQS="$(friend_api_call GET "/api/v1/friends/requests/incoming")"
+REQUEST_ID="$(printf "%s" "$INCOMING_REQS" | jq -r '.[0].id')"
+if [[ -z "$REQUEST_ID" || "$REQUEST_ID" == "null" ]]; then
+  echo "[ERROR] Incoming friend request not found."
+  exit 1
+fi
+friend_api_call POST "/api/v1/friends/requests/$REQUEST_ID/accept" >/dev/null
+FRIENDS_LIST="$(api_call GET "/api/v1/friends")"
+if ! printf "%s" "$FRIENDS_LIST" | jq -e --arg fid "$FRIEND_USER_ID" '.[] | select(.id == $fid)' >/dev/null; then
+  echo "[ERROR] Friend was not added after accepting request."
+  exit 1
+fi
+api_call POST "/api/v1/friends/sessions" "{\"friendIds\":[\"$FRIEND_USER_ID\"],\"subjectName\":\"quant\",\"topic\":\"friend quant\",\"durationMin\":45,\"mood\":\"4\",\"startedAt\":\"2026-04-20T06:00:00Z\"}" >/dev/null
+FRIEND_SESSIONS="$(friend_api_call GET "/api/v1/sessions")"
+if ! printf "%s" "$FRIEND_SESSIONS" | jq -e '.[] | select(.topic == "friend quant")' >/dev/null; then
+  echo "[ERROR] Friend session was not created for friend user."
+  exit 1
+fi
+LEADERBOARD="$(api_call GET "/api/v1/friends/leaderboard")"
+if ! printf "%s" "$LEADERBOARD" | jq -e --arg fid "$FRIEND_USER_ID" '.[] | select(.userId == $fid)' >/dev/null; then
+  echo "[ERROR] Friend leaderboard missing friend user."
+  exit 1
+fi
+CURR_WEEK_STARTED_AT="$(python3 - <<'PY'
+import datetime
+now = datetime.datetime.now().astimezone()
+monday = now - datetime.timedelta(days=now.weekday())
+dt = monday.replace(hour=10, minute=0, second=0, microsecond=0)
+print(dt.isoformat())
+PY
+)"
+PREV_WEEK_STARTED_AT="$(python3 - <<'PY'
+import datetime
+now = datetime.datetime.now().astimezone()
+monday = now - datetime.timedelta(days=now.weekday() + 7)
+dt = monday.replace(hour=10, minute=0, second=0, microsecond=0)
+print(dt.isoformat())
+PY
+)"
+api_call POST "/api/v1/friends/sessions" "{\"friendIds\":[\"$FRIEND_USER_ID\"],\"subjectName\":\"quant\",\"topic\":\"friend current week\",\"durationMin\":12,\"mood\":\"4\",\"startedAt\":\"$CURR_WEEK_STARTED_AT\"}" >/dev/null
+api_call POST "/api/v1/friends/sessions" "{\"friendIds\":[\"$FRIEND_USER_ID\"],\"subjectName\":\"quant\",\"topic\":\"friend previous week\",\"durationMin\":7,\"mood\":\"4\",\"startedAt\":\"$PREV_WEEK_STARTED_AT\"}" >/dev/null
+LEADERBOARD_CURRENT="$(api_call GET "/api/v1/friends/leaderboard?weekOffset=0")"
+LEADERBOARD_PREVIOUS="$(api_call GET "/api/v1/friends/leaderboard?weekOffset=-1")"
+CURRENT_WEEK_MINUTES="$(printf "%s" "$LEADERBOARD_CURRENT" | jq -r --arg uid "$USER_ID" '[.[] | select(.userId == $uid)][0].weeklyMinutes // 0')"
+PREV_WEEK_MINUTES="$(printf "%s" "$LEADERBOARD_PREVIOUS" | jq -r --arg uid "$USER_ID" '[.[] | select(.userId == $uid)][0].weeklyMinutes // 0')"
+if [[ "$CURRENT_WEEK_MINUTES" -lt 12 ]]; then
+  echo "[ERROR] Week offset current leaderboard missing expected minutes."
+  exit 1
+fi
+if [[ "$PREV_WEEK_MINUTES" -lt 7 ]]; then
+  echo "[ERROR] Week offset previous leaderboard missing expected minutes."
+  exit 1
+fi
 api_call PUT "/api/v1/timer-state" '{"state":{"mode":"stopwatch","subjectId":"'"$SUBJECT_ID"'","topic":"E2E Timer","isRunning":true}}' >/dev/null
 TIMER_STATE="$(api_call GET "/api/v1/timer-state")"
 if [[ "$(printf "%s" "$TIMER_STATE" | jq -r '.state.topic')" != "E2E Timer" ]]; then
   echo "[ERROR] Timer state round-trip failed."
+  exit 1
+fi
+api_call PUT "/api/v1/timer-state" '{"state":{"timerType":"friend","sessionMode":"live","subjectName":"QUANT","topic":"friend live","friendIds":["'"$FRIEND_USER_ID"'"],"hasStarted":true,"isRunning":true}}' >/dev/null
+FRIEND_TIMER_STATE="$(api_call GET "/api/v1/timer-state")"
+if [[ "$(printf "%s" "$FRIEND_TIMER_STATE" | jq -r '.state.timerType')" != "friend" ]]; then
+  echo "[ERROR] Friend timer state payload was not persisted."
   exit 1
 fi
 TIMER_START="$(api_call POST "/api/v1/timer-state/start")"

@@ -10,6 +10,7 @@ import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import DashboardPage from "@/pages/DashboardPage";
 import SessionsPage from "@/pages/SessionsPage";
 import InsightsPage from "@/pages/InsightsPage";
+import FriendsPage from "@/pages/FriendsPage";
 import DataPage from "@/pages/DataPage";
 import ProfilePage from "@/pages/ProfilePage";
 import { Toaster } from "@/components/ui/sonner";
@@ -660,6 +661,7 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/sessions" element={<SessionsPage />} />
                 <Route path="/insights" element={<InsightsPage />} />
+                <Route path="/friends" element={<FriendsPage />} />
                 <Route path="/data" element={<DataPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="*" element={<NotFound />} />
