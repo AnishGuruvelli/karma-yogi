@@ -60,6 +60,8 @@ function weekLabel(weekOffset = 0, now = new Date()): string {
 const durationPresets = [30, 45, 60, 90, 120];
 const tabStyle =
   "rounded-full px-4 py-1.5 text-sm font-semibold transition border border-transparent dark:text-slate-300";
+const SHEET_CLOSE_DRAG_Y = 120;
+const SHEET_CLOSE_VELOCITY_Y = 700;
 
 export default function FriendsPage() {
   const { subjects } = useStore();
@@ -653,12 +655,28 @@ export default function FriendsPage() {
           >
             <motion.div
               className="flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl"
-              initial={{ y: 64, opacity: 0.94, scale: 0.985 }}
+              initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 72, opacity: 0.9, scale: 0.985 }}
-              transition={{ type: "spring", stiffness: 340, damping: 32, mass: 0.95 }}
+              exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 320, damping: 34, mass: 1 }}
+              drag="y"
+              dragDirectionLock
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.16}
+              dragMomentum={false}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > SHEET_CLOSE_DRAG_Y || info.velocity.y > SHEET_CLOSE_VELOCITY_Y) {
+                  if (liveStartedAtMs) {
+                    setShowSessionModal(false);
+                    return;
+                  }
+                  setShowSessionModal(false);
+                  resetSessionForm();
+                }
+              }}
             >
             <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted sm:hidden" />
             <div className="mb-4 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neon-purple/15">

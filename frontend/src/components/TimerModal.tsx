@@ -17,6 +17,8 @@ interface TimerModalProps {
 
 const POMODORO_FOCUS = 25 * 60;
 const POMODORO_BREAK = 5 * 60;
+const SHEET_CLOSE_DRAG_Y = 120;
+const SHEET_CLOSE_VELOCITY_Y = 700;
 
 export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const { subjects, addSession, addSubject } = useStore();
@@ -339,13 +341,25 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
         >
           <motion.div
             className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(90dvh,860px)] sm:max-w-md sm:rounded-2xl"
-            initial={{ y: 64, opacity: 0.94, scale: 0.985 }}
+            initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 72, opacity: 0.9, scale: 0.985 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 32, mass: 0.95 }}
+            exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 1 }}
+            drag="y"
+            dragDirectionLock
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.16}
+            dragMomentum={false}
+            onDragEnd={(_, info) => {
+              if (hasStarted) return;
+              if (info.offset.y > SHEET_CLOSE_DRAG_Y || info.velocity.y > SHEET_CLOSE_VELOCITY_Y) {
+                onClose();
+              }
+            }}
             onClick={e => e.stopPropagation()}
           >
         <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted sm:hidden" />
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-bold text-foreground">Study Timer</h2>
             <button
