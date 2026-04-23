@@ -100,10 +100,10 @@ func (r *pgSessionRepo) Create(ctx context.Context, s domain.Session) (domain.Se
 }
 func (r *pgSessionRepo) Update(ctx context.Context, s domain.Session) (domain.Session, error) {
 	q := `UPDATE sessions
-	SET topic=$3,duration_min=$4,mood=$5,started_at=$6
+	SET subject_id=$3,topic=$4,duration_min=$5,mood=$6,started_at=$7
 	WHERE id=$1 AND user_id=$2
 	RETURNING id,user_id,COALESCE(subject_id::text,''),COALESCE(topic,subject,'General study'),duration_min,mood,started_at,created_at`
-	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Topic, s.DurationMin, s.Mood, s.StartedAt).Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt)
+	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.SubjectID, s.Topic, s.DurationMin, s.Mood, s.StartedAt).Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Session{}, errors.New("not found")

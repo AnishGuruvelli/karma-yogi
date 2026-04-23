@@ -190,11 +190,12 @@ export async function removeSession(id: string): Promise<void> {
   if (!res.ok) throw new Error('Unable to delete session');
 }
 
-export async function updateSession(id: string, payload: { topic: string; duration: number; date: string; startTime: string; moodRating: number }): Promise<Session> {
+export async function updateSession(id: string, payload: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }): Promise<Session> {
   const startedAt = new Date(`${payload.date}T${payload.startTime}:00`).toISOString();
   const res = await request(`/sessions/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({
+      subjectId: payload.subjectId,
       topic: payload.topic,
       durationMin: payload.duration,
       mood: String(payload.moodRating),
@@ -237,6 +238,14 @@ export async function fetchTimerState(): Promise<TimerStatePayload | null> {
   if (!res.ok) throw new Error('Unable to fetch timer state');
   const data = (await res.json()) as { state?: TimerStatePayload | null };
   return data.state ?? null;
+}
+
+export async function startTimerFromServer(): Promise<number> {
+  const res = await request('/timer-state/start', { method: 'POST' });
+  if (!res.ok) throw new Error('Unable to start timer');
+  const data = (await res.json()) as { startedAtMs?: number };
+  if (typeof data.startedAtMs !== 'number') throw new Error('Invalid start time response');
+  return data.startedAtMs;
 }
 
 export async function saveTimerState(state: TimerStatePayload): Promise<void> {

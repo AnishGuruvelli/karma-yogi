@@ -19,7 +19,7 @@ interface LogSessionModalProps {
     startTime: string;
     moodRating: number;
   } | null;
-  onSave?: (changes: { topic: string; duration: number; date: string; startTime: string; moodRating: number }) => void;
+  onSave?: (changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => void;
 }
 
 export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSessionModalProps) {
@@ -64,9 +64,12 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
     }
   }, [subjectId, subjects]);
 
-  const handleCreateSubject = () => {
+  const handleCreateSubject = async () => {
     if (!newSubjectName.trim()) return;
-    addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
+    const created = await addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
+    if (created) {
+      setSubjectId(created.id);
+    }
     setNewSubjectName('');
     setShowCreateSubject(false);
   };
@@ -89,7 +92,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
       isManualLog: true,
     };
     if (initialSession && onSave) {
-      onSave({ topic: payload.topic, duration: payload.duration, date: payload.date, startTime: payload.startTime, moodRating: payload.moodRating });
+      onSave({ subjectId, topic: payload.topic, duration: payload.duration, date: payload.date, startTime: payload.startTime, moodRating: payload.moodRating });
     } else {
       addSession({ subjectId, ...payload });
     }
@@ -132,57 +135,59 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
                 )}
               </SelectContent>
             </Select>
-            {subjects.length === 0 && (
-              <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground">No subjects available. Create one now:</p>
-                {!showCreateSubject ? (
-                  <button type="button" onClick={() => setShowCreateSubject(true)} className="mt-2 text-sm font-semibold text-primary hover:underline">
-                    + Create Subject
-                  </button>
-                ) : (
-                  <div className="mt-2 space-y-2">
-                    <input
-                      value={newSubjectName}
-                      onChange={(e) => setNewSubjectName(e.target.value)}
-                      placeholder="Subject name"
-                      className="input-field w-full rounded-lg p-2 text-sm"
-                    />
-                    <div className="flex gap-2 pt-1">
-                      {Object.entries(colorMap).map(([key, val]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onPointerDown={(e) => {
-                            e.preventDefault();
-                            setNewSubjectColor(key);
-                          }}
-                          onClick={() => setNewSubjectColor(key)}
-                          aria-pressed={newSubjectColor === key}
-                          className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
-                          style={{ backgroundColor: val }}
-                        />
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
+            <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">
+                {subjects.length === 0 ? 'No subjects available. Create one now:' : "Can't find your subject? Create one now:"}
+              </p>
+              {!showCreateSubject ? (
+                <button type="button" onClick={() => setShowCreateSubject(true)} className="mt-2 text-sm font-semibold text-primary hover:underline">
+                  + Create Subject
+                </button>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  <input
+                    value={newSubjectName}
+                    onChange={(e) => setNewSubjectName(e.target.value)}
+                    placeholder="Subject name"
+                    className="input-field w-full rounded-lg p-2 text-sm"
+                  />
+                  <div className="flex gap-2 pt-1">
+                    {Object.entries(colorMap).map(([key, val]) => (
                       <button
+                        key={key}
                         type="button"
-                        onClick={handleCreateSubject}
-                        className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
-                      >
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCreateSubject(false)}
-                        className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          setNewSubjectColor(key);
+                        }}
+                        onClick={() => setNewSubjectColor(key)}
+                        aria-pressed={newSubjectColor === key}
+                        className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
+                        style={{ backgroundColor: val }}
+                      />
+                    ))}
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleCreateSubject();
+                      }}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateSubject(false)}
+                      className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>

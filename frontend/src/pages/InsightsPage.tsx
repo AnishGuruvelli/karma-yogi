@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine } from "recharts";
 import { Clock, BarChart3, BookOpen, List, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
@@ -132,6 +132,14 @@ export default function InsightsPage() {
   }, [mode, filteredSessions, sessions, start, now]);
 
   const maxHours = Math.max(...barData.map((d) => d.hours), 0.5);
+  const avgLineHours = useMemo(() => {
+    if (mode === "all") {
+      const activeMonths = barData.filter((d) => d.hours > 0).length;
+      if (activeMonths === 0) return 0;
+      return +(totalMinutes / 60 / activeMonths).toFixed(2);
+    }
+    return +(dailyAvg / 60).toFixed(2);
+  }, [mode, totalMinutes, dailyAvg, barData]);
 
   const colorMap: Record<string, string> = {
     green: "#4ade80",
@@ -319,6 +327,14 @@ export default function InsightsPage() {
                 );
               }}
             />
+            {avgLineHours > 0 && (
+              <ReferenceLine
+                y={avgLineHours}
+                stroke="var(--color-neon-green)"
+                strokeDasharray="4 4"
+                ifOverflow="extendDomain"
+              />
+            )}
             <Bar dataKey="hours" radius={[mode === "month" ? 2 : 6, mode === "month" ? 2 : 6, 0, 0]}>
               {barData.map((entry, index) => (
                 <Cell
@@ -331,6 +347,9 @@ export default function InsightsPage() {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {mode === "all" ? "Monthly avg line" : "Daily avg line"}: {avgLineHours.toFixed(1)}h
+        </p>
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

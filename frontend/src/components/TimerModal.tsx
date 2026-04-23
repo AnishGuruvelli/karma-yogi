@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
-import { clearTimerState, fetchTimerState, saveTimerState } from '@/lib/api';
+import { clearTimerState, fetchTimerState, saveTimerState, startTimerFromServer } from '@/lib/api';
 import { toLocalDateKey } from '@/lib/date';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type TimerMode = 'stopwatch' | 'pomodoro';
 type PomodoroPhase = 'focus' | 'break';
@@ -215,9 +216,21 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleStart = () => {
-    if (!subjectId) return;
-    const now = Date.now();
+  const formatStartedAt = (startedMs: number | null) => {
+    if (!startedMs) return '';
+    return new Date(startedMs).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  };
+
+  const handleStart = async () => {
+    if (!subjectId || !topic.trim()) return;
+    const now = await startTimerFromServer().catch(() => null);
+    if (!now) return;
     startTimeRef.current = new Date(now);
     setStartedAtMs(now);
     setPauseStartedAtMs(null);
@@ -289,9 +302,13 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const pomodoroTotal = pomodoroPhase === 'focus' ? focusDuration * 60 : breakDuration * 60;
   const pomodoroProgress = 1 - pomodoroRemaining / pomodoroTotal;
   const circumference = 2 * Math.PI * 90;
-  const handleCreateSubject = () => {
+  const canStart = subjects.length > 0 && topic.trim().length > 0;
+  const handleCreateSubject = async () => {
     if (!newSubjectName.trim()) return;
-    addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
+    const created = await addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
+    if (created) {
+      setSubjectId(created.id);
+    }
     setNewSubjectName('');
     setShowCreateSubject(false);
   };
@@ -355,57 +372,59 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
-                {subjects.length === 0 && (
-                  <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">No subjects available. Create one now:</p>
-                    {!showCreateSubject ? (
-                      <button type="button" onClick={() => setShowCreateSubject(true)} className="mt-2 text-sm font-semibold text-primary hover:underline">
-                        + Create Subject
-                      </button>
-                    ) : (
-                      <div className="mt-2 space-y-2">
-                        <input
-                          value={newSubjectName}
-                          onChange={(e) => setNewSubjectName(e.target.value)}
-                          placeholder="Subject name"
-                          className="input-field w-full rounded-lg p-2 text-sm"
-                        />
-                        <div className="flex gap-2 pt-1">
-                          {Object.entries(colorMap).map(([key, val]) => (
-                            <button
-                              key={key}
-                              type="button"
-                              onPointerDown={(e) => {
-                                e.preventDefault();
-                                setNewSubjectColor(key);
-                              }}
-                              onClick={() => setNewSubjectColor(key)}
-                              aria-pressed={newSubjectColor === key}
-                              className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
-                              style={{ backgroundColor: val }}
-                            />
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
+                <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {subjects.length === 0 ? 'No subjects available. Create one now:' : "Can't find your subject? Create one now:"}
+                  </p>
+                  {!showCreateSubject ? (
+                    <button type="button" onClick={() => setShowCreateSubject(true)} className="mt-2 text-sm font-semibold text-primary hover:underline">
+                      + Create Subject
+                    </button>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      <input
+                        value={newSubjectName}
+                        onChange={(e) => setNewSubjectName(e.target.value)}
+                        placeholder="Subject name"
+                        className="input-field w-full rounded-lg p-2 text-sm"
+                      />
+                      <div className="flex gap-2 pt-1">
+                        {Object.entries(colorMap).map(([key, val]) => (
                           <button
+                            key={key}
                             type="button"
-                            onClick={handleCreateSubject}
-                            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
-                          >
-                            Add
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowCreateSubject(false)}
-                            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-                          >
-                            Cancel
-                          </button>
-                        </div>
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              setNewSubjectColor(key);
+                            }}
+                            onClick={() => setNewSubjectColor(key)}
+                            aria-pressed={newSubjectColor === key}
+                            className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
+                            style={{ backgroundColor: val }}
+                          />
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleCreateSubject();
+                          }}
+                          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateSubject(false)}
+                          className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Topic</label>
@@ -438,14 +457,35 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
               )}
             </div>
 
-            <button
-              onClick={handleStart}
-              disabled={subjects.length === 0}
-              className="w-full rounded-xl bg-neon-orange py-3.5 font-semibold text-white transition-all hover:opacity-90 neon-glow-orange"
-            >
-              <Play className="mr-2 inline h-4 w-4" />
-              {subjects.length === 0 ? 'Add a subject first' : `Start ${mode === 'pomodoro' ? 'Pomodoro' : 'Timer'}`}
-            </button>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      if (!canStart) return;
+                      void handleStart();
+                    }}
+                    aria-disabled={!canStart}
+                    title={!canStart ? (subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.') : undefined}
+                    className={`w-full rounded-xl bg-neon-orange py-3.5 font-semibold text-white transition-all neon-glow-orange ${
+                      canStart ? 'hover:opacity-90' : 'cursor-not-allowed opacity-70'
+                    }`}
+                  >
+                    <Play className="mr-2 inline h-4 w-4" />
+                    {subjects.length === 0
+                      ? 'Add a subject first'
+                      : topic.trim().length === 0
+                        ? 'Add a topic first'
+                        : `Start ${mode === 'pomodoro' ? 'Pomodoro' : 'Timer'}`}
+                  </button>
+                </TooltipTrigger>
+                {!canStart && (
+                  <TooltipContent side="top">
+                    {subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.'}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </>
         ) : (
           <div className="space-y-5">
@@ -483,6 +523,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
               )}
               <p className="mt-3 text-sm text-muted-foreground">
                 {subjects.find(s => s.id === subjectId)?.name} — {topic || 'General study'}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground/90">
+                Started at {formatStartedAt(startedAtMs)}
               </p>
               {isPaused && (
                 <span className="mt-2 rounded-full bg-neon-orange/10 border border-neon-orange/20 px-3 py-1 text-xs font-semibold text-neon-orange animate-pulse">

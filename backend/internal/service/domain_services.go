@@ -33,8 +33,8 @@ func (s *SessionService) Create(ctx context.Context, userID, subjectID, topic, m
 func (s *SessionService) List(ctx context.Context, userID string, from, to *time.Time) ([]domain.Session, error) {
 	return s.repo.ListByUser(ctx, userID, from, to)
 }
-func (s *SessionService) Update(ctx context.Context, userID, id, topic, mood string, duration int, startedAt time.Time) (domain.Session, error) {
-	return s.repo.Update(ctx, domain.Session{ID: id, UserID: userID, Topic: topic, DurationMin: duration, Mood: mood, StartedAt: startedAt})
+func (s *SessionService) Update(ctx context.Context, userID, id, subjectID, topic, mood string, duration int, startedAt time.Time) (domain.Session, error) {
+	return s.repo.Update(ctx, domain.Session{ID: id, UserID: userID, SubjectID: subjectID, Topic: topic, DurationMin: duration, Mood: mood, StartedAt: startedAt})
 }
 func (s *SessionService) Delete(ctx context.Context, userID, id string) error {
 	return s.repo.Delete(ctx, id, userID)

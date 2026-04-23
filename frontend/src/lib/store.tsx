@@ -17,11 +17,11 @@ interface StoreContextType {
   goal: Goal;
   user: UserProfile;
   timer: TimerState;
-  addSubject: (name: string, color: string) => void;
+  addSubject: (name: string, color: string) => Promise<Subject | null>;
   deleteSubject: (id: string) => void;
   addSession: (session: Omit<Session, 'id'>) => void;
   deleteSession: (id: string) => void;
-  editSession: (id: string, changes: { topic: string; duration: number; date: string; startTime: string; moodRating: number }) => void;
+  editSession: (id: string, changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => Promise<boolean>;
   updateGoal: (targetHours: number) => void;
   startTimer: (subjectId: string, topic: string) => void;
   stopTimer: () => Session | null;
@@ -71,10 +71,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timer.isRunning]);
 
-  const addSubject = useCallback((name: string, color: string) => {
-    void createSubject(name, color).then((created) => {
+  const addSubject = useCallback(async (name: string, color: string): Promise<Subject | null> => {
+    try {
+      const created = await createSubject(name, color);
       setSubjects((prev) => [created, ...prev]);
-    });
+      return created;
+    } catch {
+      return null;
+    }
   }, []);
 
   const deleteSubject = useCallback((id: string) => {
@@ -113,14 +117,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const editSession = useCallback((id: string, changes: { topic: string; duration: number; date: string; startTime: string; moodRating: number }) => {
-    void updateSession(id, changes).then((updated) => {
+  const editSession = useCallback(async (id: string, changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }): Promise<boolean> => {
+    try {
+      const updated = await updateSession(id, changes);
       setSessions((prev) => {
         const next = prev.map((s) => (s.id === id ? { ...s, ...updated } : s));
         setUser((u) => ({ ...u, currentStreak: currentStreakUntilToday(next) }));
         return next;
       });
-    });
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   const updateGoal = useCallback((targetHours: number) => {

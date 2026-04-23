@@ -221,6 +221,7 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	id := chi.URLParam(r, "id")
 	var req struct {
+		SubjectID   string    `json:"subjectId"`
 		Topic       string    `json:"topic"`
 		DurationMin int       `json:"durationMin"`
 		Mood        string    `json:"mood"`
@@ -230,7 +231,7 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s, err := h.svc.Update(r.Context(), claims.UserID, id, req.Topic, req.Mood, req.DurationMin, req.StartedAt)
+	s, err := h.svc.Update(r.Context(), claims.UserID, id, req.SubjectID, req.Topic, req.Mood, req.DurationMin, req.StartedAt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -393,6 +394,14 @@ func (h *TimerStateHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *TimerStateHandler) Start(w http.ResponseWriter, r *http.Request) {
+	startedAt := time.Now().UTC()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"startedAt":   startedAt.Format(time.RFC3339Nano),
+		"startedAtMs": startedAt.UnixMilli(),
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

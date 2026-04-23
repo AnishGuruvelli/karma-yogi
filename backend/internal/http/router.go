@@ -51,6 +51,7 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 			p.Delete("/goals/{id}", h.Goals.Delete)
 			p.Get("/insights", h.Insights.Get)
 			p.Get("/timer-state", h.Timer.Get)
+			p.Post("/timer-state/start", h.Timer.Start)
 			p.Put("/timer-state", h.Timer.Upsert)
 			p.Delete("/timer-state", h.Timer.Delete)
 		})

@@ -543,6 +543,21 @@ paths:
                 $ref: "#/components/schemas/StatusOk"
         "400":
           description: Bad request
+  /timer-state/start:
+    post:
+      tags: [Timer]
+      summary: Get server-authoritative timer start timestamp
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Server start timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimerStartResponse"
+        "400":
+          description: Bad request
 components:
   securitySchemes:
     bearerAuth:
@@ -672,8 +687,10 @@ components:
           format: date-time
     SessionUpdateRequest:
       type: object
-      required: [topic, durationMin, mood, startedAt]
+      required: [subjectId, topic, durationMin, mood, startedAt]
       properties:
+        subjectId:
+          type: string
         topic:
           type: string
         durationMin:
@@ -743,3 +760,13 @@ components:
           type: object
           nullable: true
           additionalProperties: true
+    TimerStartResponse:
+      type: object
+      required: [startedAt, startedAtMs]
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        startedAtMs:
+          type: integer
+          format: int64

@@ -100,7 +100,7 @@ SUBJECT_CREATE="$(api_call POST "/api/v1/subjects" "{\"name\":\"$SUBJECT_NAME\",
 SUBJECT_ID="$(printf "%s" "$SUBJECT_CREATE" | jq -r '.id')"
 SESSION_CREATE="$(api_call POST "/api/v1/sessions" "{\"subjectId\":\"$SUBJECT_ID\",\"topic\":\"Algebra\",\"durationMin\":45,\"mood\":\"4\",\"startedAt\":\"2026-04-16T06:00:00Z\"}")"
 SESSION_ID="$(printf "%s" "$SESSION_CREATE" | jq -r '.id')"
-SESSION_UPDATE="$(api_call PATCH "/api/v1/sessions/$SESSION_ID" "{\"topic\":\"Algebra Updated\",\"durationMin\":60,\"mood\":\"5\",\"startedAt\":\"2026-04-16T07:00:00Z\"}")"
+SESSION_UPDATE="$(api_call PATCH "/api/v1/sessions/$SESSION_ID" "{\"subjectId\":\"$SUBJECT_ID\",\"topic\":\"Algebra Updated\",\"durationMin\":60,\"mood\":\"5\",\"startedAt\":\"2026-04-16T07:00:00Z\"}")"
 UPDATED_DURATION="$(printf "%s" "$SESSION_UPDATE" | jq -r '.durationMin')"
 SESSION_LIST="$(api_call GET "/api/v1/sessions")"
 GOAL_CREATE="$(api_call POST "/api/v1/goals" '{"title":"Weekly Goal","targetMinutes":300,"deadline":"2026-05-16T00:00:00Z"}')"
@@ -112,6 +112,11 @@ api_call PUT "/api/v1/timer-state" '{"state":{"mode":"stopwatch","subjectId":"'"
 TIMER_STATE="$(api_call GET "/api/v1/timer-state")"
 if [[ "$(printf "%s" "$TIMER_STATE" | jq -r '.state.topic')" != "E2E Timer" ]]; then
   echo "[ERROR] Timer state round-trip failed."
+  exit 1
+fi
+TIMER_START="$(api_call POST "/api/v1/timer-state/start")"
+if [[ "$(printf "%s" "$TIMER_START" | jq -r '.startedAtMs | numbers')" == "" ]]; then
+  echo "[ERROR] Timer start endpoint did not return startedAtMs."
   exit 1
 fi
 api_call DELETE "/api/v1/timer-state" >/dev/null

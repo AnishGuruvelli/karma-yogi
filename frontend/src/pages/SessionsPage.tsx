@@ -5,6 +5,7 @@ import { Play, Plus } from "lucide-react";
 import { TimerModal } from "@/components/TimerModal";
 import { LogSessionModal } from "@/components/LogSessionModal";
 import { toLocalDateKey } from "@/lib/date";
+import { toast } from "sonner";
 
 export default function SessionsPage() {
   const { sessions, getSubject, editSession } = useStore();
@@ -28,6 +29,12 @@ export default function SessionsPage() {
     }
     return `${m}m`;
   };
+
+  const formatSessionDate = (date: string) =>
+    new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
 
   const today = toLocalDateKey(new Date());
   const yesterdayDate = new Date();
@@ -94,7 +101,7 @@ export default function SessionsPage() {
                       <div className="font-semibold text-neon-green">{formatDuration(session.duration)}</div>
                       <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
                         {MOOD_EMOJIS[session.moodRating]}
-                        <span>{session.startTime}</span>
+                        <span>{formatSessionDate(session.date)} · {session.startTime}</span>
                       </div>
                     </div>
                   </button>
@@ -112,9 +119,14 @@ export default function SessionsPage() {
           open
           onClose={() => setEditing(null)}
           initialSession={editing}
-          onSave={(changes) => {
-            editSession(editing.id, changes);
-            setEditing(null);
+          onSave={async (changes) => {
+            const ok = await editSession(editing.id, changes);
+            if (ok) {
+              toast.success("Session updated");
+              setEditing(null);
+              return;
+            }
+            toast.error("Couldn't update session. Please try again.");
           }}
         />
       )}

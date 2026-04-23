@@ -12,6 +12,7 @@ import SessionsPage from "@/pages/SessionsPage";
 import InsightsPage from "@/pages/InsightsPage";
 import DataPage from "@/pages/DataPage";
 import ProfilePage from "@/pages/ProfilePage";
+import { Toaster } from "@/components/ui/sonner";
 
 declare global {
   interface Window {
@@ -639,6 +640,7 @@ export default function App() {
               </Routes>
             </AppErrorBoundary>
           </main>
+          <Toaster />
         </StoreProvider>
       )}
     </>
