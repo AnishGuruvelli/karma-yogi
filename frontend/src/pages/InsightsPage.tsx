@@ -220,17 +220,17 @@ export default function InsightsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Insights</h1>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-xl bg-muted p-1">
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Insights</h1>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="grid w-full grid-cols-3 rounded-xl bg-muted p-1 sm:w-auto sm:flex">
             {(["week", "month", "all"] as const).map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => handleModeChange(p)}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                className={`rounded-lg px-3 py-2 text-xs font-semibold transition-all sm:px-4 sm:text-sm ${
                   mode === p ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
                 style={mode === p ? { boxShadow: "var(--shadow-sm)" } : undefined}
@@ -242,16 +242,16 @@ export default function InsightsPage() {
           <button
             type="button"
             onClick={() => setCalendarOpen(true)}
-            className="flex h-9 items-center gap-2 rounded-xl bg-muted px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-muted px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground sm:w-auto"
           >
             <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Calendar</span>
+            <span>Calendar</span>
           </button>
         </div>
       </div>
 
-      <div className="glass-card mb-8 rounded-2xl p-5">
-        <div className="mb-5 flex items-center justify-between">
+      <div className="glass-card mb-6 rounded-2xl p-4 sm:mb-8 sm:p-5">
+        <div className="mb-4 flex items-center justify-between sm:mb-5">
           <button
             type="button"
             onClick={() => setOffset((o) => o - 1)}
@@ -260,8 +260,8 @@ export default function InsightsPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <div className="text-center">
-            <h2 className="text-lg font-bold text-foreground">{periodLabel}</h2>
+          <div className="min-w-0 px-2 text-center">
+            <h2 className="truncate text-base font-bold text-foreground sm:text-lg">{periodLabel}</h2>
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               {mode === "week" ? "Weekly" : mode === "month" ? "Monthly" : "Yearly"} Overview
             </p>
@@ -277,20 +277,20 @@ export default function InsightsPage() {
           </button>
         </div>
 
-        <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:mb-5 sm:grid-cols-3 sm:gap-3">
           <div className="rounded-xl bg-muted/50 p-3 text-center">
             <Clock className="mx-auto mb-1 h-4 w-4 text-neon-cyan" />
-            <div className="text-lg font-bold text-foreground">{formatDuration(totalMinutes)}</div>
+            <div className="text-base font-bold text-foreground sm:text-lg">{formatDuration(totalMinutes)}</div>
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</div>
           </div>
           <div className="rounded-xl bg-muted/50 p-3 text-center">
             <BarChart3 className="mx-auto mb-1 h-4 w-4 text-neon-green" />
-            <div className="text-lg font-bold text-foreground">{formatDuration(dailyAvg)}</div>
+            <div className="text-base font-bold text-foreground sm:text-lg">{formatDuration(dailyAvg)}</div>
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily Avg</div>
           </div>
           <div className="rounded-xl bg-muted/50 p-3 text-center">
             <div className="mx-auto mb-1 text-sm">📅</div>
-            <div className="text-lg font-bold text-foreground">
+            <div className="text-base font-bold text-foreground sm:text-lg">
               {uniqueDays}
               {mode === "week" ? "/7" : ""}
             </div>
@@ -299,7 +299,7 @@ export default function InsightsPage() {
         </div>
 
         <h3 className="mb-3 font-semibold text-foreground">Study Hours</h3>
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={180}>
           <BarChart data={barData} barCategoryGap={mode === "month" ? "10%" : "20%"}>
             <XAxis
               dataKey="name"
@@ -352,7 +352,7 @@ export default function InsightsPage() {
         </p>
       </div>
 
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
         {[
           { icon: Clock, value: formatDuration(totalMinutes), label: "Total", color: "text-neon-cyan", bg: "bg-neon-cyan/10" },
           { icon: BarChart3, value: formatDuration(dailyAvg), label: "Daily Avg", color: "text-neon-purple", bg: "bg-neon-purple/10" },
@@ -361,11 +361,11 @@ export default function InsightsPage() {
           { icon: Trophy, value: formatDuration(longestSession), label: "Longest", color: "text-neon-orange", bg: "bg-neon-orange/10" },
           { icon: Star, value: bestDay, label: "Best Day", color: "text-neon-pink", bg: "bg-neon-pink/10" },
         ].map(({ icon: Icon, value, label, color, bg }) => (
-          <div key={label} className="stat-card rounded-2xl p-4 text-center">
+          <div key={label} className="stat-card rounded-2xl p-3 text-center sm:p-4">
             <div className={`mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${bg}`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
-            <div className="text-lg font-bold tracking-tight text-foreground">{value}</div>
+            <div className="text-base font-bold tracking-tight text-foreground sm:text-lg">{value}</div>
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
           </div>
         ))}
@@ -373,7 +373,7 @@ export default function InsightsPage() {
 
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {pieData.length > 0 && (
-          <div className="glass-card rounded-2xl p-5 lg:col-span-2">
+          <div className="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2">
             <h2 className="mb-4 font-semibold text-foreground">By Subject</h2>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -384,7 +384,7 @@ export default function InsightsPage() {
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="mt-2 flex flex-wrap justify-center gap-4">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-4">
               {pieData.map((d) => (
                 <div key={d.name} className="flex items-center gap-2 text-sm">
                   <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
@@ -397,7 +397,7 @@ export default function InsightsPage() {
         )}
 
         <div className="space-y-6">
-          <div className="glass-card rounded-2xl p-5">
+          <div className="glass-card rounded-2xl p-4 sm:p-5">
             <h2 className="mb-4 font-semibold text-foreground">Productivity</h2>
             <div className="flex items-center justify-around">
               <div className="text-center">
@@ -418,11 +418,11 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          <div className="glass-card rounded-2xl p-5">
+          <div className="glass-card rounded-2xl p-4 sm:p-5">
             <h2 className="mb-3 font-semibold text-foreground">Peak Performance</h2>
             <div className="py-4 text-center">
-              <div className="mb-2 text-3xl">{peakLabel}</div>
-              <p className="text-sm text-muted-foreground">
+              <div className="mb-2 text-2xl sm:text-3xl">{peakLabel}</div>
+              <p className="text-xs text-muted-foreground sm:text-sm">
                 Most productive around {peakHour}:00 – {(peakHour + 3) % 24}:00
               </p>
             </div>
@@ -430,8 +430,8 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      <div className="glass-card rounded-2xl p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="glass-card rounded-2xl p-4 sm:p-5">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
           <div className="flex items-center rounded-xl bg-muted p-1">
             {[2025, 2026].map((year) => (
@@ -449,8 +449,8 @@ export default function InsightsPage() {
             ))}
           </div>
         </div>
-        <div className="w-full">
-          <div className="w-full">
+        <div className="w-full overflow-x-auto">
+          <div className="min-w-[680px] sm:min-w-0">
             <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
               <div />
               <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px] text-[9px] text-muted-foreground">

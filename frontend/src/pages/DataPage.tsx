@@ -34,8 +34,8 @@ export default function DataPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight text-foreground">Data</h1>
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <h1 className="mb-8 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Data</h1>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div>
@@ -45,7 +45,7 @@ export default function DataPage() {
               {subjects.length}
             </span>
           </div>
-          <div className="glass-card max-h-[70vh] overflow-hidden overflow-y-auto rounded-2xl">
+          <div className="glass-card rounded-2xl sm:max-h-[70vh] sm:overflow-hidden sm:overflow-y-auto">
             {subjects.map((sub) => {
               const sessionCount = sessions.filter((s) => s.subjectId === sub.id).length;
               const totalMins = sessions.filter((s) => s.subjectId === sub.id).reduce((sum, s) => sum + s.duration, 0);
@@ -93,13 +93,13 @@ export default function DataPage() {
               {sessions.length}
             </span>
           </div>
-          <div className="glass-card max-h-[70vh] overflow-hidden overflow-y-auto rounded-2xl">
+          <div className="glass-card rounded-2xl sm:max-h-[70vh] sm:overflow-hidden sm:overflow-y-auto">
             {sessions.map((session) => {
               const subject = getSubject(session.subjectId);
               return (
                 <div
                   key={session.id}
-                  className="flex items-center gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-0 hover:bg-muted/30"
+                  className="flex flex-wrap items-center gap-2 border-b border-border/50 px-4 py-3 transition-colors last:border-0 hover:bg-muted/30 sm:flex-nowrap sm:gap-3"
                 >
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"

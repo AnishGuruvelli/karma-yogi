@@ -88,21 +88,37 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
       });
       window.google.accounts.id.renderButton(mount, {
         theme: "outline",
+        type: "standard",
+        shape: "rectangular",
         size: "large",
         width: String(buttonWidth),
-        text: "continue_with",
+        text: "signin_with",
       });
+    };
+    let resizeTimer: number | undefined;
+    const handleResize = () => {
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => render(), 120);
     };
 
     if (window.google?.accounts?.id) {
       render();
-      return;
+      window.addEventListener("resize", handleResize);
+      return () => {
+        if (resizeTimer) window.clearTimeout(resizeTimer);
+        window.removeEventListener("resize", handleResize);
+      };
     }
     const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
     if (existing) {
       const onLoad = () => render();
       existing.addEventListener("load", onLoad, { once: true });
-      return () => existing.removeEventListener("load", onLoad);
+      window.addEventListener("resize", handleResize);
+      return () => {
+        if (resizeTimer) window.clearTimeout(resizeTimer);
+        existing.removeEventListener("load", onLoad);
+        window.removeEventListener("resize", handleResize);
+      };
     }
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
@@ -110,7 +126,11 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
     script.defer = true;
     script.onload = render;
     document.head.appendChild(script);
-    return () => {};
+    window.addEventListener("resize", handleResize);
+    return () => {
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, [view, onAuthSuccess, googleClientId, googleConfigured]);
 
   const persistRememberEmail = (cleanEmail: string) => {

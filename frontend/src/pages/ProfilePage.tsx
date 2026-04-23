@@ -40,18 +40,18 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold tracking-tight text-foreground">Profile</h1>
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Profile</h1>
       <p className="mt-1 text-muted-foreground">Manage your account information</p>
 
       <section className="glass-card mt-6 rounded-2xl p-6">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-3xl text-foreground">
               {user.name?.charAt(0).toUpperCase() || "U"}
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground">{user.name}</h2>
+              <h2 className="text-xl font-bold text-foreground sm:text-2xl">{user.name}</h2>
               <p className="text-muted-foreground">@{user.username || "karma_learner"}</p>
             </div>
           </div>
