@@ -209,6 +209,9 @@ export default function FriendsPage() {
   const canStartOrLog = friendIds.length > 0 && subjectName.trim().length > 0 && topic.trim().length > 0;
   const canLogPast = canStartOrLog && Number.isFinite(durationMin) && durationMin >= 1;
   const subjectExists = subjects.some((s) => s.name.toLowerCase() === subjectName.trim().toLowerCase());
+  const isLiveRunning = liveStartedAtMs !== null;
+  const isPastSubmitDisabled = !canLogPast;
+  const isLiveSubmitDisabled = !isLiveRunning && !canStartOrLog;
 
   useEffect(() => {
     if (!liveStartedAtMs) return;
@@ -224,6 +227,15 @@ export default function FriendsPage() {
       durationMin,
     }).catch(() => {});
   }, [liveStartedAtMs, friendIds, subjectName, topic, durationMin]);
+
+  useEffect(() => {
+    if (!showSessionModal) return;
+    const { overflow: prevOverflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showSessionModal]);
 
   const createSession = async (payload: { duration: number; startedAt: string }) => {
     if (!subjectName.trim()) throw new Error("Subject is required");
@@ -602,8 +614,9 @@ export default function FriendsPage() {
       )}
 
       {showSessionModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-0 sm:items-center sm:px-3">
-          <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border border-border bg-background p-4 shadow-2xl sm:max-h-[88vh] sm:max-w-xl sm:rounded-3xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div className="flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl">
+            <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
             <div className="mb-4 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neon-purple/15">
@@ -634,8 +647,11 @@ export default function FriendsPage() {
               <button
                 type="button"
                 onClick={() => setSessionMode("live")}
+                disabled={isLiveRunning}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold ${
-                  sessionMode === "live" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"
+                  sessionMode === "live"
+                    ? "bg-background text-primary shadow-sm"
+                    : `text-muted-foreground ${isLiveRunning ? "cursor-not-allowed opacity-60" : ""}`
                 }`}
               >
                 <Clock3 className="h-4 w-4" />
@@ -643,9 +659,15 @@ export default function FriendsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setSessionMode("past")}
+                onClick={() => {
+                  if (isLiveRunning) return;
+                  setSessionMode("past");
+                }}
+                disabled={isLiveRunning}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold ${
-                  sessionMode === "past" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"
+                  sessionMode === "past"
+                    ? "bg-background text-primary shadow-sm"
+                    : `text-muted-foreground ${isLiveRunning ? "cursor-not-allowed opacity-60" : ""}`
                 }`}
               >
                 <Edit3 className="h-4 w-4" />
@@ -661,12 +683,14 @@ export default function FriendsPage() {
                   <button
                     key={friend.id}
                     type="button"
-                    onClick={() =>
-                      setFriendIds((prev) => (prev.includes(friend.id) ? prev.filter((id) => id !== friend.id) : [...prev, friend.id]))
-                    }
+                    onClick={() => {
+                      if (isLiveRunning) return;
+                      setFriendIds((prev) => (prev.includes(friend.id) ? prev.filter((id) => id !== friend.id) : [...prev, friend.id]));
+                    }}
                     className={`flex items-start gap-2 rounded-xl border p-2.5 text-left transition-all ${
                       selected ? "border-primary bg-primary/10" : "border-border bg-background"
                     }`}
+                    disabled={isLiveRunning}
                   >
                     <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-700">
                       {initials(friend.name || friend.email)}
@@ -686,7 +710,8 @@ export default function FriendsPage() {
               value={subjectName}
               onChange={(e) => setSubjectName(e.target.value)}
               placeholder="e.g. QUANT"
-              className="mb-2 w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm"
+              disabled={isLiveRunning}
+              className={`mb-2 w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm ${isLiveRunning ? "cursor-not-allowed opacity-70" : ""}`}
             />
             {subjectName.trim().length > 0 && (
               <p className="mb-2 text-[11px] text-muted-foreground">
@@ -698,8 +723,12 @@ export default function FriendsPage() {
                 <button
                   key={subject.id}
                   type="button"
-                  onClick={() => setSubjectName(subject.name)}
-                  className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground"
+                  onClick={() => {
+                    if (isLiveRunning) return;
+                    setSubjectName(subject.name);
+                  }}
+                  disabled={isLiveRunning}
+                  className={`rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground ${isLiveRunning ? "cursor-not-allowed opacity-60" : ""}`}
                 >
                   {subject.name}
                 </button>
@@ -711,7 +740,8 @@ export default function FriendsPage() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="What did you cover?"
-              className="mb-4 w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm"
+              disabled={isLiveRunning}
+              className={`mb-4 w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm ${isLiveRunning ? "cursor-not-allowed opacity-70" : ""}`}
             />
 
             {sessionMode === "past" ? (
@@ -770,9 +800,11 @@ export default function FriendsPage() {
                 <button
                   type="button"
                   onClick={onLogPast}
-                  disabled={!canLogPast}
+                  disabled={isPastSubmitDisabled}
                   className={`rounded-xl py-2.5 text-sm font-semibold ${
-                    !canLogPast ? "cursor-not-allowed bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"
+                    isPastSubmitDisabled
+                      ? "cursor-not-allowed bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                      : "bg-primary text-primary-foreground"
                   }`}
                 >
                   Log Friend Session
@@ -781,10 +813,10 @@ export default function FriendsPage() {
                 <button
                   type="button"
                   onClick={onLivePrimary}
-                  disabled={!canStartOrLog}
+                  disabled={isLiveSubmitDisabled}
                   className={`rounded-xl py-2.5 text-sm font-semibold ${
-                    !canStartOrLog
-                      ? "cursor-not-allowed bg-muted text-muted-foreground"
+                    isLiveSubmitDisabled
+                      ? "inline-flex items-center justify-center gap-2 cursor-not-allowed bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                       : liveStartedAtMs
                         ? "inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground"
                         : "inline-flex items-center justify-center gap-2 bg-neon-orange text-white"
@@ -794,6 +826,7 @@ export default function FriendsPage() {
                   {liveStartedAtMs ? "Stop & Log" : "Start Timer"}
                 </button>
               )}
+            </div>
             </div>
           </div>
         </div>

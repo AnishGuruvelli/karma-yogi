@@ -64,6 +64,15 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
     }
   }, [subjectId, subjects]);
 
+  useEffect(() => {
+    if (!open) return;
+    const { overflow: prevOverflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
   const handleCreateSubject = async () => {
     if (!newSubjectName.trim()) return;
     const created = await addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
@@ -77,13 +86,14 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
   if (!open) return null;
 
   const handleSubmit = () => {
-    if (!subjectId || (!hours && !minutes)) return;
+    const trimmedTopic = topic.trim();
+    if (!subjectId || (!hours && !minutes) || !trimmedTopic) return;
     const duration = hours * 60 + minutes;
     const now = new Date();
     const endDateTime = new Date(`${sessionDate}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`);
     const startDate = new Date(endDateTime.getTime() - duration * 60000);
     const payload = {
-      topic: topic || 'General study',
+      topic: trimmedTopic,
       duration,
       startTime: `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`,
       endTime: `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`,
@@ -100,16 +110,20 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="glass-modal w-full max-w-3xl rounded-2xl p-6" onClick={e => e.stopPropagation()}>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">{initialSession ? 'Edit Session' : 'Log Session'}</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:max-w-3xl sm:rounded-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">{initialSession ? 'Edit Session' : 'Log Session'}</h2>
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-        <div className="space-y-4">
+          <div className="space-y-4 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Subject</label>
             <Select value={subjectId} onValueChange={setSubjectId}>
@@ -246,7 +260,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
                 <label className="block text-sm font-medium text-muted-foreground">Hours</label>
                 <div className="text-xs text-muted-foreground">Quick pick</div>
               </div>
-              <div className="mt-2 flex flex-nowrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
                 {[0, 1, 2, 3, 4].map((h) => (
                   <button
                     key={h}
@@ -277,7 +291,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
                 <label className="block text-sm font-medium text-muted-foreground">Minutes</label>
                 <div className="text-xs text-muted-foreground">Quick pick</div>
               </div>
-              <div className="mt-2 flex flex-nowrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {[0, 15, 30, 45].map((m) => (
                   <button
                     key={m}
@@ -322,14 +336,15 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
             </div>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={subjects.length === 0}
-            className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90"
-            style={{ boxShadow: 'var(--shadow-md)' }}
-          >
-            {subjects.length === 0 ? 'Add a subject first' : 'Save Session'}
-          </button>
+            <button
+              onClick={handleSubmit}
+            disabled={subjects.length === 0 || !topic.trim() || (!hours && !minutes)}
+              className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ boxShadow: 'var(--shadow-md)' }}
+            >
+            {subjects.length === 0 ? 'Add a subject first' : !topic.trim() ? 'Topic is required' : 'Save Session'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
