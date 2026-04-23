@@ -72,6 +72,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
     const render = () => {
       if (!window.google?.accounts?.id) return;
       mount.innerHTML = "";
+      const buttonWidth = Math.max(240, Math.min(420, Math.floor(mount.clientWidth || 360)));
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: async ({ credential }) => {
@@ -85,7 +86,12 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
           }
         },
       });
-      window.google.accounts.id.renderButton(mount, { theme: "outline", size: "large", width: "100%", text: "continue_with" });
+      window.google.accounts.id.renderButton(mount, {
+        theme: "outline",
+        size: "large",
+        width: String(buttonWidth),
+        text: "continue_with",
+      });
     };
 
     if (window.google?.accounts?.id) {
