@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface LogSessionModalProps {
   open: boolean;
@@ -83,8 +84,6 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
     setShowCreateSubject(false);
   };
 
-  if (!open) return null;
-
   const handleSubmit = () => {
     const trimmedTopic = topic.trim();
     if (!subjectId || (!hours && !minutes) || !trimmedTopic) return;
@@ -110,11 +109,24 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
-      <div
-        className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:max-w-3xl sm:rounded-2xl"
-        onClick={e => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+        >
+          <motion.div
+            className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:max-w-3xl sm:rounded-2xl"
+            onClick={e => e.stopPropagation()}
+            initial={{ y: 64, opacity: 0.94, scale: 0.985 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 72, opacity: 0.9, scale: 0.985 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 32, mass: 0.95 }}
+          >
         <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-bold text-foreground">{initialSession ? 'Edit Session' : 'Log Session'}</h2>
@@ -346,7 +358,9 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
             </button>
           </div>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

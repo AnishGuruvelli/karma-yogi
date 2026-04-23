@@ -4,6 +4,7 @@ import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { clearTimerState, fetchTimerState, saveTimerState, startTimerFromServer } from '@/lib/api';
 import { toLocalDateKey } from '@/lib/date';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type TimerMode = 'stopwatch' | 'pomodoro';
 type PomodoroPhase = 'focus' | 'break';
@@ -68,6 +69,15 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
       setSubjectId(subjects[0].id);
     }
   }, [subjectId, subjects]);
+
+  useEffect(() => {
+    if (!open) return;
+    const { overflow: prevOverflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     const handleVisible = () => setTickNowMs(Date.now());
@@ -209,8 +219,6 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     pausedAccumMs,
   ]);
 
-  if (!open) return null;
-
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -317,28 +325,42 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      onClick={() => {
-        if (!hasStarted) onClose();
-      }}
-    >
-      <div className="glass-modal w-full max-w-md rounded-2xl p-6" onClick={e => e.stopPropagation()}>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">Study Timer</h2>
-          <button
-            onClick={() => {
-              if (!hasStarted) onClose();
-            }}
-            disabled={hasStarted}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          onClick={() => {
+            if (!hasStarted) onClose();
+          }}
+        >
+          <motion.div
+            className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(90dvh,860px)] sm:max-w-md sm:rounded-2xl"
+            initial={{ y: 64, opacity: 0.94, scale: 0.985 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 72, opacity: 0.9, scale: 0.985 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 32, mass: 0.95 }}
+            onClick={e => e.stopPropagation()}
           >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">Study Timer</h2>
+            <button
+              onClick={() => {
+                if (!hasStarted) onClose();
+              }}
+              disabled={hasStarted}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
-        {!hasStarted ? (
-          <>
+          {!hasStarted ? (
+            <>
             {/* Mode Selector */}
             <div className="mb-5 flex rounded-xl bg-muted p-1">
               <button
@@ -460,38 +482,38 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
               )}
             </div>
 
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      if (!canStart) return;
-                      void handleStart();
-                    }}
-                    aria-disabled={!canStart}
-                    title={!canStart ? (subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.') : undefined}
-                    className={`w-full rounded-xl bg-neon-orange py-3.5 font-semibold text-white transition-all neon-glow-orange ${
-                      canStart ? 'hover:opacity-90' : 'cursor-not-allowed opacity-70'
-                    }`}
-                  >
-                    <Play className="mr-2 inline h-4 w-4" />
-                    {subjects.length === 0
-                      ? 'Add a subject first'
-                      : topic.trim().length === 0
-                        ? 'Add a topic first'
-                        : `Start ${mode === 'pomodoro' ? 'Pomodoro' : 'Timer'}`}
-                  </button>
-                </TooltipTrigger>
-                {!canStart && (
-                  <TooltipContent side="top">
-                    {subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.'}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-          </>
-        ) : (
-          <div className="space-y-5">
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => {
+                        if (!canStart) return;
+                        void handleStart();
+                      }}
+                      aria-disabled={!canStart}
+                      title={!canStart ? (subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.') : undefined}
+                      className={`w-full rounded-xl bg-neon-orange py-3.5 font-semibold text-white transition-all neon-glow-orange ${
+                        canStart ? 'hover:opacity-90' : 'cursor-not-allowed opacity-70'
+                      }`}
+                    >
+                      <Play className="mr-2 inline h-4 w-4" />
+                      {subjects.length === 0
+                        ? 'Add a subject first'
+                        : topic.trim().length === 0
+                          ? 'Add a topic first'
+                          : `Start ${mode === 'pomodoro' ? 'Pomodoro' : 'Timer'}`}
+                    </button>
+                  </TooltipTrigger>
+                  {!canStart && (
+                    <TooltipContent side="top">
+                      {subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.'}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            </>
+          ) : (
+            <div className="space-y-5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
             {/* Timer Display */}
             <div className="flex flex-col items-center py-4">
               {mode === 'pomodoro' ? (
@@ -594,9 +616,12 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 Skip {pomodoroPhase === 'focus' ? 'to Break' : 'to Focus'} →
               </button>
             )}
-          </div>
-        )}
-      </div>
-    </div>
+            </div>
+          )}
+        </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

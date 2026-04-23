@@ -7,6 +7,7 @@ import { LogSessionModal } from "@/components/LogSessionModal";
 import { GoalEditModal } from "@/components/GoalEditModal";
 import { currentStreakUntilToday } from "@/lib/stats";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
+import { motion } from "framer-motion";
 
 export default function DashboardPage() {
   const { user, sessions, subjects, goal, getSubject } = useStore();
@@ -84,23 +85,29 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
-          <button
+          <motion.button
             type="button"
             onClick={() => setTimerOpen(true)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-neon-orange px-5 py-2.5 font-semibold text-white transition-all hover:opacity-90 neon-glow-orange sm:w-auto"
+            whileHover={{ y: -1, scale: 1.01 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 500, damping: 28 }}
           >
             <Play className="h-4 w-4" />
             Start Timer
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
             onClick={() => setLogOpen(true)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-all hover:opacity-90 sm:w-auto"
             style={{ boxShadow: "var(--shadow-md)" }}
+            whileHover={{ y: -1, scale: 1.01 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 500, damping: 28 }}
           >
             <Plus className="h-4 w-4" />
             Log Session
-          </button>
+          </motion.button>
         </div>
       </div>
 

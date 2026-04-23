@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Play, Search, Square, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   acceptFriendRequest,
   clearTimerState,
@@ -71,7 +72,8 @@ export default function FriendsPage() {
   const [me, setMe] = useState<UserProfile | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingBase, setLoadingBase] = useState(false);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [sessionMode, setSessionMode] = useState<SessionMode>("past");
@@ -82,7 +84,8 @@ export default function FriendsPage() {
   const [liveStartedAtMs, setLiveStartedAtMs] = useState<number | null>(null);
   const [liveElapsedSec, setLiveElapsedSec] = useState(0);
   const [friendTimerRestored, setFriendTimerRestored] = useState(false);
-  const loadRequestRef = useRef(0);
+  const baseLoadRequestRef = useRef(0);
+  const leaderboardLoadRequestRef = useRef(0);
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const incomingCount = incomingRequests.length;
@@ -139,37 +142,60 @@ export default function FriendsPage() {
     };
   }, [friendTimerRestored]);
 
-  const load = async () => {
-    const requestId = loadRequestRef.current + 1;
-    loadRequestRef.current = requestId;
-    setLoading(true);
+  const loadBaseData = async () => {
+    const requestId = baseLoadRequestRef.current + 1;
+    baseLoadRequestRef.current = requestId;
+    setLoadingBase(true);
     try {
-      const [u, f, incoming, outgoing, l, myProfile] = await Promise.all([
+      const [u, f, incoming, outgoing, myProfile] = await Promise.all([
         fetchDiscoverUsers(),
         fetchFriends(),
         fetchIncomingFriendRequests(),
         fetchOutgoingFriendRequests(),
-        fetchFriendsLeaderboard(weekOffset),
         fetchMe(),
       ]);
-      if (loadRequestRef.current !== requestId) return;
+      if (baseLoadRequestRef.current !== requestId) return;
       setUsers(u);
       setFriends(f);
       setIncomingRequests(incoming);
       setOutgoingRequests(outgoing);
-      setLeaderboard(l);
       setMe(myProfile);
     } catch (e) {
-      if (loadRequestRef.current !== requestId) return;
+      if (baseLoadRequestRef.current !== requestId) return;
       toast.error(e instanceof Error ? e.message : "Failed to load friends");
     } finally {
-      if (loadRequestRef.current !== requestId) return;
-      setLoading(false);
+      if (baseLoadRequestRef.current !== requestId) return;
+      setLoadingBase(false);
     }
   };
 
+  const loadLeaderboardData = async (offset = weekOffset) => {
+    const requestId = leaderboardLoadRequestRef.current + 1;
+    leaderboardLoadRequestRef.current = requestId;
+    setLoadingLeaderboard(true);
+    try {
+      const l = await fetchFriendsLeaderboard(offset);
+      if (leaderboardLoadRequestRef.current !== requestId) return;
+      setLeaderboard(l);
+    } catch (e) {
+      if (leaderboardLoadRequestRef.current !== requestId) return;
+      toast.error(e instanceof Error ? e.message : "Failed to load leaderboard");
+    } finally {
+      if (leaderboardLoadRequestRef.current !== requestId) return;
+      setLoadingLeaderboard(false);
+    }
+  };
+
+  const loadAllData = async () => {
+    await Promise.all([loadBaseData(), loadLeaderboardData()]);
+  };
+
   useEffect(() => {
-    void load();
+    void loadBaseData();
+  }, []);
+
+  useEffect(() => {
+    void loadLeaderboardData(weekOffset);
   }, [weekOffset]);
 
   const leaderboardWithRank = useMemo(
@@ -258,7 +284,7 @@ export default function FriendsPage() {
       toast.success("Friend session logged");
       setShowSessionModal(false);
       resetSessionForm();
-      await load();
+      await loadAllData();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to log session");
     }
@@ -287,7 +313,7 @@ export default function FriendsPage() {
       toast.success("Live friend session saved");
       setShowSessionModal(false);
       resetSessionForm();
-      await load();
+      await loadAllData();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to save live session");
     }
@@ -300,14 +326,17 @@ export default function FriendsPage() {
           <h1 className="text-3xl font-bold text-foreground dark:text-white sm:text-4xl">Friends</h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400 sm:text-base">Study together. Grow together.</p>
         </div>
-        <button
+        <motion.button
           type="button"
           onClick={() => openSessionModal()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm dark:border dark:border-cyan-300/30 dark:bg-cyan-400 dark:text-slate-900 sm:w-auto"
+          whileHover={{ y: -1, scale: 1.01 }}
+          whileTap={{ scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 500, damping: 28 }}
         >
           <Users className="h-4 w-4" />
           New Friend Session
-        </button>
+        </motion.button>
       </div>
 
       <div className="mt-5 space-y-3 rounded-2xl border border-border/60 bg-muted/25 p-2 dark:border-slate-800 dark:bg-slate-900/40">
@@ -449,7 +478,7 @@ export default function FriendsPage() {
                   </div>
                 );
               })}
-              {!leaderboardWithRank.length && !loading && <p className="text-sm text-muted-foreground">No ranking data yet.</p>}
+              {!leaderboardWithRank.length && !loadingLeaderboard && <p className="text-sm text-muted-foreground">No ranking data yet.</p>}
             </div>
           </div>
         </section>
@@ -490,7 +519,7 @@ export default function FriendsPage() {
               </article>
             );
           })}
-          {!friends.length && !loading && <p className="text-sm text-muted-foreground">No friends yet.</p>}
+          {!friends.length && !loadingBase && <p className="text-sm text-muted-foreground">No friends yet.</p>}
         </section>
       )}
 
@@ -523,7 +552,7 @@ export default function FriendsPage() {
                     try {
                       await sendFriendRequest(u.id);
                       toast.success("Friend request sent");
-                      await load();
+                      await loadAllData();
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Failed to send request");
                     }
@@ -535,7 +564,7 @@ export default function FriendsPage() {
                 </button>
               </article>
             ))}
-            {!discoverUsers.length && !loading && <p className="text-sm text-muted-foreground">No users found.</p>}
+            {!discoverUsers.length && !loadingBase && <p className="text-sm text-muted-foreground">No users found.</p>}
           </div>
         </section>
       )}
@@ -564,7 +593,7 @@ export default function FriendsPage() {
                         try {
                           await acceptFriendRequest(request.id);
                           toast.success("Friend request accepted");
-                          await load();
+                          await loadAllData();
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Unable to accept request");
                         }
@@ -579,7 +608,7 @@ export default function FriendsPage() {
                         try {
                           await rejectFriendRequest(request.id);
                           toast.success("Friend request rejected");
-                          await load();
+                          await loadAllData();
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Unable to reject request");
                         }
@@ -613,9 +642,22 @@ export default function FriendsPage() {
         </section>
       )}
 
-      {showSessionModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-          <div className="flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl">
+      <AnimatePresence>
+        {showSessionModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            <motion.div
+              className="flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl"
+              initial={{ y: 64, opacity: 0.94, scale: 0.985 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 72, opacity: 0.9, scale: 0.985 }}
+              transition={{ type: "spring", stiffness: 340, damping: 32, mass: 0.95 }}
+            >
             <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
             <div className="mb-4 flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -828,9 +870,10 @@ export default function FriendsPage() {
               )}
             </div>
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
