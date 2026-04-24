@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, 
 import { Clock, BarChart3, BookOpen, List, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
+import { getSafeSubjectIcon } from "@/lib/subject-icon";
 
 type PeriodMode = "week" | "month" | "all";
 
@@ -146,7 +147,7 @@ export default function InsightsPage() {
     .map((sub, index) => {
       const mins = filteredSessions.filter((s) => s.subjectId === sub.id).reduce((sum, s) => sum + s.duration, 0);
       return {
-        name: `${sub.icon} ${sub.name}`,
+        name: `${getSafeSubjectIcon(sub.icon, sub.name.charAt(0) || "📘")} ${sub.name}`,
         value: mins,
         color: piePalette[index % piePalette.length] || "#cbd5e1",
       };

@@ -3,6 +3,7 @@ import { useStore } from '@/lib/store';
 import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { clearTimerState, fetchTimerState, saveTimerState, startTimerFromServer } from '@/lib/api';
 import { toLocalDateKey } from '@/lib/date';
+import { getSafeSubjectIcon } from '@/lib/subject-icon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -28,6 +29,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const [showCreateSubject, setShowCreateSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectColor, setNewSubjectColor] = useState('cyan');
+  const selectedSubject = subjects.find((s) => s.id === subjectId);
   const colorMap: Record<string, string> = {
     green: '#4ade80', cyan: '#22d3ee', orange: '#fb923c', pink: '#f472b6', purple: '#a78bfa',
   };
@@ -408,7 +410,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 >
                   {subjects.length === 0 && <option value="">No subjects yet</option>}
                   {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {`${getSafeSubjectIcon(s.icon, s.name.charAt(0) || '📘')} ${s.name}`}
+                    </option>
                   ))}
                 </select>
                 <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3">
@@ -561,7 +565,10 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 <div className="text-6xl font-mono font-bold text-foreground tracking-tight">{formatTime(computedStopwatchElapsed)}</div>
               )}
               <p className="mt-3 text-sm text-muted-foreground">
-                {subjects.find(s => s.id === subjectId)?.name} — {topic || 'General study'}
+                {selectedSubject
+                  ? `${getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')} ${selectedSubject.name}`
+                  : 'Subject'}{' '}
+                — {topic || 'General study'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground/90">
                 Started at {formatStartedAt(startedAtMs)}

@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getSafeSubjectIcon } from "@/lib/subject-icon";
 
 export default function DataPage() {
   const { subjects, sessions, getSubject, addSubject, updateSubjectColor, deleteSubject, deleteSession } = useStore();
@@ -122,7 +123,7 @@ export default function DataPage() {
                         style={{ backgroundColor: colorMap[sub.color] + "1A" }}
                         title="Change subject color"
                       >
-                        <span className="text-base">{sub.icon || sub.name.charAt(0)}</span>
+                        <span className="text-base">{getSafeSubjectIcon(sub.icon, sub.name.charAt(0) || "📘")}</span>
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="z-[80] w-auto rounded-xl border-border bg-card/95 p-1.5 shadow-lg" align="start" side="bottom" sideOffset={8}>
@@ -196,7 +197,7 @@ export default function DataPage() {
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                     style={{ backgroundColor: (colorMap[subject?.color || "cyan"]) + "1A" }}
                   >
-                    <span className="text-sm">{subject?.icon || subject?.name.charAt(0) || "?"}</span>
+                    <span className="text-sm">{getSafeSubjectIcon(subject?.icon, subject?.name.charAt(0) || "?")}</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-foreground">{subject?.name}</div>
