@@ -127,17 +127,34 @@ export default function FriendsPage() {
         setFriendTimerRestored(true);
         if (!state || typeof state !== "object") return;
         if (state.timerType !== "friend") return;
-        if (state.sessionMode !== "live") return;
-        setSessionMode("live");
-        setShowSessionModal(Boolean(state.hasStarted) || Boolean(state.isRunning));
+        const restoredSessionMode: SessionMode = state.sessionMode === "live" ? "live" : "past";
+        setSessionMode(restoredSessionMode);
+        setShowSessionModal(Boolean(state.showSessionModal) || Boolean(state.hasStarted) || Boolean(state.isRunning));
         setFriendIds(Array.isArray(state.friendIds) ? state.friendIds.filter((v): v is string => typeof v === "string") : []);
+        setUseDifferentSubjects(state.useDifferentSubjects === true);
+        const restoredPlans =
+          state.friendPlans && typeof state.friendPlans === "object"
+            ? Object.entries(state.friendPlans as Record<string, unknown>).reduce<Record<string, { subjectName: string; topic: string }>>(
+                (acc, [id, plan]) => {
+                  if (!plan || typeof plan !== "object") return acc;
+                  const subjectName = typeof (plan as { subjectName?: unknown }).subjectName === "string" ? (plan as { subjectName: string }).subjectName : "";
+                  const topic = typeof (plan as { topic?: unknown }).topic === "string" ? (plan as { topic: string }).topic : "";
+                  acc[id] = { subjectName, topic };
+                  return acc;
+                },
+                {},
+              )
+            : {};
+        setFriendPlans(restoredPlans);
         setSubjectName(typeof state.subjectName === "string" ? state.subjectName : "");
         setTopic(typeof state.topic === "string" ? state.topic : "");
         setDurationMin(typeof state.durationMin === "number" ? state.durationMin : 60);
-        const startedMs = typeof state.startedAtMs === "number" ? state.startedAtMs : null;
+        const startedMs = restoredSessionMode === "live" && typeof state.startedAtMs === "number" ? state.startedAtMs : null;
         setLiveStartedAtMs(startedMs);
         if (startedMs) {
           setLiveElapsedSec(Math.max(0, Math.floor((Date.now() - startedMs) / 1000)));
+        } else {
+          setLiveElapsedSec(0);
         }
       })
       .catch(() => {});
@@ -262,7 +279,7 @@ export default function FriendsPage() {
         : missingFriend
           ? "Select friend first"
           : hasIncompleteFriendPlans
-            ? "Fill friends' subject/topic"
+            ? "Fill friend topic"
             : "Complete required fields";
 
   useEffect(() => {
@@ -283,19 +300,29 @@ export default function FriendsPage() {
   }, [showSessionModal, friendIds, friends]);
 
   useEffect(() => {
-    if (!liveStartedAtMs) return;
+    if (!showSessionModal && !liveStartedAtMs) return;
+    const persistedFriendPlans = useDifferentSubjects
+      ? friendIds.reduce<Record<string, { subjectName: string; topic: string }>>((acc, id) => {
+          const plan = friendPlans[id];
+          acc[id] = { subjectName: plan?.subjectName ?? "", topic: plan?.topic ?? "" };
+          return acc;
+        }, {})
+      : {};
     void saveTimerState({
       timerType: "friend",
-      sessionMode: "live",
-      hasStarted: true,
-      isRunning: true,
+      sessionMode,
+      showSessionModal,
+      hasStarted: Boolean(liveStartedAtMs),
+      isRunning: Boolean(liveStartedAtMs),
       startedAtMs: liveStartedAtMs,
       friendIds,
+      useDifferentSubjects,
+      friendPlans: persistedFriendPlans,
       subjectName: subjectName.trim(),
       topic: topic.trim(),
       durationMin,
     }).catch(() => {});
-  }, [liveStartedAtMs, friendIds, subjectName, topic, durationMin]);
+  }, [showSessionModal, sessionMode, liveStartedAtMs, friendIds, useDifferentSubjects, friendPlans, subjectName, topic, durationMin]);
 
   useEffect(() => {
     if (!showSessionModal) return;
@@ -332,6 +359,7 @@ export default function FriendsPage() {
   const onLogPast = async () => {
     try {
       await createSession({ duration: durationMin, startedAt: new Date().toISOString() });
+      await clearTimerState().catch(() => {});
       toast.success("Friend session logged");
       setShowSessionModal(false);
       resetSessionForm();
@@ -702,8 +730,8 @@ export default function FriendsPage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
           >
-            <motion.div
-              className="flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl"
+          <motion.div
+              className="flex h-[75dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:h-auto sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl"
               initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
@@ -719,6 +747,7 @@ export default function FriendsPage() {
                     setShowSessionModal(false);
                     return;
                   }
+                  void clearTimerState().catch(() => {});
                   setShowSessionModal(false);
                   resetSessionForm();
                 }
@@ -743,6 +772,7 @@ export default function FriendsPage() {
                     setShowSessionModal(false);
                     return;
                   }
+                  void clearTimerState().catch(() => {});
                   setShowSessionModal(false);
                   resetSessionForm();
                 }}
@@ -972,10 +1002,10 @@ export default function FriendsPage() {
                   type="button"
                   onClick={onLogPast}
                   disabled={isPastSubmitDisabled}
-                  className={`rounded-xl py-2.5 text-sm font-semibold ${
+                  className={`inline-flex min-h-11 items-center justify-center px-2 py-2.5 text-center text-sm font-semibold leading-tight ${
                     isPastSubmitDisabled
-                      ? "cursor-not-allowed bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                      : "bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                      ? "cursor-not-allowed rounded-xl bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                      : "rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90"
                   }`}
                 >
                   {isPastSubmitDisabled ? disabledCtaLabel : "Log Friend Session"}
@@ -985,12 +1015,12 @@ export default function FriendsPage() {
                   type="button"
                   onClick={onLivePrimary}
                   disabled={isLiveSubmitDisabled}
-                  className={`rounded-xl py-2.5 text-sm font-semibold ${
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 text-center text-sm font-semibold leading-tight ${
                     isLiveSubmitDisabled
-                      ? "inline-flex items-center justify-center gap-2 cursor-not-allowed bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                      ? "cursor-not-allowed rounded-xl bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                       : liveStartedAtMs
-                        ? "inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-opacity hover:opacity-90"
-                        : "inline-flex items-center justify-center gap-2 bg-neon-orange text-white transition-opacity hover:opacity-90"
+                        ? "rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                        : "rounded-xl bg-neon-orange text-white transition-opacity hover:opacity-90"
                   }`}
                 >
                   {liveStartedAtMs ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
