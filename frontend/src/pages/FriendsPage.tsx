@@ -500,15 +500,17 @@ export default function FriendsPage() {
               {topThree.map((entry, idx) => {
                 const bg =
                   idx === 0 ? "from-orange-100 to-orange-50" : idx === 1 ? "from-slate-100 to-slate-50" : "from-pink-100 to-pink-50";
+                const darkBg =
+                  idx === 0 ? "dark:from-amber-900/35 dark:to-slate-900" : idx === 1 ? "dark:from-slate-800 dark:to-slate-950" : "dark:from-fuchsia-900/25 dark:to-slate-900";
                 return (
-                  <article key={entry.userId} className={`min-w-[240px] rounded-2xl bg-gradient-to-b ${bg} p-5 text-center md:min-w-0`}>
+                  <article key={entry.userId} className={`min-w-[240px] rounded-2xl bg-gradient-to-b ${bg} ${darkBg} p-5 text-center md:min-w-0`}>
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-white text-base font-bold text-foreground shadow-sm dark:border-slate-500 dark:bg-[#10213d] dark:text-slate-100">
                       {initials(entry.fullName || entry.username || "F")}
                     </div>
-                    <p className="mt-2 text-xl font-semibold text-foreground">{entry.fullName || entry.username}</p>
-                    <p className="text-sm text-muted-foreground">{formatDuration(entry.weeklyMinutes)} this week</p>
-                    <div className={`mt-3 rounded-xl py-6 ${idx === 0 ? "bg-orange-100/80" : idx === 1 ? "bg-slate-100/90" : "bg-pink-100/80"} dark:bg-slate-900/40`}>
-                      <p className="text-5xl font-extrabold text-foreground">#{entry.rank}</p>
+                    <p className="mt-2 text-xl font-semibold text-foreground dark:text-slate-100">{entry.fullName || entry.username}</p>
+                    <p className="text-sm text-muted-foreground dark:text-slate-300">{formatDuration(entry.weeklyMinutes)} this week</p>
+                    <div className={`mt-3 rounded-xl py-6 ${idx === 0 ? "bg-orange-100/80" : idx === 1 ? "bg-slate-100/90" : "bg-pink-100/80"} dark:bg-slate-800/80`}>
+                      <p className="text-5xl font-extrabold text-foreground dark:text-white">#{entry.rank}</p>
                     </div>
                   </article>
                 );
