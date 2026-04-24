@@ -64,7 +64,7 @@ const SHEET_CLOSE_DRAG_Y = 120;
 const SHEET_CLOSE_VELOCITY_Y = 700;
 
 export default function FriendsPage() {
-  const { subjects } = useStore();
+  const { subjects, reloadStoreData } = useStore();
   const [activeTab, setActiveTab] = useState<TabKey>("leaderboard");
   const [users, setUsers] = useState<FriendUser[]>([]);
   const [friends, setFriends] = useState<UserProfile[]>([]);
@@ -80,6 +80,8 @@ export default function FriendsPage() {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [sessionMode, setSessionMode] = useState<SessionMode>("past");
   const [friendIds, setFriendIds] = useState<string[]>([]);
+  const [useDifferentSubjects, setUseDifferentSubjects] = useState(false);
+  const [friendPlans, setFriendPlans] = useState<Record<string, { subjectName: string; topic: string }>>({});
   const [subjectName, setSubjectName] = useState("");
   const [topic, setTopic] = useState("");
   const [durationMin, setDurationMin] = useState(60);
@@ -216,6 +218,8 @@ export default function FriendsPage() {
   const resetSessionForm = () => {
     setSessionMode("past");
     setFriendIds([]);
+    setUseDifferentSubjects(false);
+    setFriendPlans({});
     setSubjectName("");
     setTopic("");
     setDurationMin(60);
@@ -234,12 +238,49 @@ export default function FriendsPage() {
   };
 
   const selectedFriends = useMemo(() => friends.filter((f) => friendIds.includes(f.id)), [friendIds, friends]);
-  const canStartOrLog = friendIds.length > 0 && subjectName.trim().length > 0 && topic.trim().length > 0;
+  const hasIncompleteFriendPlans = useDifferentSubjects
+    ? friendIds.some((id) => {
+        const plan = friendPlans[id];
+        return !plan || plan.subjectName.trim().length === 0 || plan.topic.trim().length === 0;
+      })
+    : false;
+  const canStartOrLog =
+    friendIds.length > 0 && subjectName.trim().length > 0 && topic.trim().length > 0 && !hasIncompleteFriendPlans;
   const canLogPast = canStartOrLog && Number.isFinite(durationMin) && durationMin >= 1;
   const subjectExists = subjects.some((s) => s.name.toLowerCase() === subjectName.trim().toLowerCase());
   const isLiveRunning = liveStartedAtMs !== null;
   const isPastSubmitDisabled = !canLogPast;
   const isLiveSubmitDisabled = !isLiveRunning && !canStartOrLog;
+  const missingFriend = friendIds.length === 0;
+  const missingSubject = subjectName.trim().length === 0;
+  const missingTopic = topic.trim().length === 0;
+  const disabledCtaLabel =
+    missingTopic
+      ? "Topic is required"
+      : missingSubject
+        ? "Subject is required"
+        : missingFriend
+          ? "Select friend first"
+          : hasIncompleteFriendPlans
+            ? "Fill friends' subject/topic"
+            : "Complete required fields";
+
+  useEffect(() => {
+    setFriendPlans((prev) => {
+      const next: Record<string, { subjectName: string; topic: string }> = {};
+      friendIds.forEach((id) => {
+        next[id] = prev[id] ?? { subjectName: "", topic: "" };
+      });
+      return next;
+    });
+  }, [friendIds]);
+
+  useEffect(() => {
+    if (!showSessionModal) return;
+    if (friendIds.length > 0) return;
+    if (friends.length !== 1) return;
+    setFriendIds([friends[0].id]);
+  }, [showSessionModal, friendIds, friends]);
 
   useEffect(() => {
     if (!liveStartedAtMs) return;
@@ -269,11 +310,19 @@ export default function FriendsPage() {
     if (!subjectName.trim()) throw new Error("Subject is required");
     if (!topic.trim()) throw new Error("Topic is required");
     if (friendIds.length === 0) throw new Error("Select at least one friend");
+    if (useDifferentSubjects && hasIncompleteFriendPlans) throw new Error("Fill each selected friend's subject and topic");
 
     await createFriendSession({
       friendIds,
       subjectName: subjectName.trim(),
       topic: topic.trim(),
+      perFriendPlans: useDifferentSubjects
+        ? friendIds.map((id) => ({
+            friendId: id,
+            subjectName: friendPlans[id]?.subjectName.trim() || "",
+            topic: friendPlans[id]?.topic.trim() || "",
+          }))
+        : undefined,
       durationMin: payload.duration,
       mood: "4",
       startedAt: payload.startedAt,
@@ -286,7 +335,7 @@ export default function FriendsPage() {
       toast.success("Friend session logged");
       setShowSessionModal(false);
       resetSessionForm();
-      await loadAllData();
+      await Promise.all([loadAllData(), reloadStoreData()]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to log session");
     }
@@ -315,7 +364,7 @@ export default function FriendsPage() {
       toast.success("Live friend session saved");
       setShowSessionModal(false);
       resetSessionForm();
-      await loadAllData();
+      await Promise.all([loadAllData(), reloadStoreData()]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to save live session");
     }
@@ -736,6 +785,19 @@ export default function FriendsPage() {
             </div>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Study with</p>
+            <div className="mb-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isLiveRunning) return;
+                  setUseDifferentSubjects((prev) => !prev);
+                }}
+                disabled={isLiveRunning}
+                className="text-xs font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {useDifferentSubjects ? "Same subject for all" : "Different subjects?"}
+              </button>
+            </div>
             <div className="mb-4 grid max-h-48 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
               {friends.map((friend) => {
                 const selected = friendIds.includes(friend.id);
@@ -803,6 +865,55 @@ export default function FriendsPage() {
               disabled={isLiveRunning}
               className={`mb-4 w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm ${isLiveRunning ? "cursor-not-allowed opacity-70" : ""}`}
             />
+            {useDifferentSubjects && (
+              <div className="mb-4 rounded-2xl border border-border bg-muted/20 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Friends' subjects</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {selectedFriends.length === 0 ? "Please select a friend first" : "Each can study something different"}
+                  </p>
+                </div>
+                {selectedFriends.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border bg-background/70 p-3 text-sm text-muted-foreground">
+                    Please select a friend to add their subject and topic.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedFriends.map((friend) => (
+                      <div key={friend.id} className="rounded-xl border border-border bg-background p-2.5">
+                        <p className="mb-2 text-sm font-semibold text-foreground">{friend.name || friend.email}</p>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <input
+                            value={friendPlans[friend.id]?.subjectName || ""}
+                            onChange={(e) =>
+                              setFriendPlans((prev) => ({
+                                ...prev,
+                                [friend.id]: { ...(prev[friend.id] ?? { subjectName: "", topic: "" }), subjectName: e.target.value },
+                              }))
+                            }
+                            placeholder="Subject"
+                            disabled={isLiveRunning}
+                            className={`rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm ${isLiveRunning ? "cursor-not-allowed opacity-70" : ""}`}
+                          />
+                          <input
+                            value={friendPlans[friend.id]?.topic || ""}
+                            onChange={(e) =>
+                              setFriendPlans((prev) => ({
+                                ...prev,
+                                [friend.id]: { ...(prev[friend.id] ?? { subjectName: "", topic: "" }), topic: e.target.value },
+                              }))
+                            }
+                            placeholder="Topic"
+                            disabled={isLiveRunning}
+                            className={`rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm ${isLiveRunning ? "cursor-not-allowed opacity-70" : ""}`}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {sessionMode === "past" ? (
               <>
@@ -852,7 +963,7 @@ export default function FriendsPage() {
                   setShowSessionModal(false);
                   resetSessionForm();
                 }}
-                className="rounded-xl border border-border py-2.5 text-sm font-semibold text-foreground"
+                className="rounded-xl border border-border py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted/60"
               >
                 Cancel
               </button>
@@ -864,10 +975,10 @@ export default function FriendsPage() {
                   className={`rounded-xl py-2.5 text-sm font-semibold ${
                     isPastSubmitDisabled
                       ? "cursor-not-allowed bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                      : "bg-primary text-primary-foreground"
+                      : "bg-primary text-primary-foreground transition-opacity hover:opacity-90"
                   }`}
                 >
-                  Log Friend Session
+                  {isPastSubmitDisabled ? disabledCtaLabel : "Log Friend Session"}
                 </button>
               ) : (
                 <button
@@ -878,12 +989,12 @@ export default function FriendsPage() {
                     isLiveSubmitDisabled
                       ? "inline-flex items-center justify-center gap-2 cursor-not-allowed bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                       : liveStartedAtMs
-                        ? "inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground"
-                        : "inline-flex items-center justify-center gap-2 bg-neon-orange text-white"
+                        ? "inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                        : "inline-flex items-center justify-center gap-2 bg-neon-orange text-white transition-opacity hover:opacity-90"
                   }`}
                 >
                   {liveStartedAtMs ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  {liveStartedAtMs ? "Stop & Log" : "Start Timer"}
+                  {liveStartedAtMs ? "Stop & Log" : isLiveSubmitDisabled ? disabledCtaLabel : "Start Timer"}
                 </button>
               )}
             </div>

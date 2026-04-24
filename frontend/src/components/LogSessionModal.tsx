@@ -23,9 +23,10 @@ interface LogSessionModalProps {
     moodRating: number;
   } | null;
   onSave?: (changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => void;
+  onDelete?: () => void;
 }
 
-export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSessionModalProps) {
+export function LogSessionModal({ open, onClose, initialSession, onSave, onDelete }: LogSessionModalProps) {
   const { subjects, addSession, addSubject } = useStore();
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
   const [topic, setTopic] = useState(initialSession?.topic || '');
@@ -37,6 +38,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
   const [sessionDate, setSessionDate] = useState(initialSession?.date || toLocalDateString(new Date()));
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [showCreateSubject, setShowCreateSubject] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectColor, setNewSubjectColor] = useState('cyan');
   const colorMap: Record<string, string> = {
@@ -361,15 +363,80 @@ export function LogSessionModal({ open, onClose, initialSession, onSave }: LogSe
             </div>
           </div>
 
-            <button
-              onClick={handleSubmit}
-            disabled={subjects.length === 0 || !topic.trim() || (!hours && !minutes)}
-              className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ boxShadow: 'var(--shadow-md)' }}
-            >
-            {subjects.length === 0 ? 'Add a subject first' : !topic.trim() ? 'Topic is required' : 'Save Session'}
-            </button>
+            {initialSession && onDelete ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  className="rounded-xl border border-red-300 bg-red-50 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                >
+                  Delete Session
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={subjects.length === 0 || !topic.trim() || (!hours && !minutes)}
+                  className="rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{ boxShadow: 'var(--shadow-md)' }}
+                >
+                  {subjects.length === 0 ? 'Add a subject first' : !topic.trim() ? 'Topic is required' : 'Save Session'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={subjects.length === 0 || !topic.trim() || (!hours && !minutes)}
+                className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ boxShadow: 'var(--shadow-md)' }}
+              >
+                {subjects.length === 0 ? 'Add a subject first' : !topic.trim() ? 'Topic is required' : 'Save Session'}
+              </button>
+            )}
           </div>
+          <AnimatePresence>
+            {showDeleteConfirm && (
+              <motion.div
+                className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                <motion.div
+                  className="w-full max-w-xl rounded-2xl border border-border bg-background p-6 shadow-2xl"
+                  initial={{ y: 10, opacity: 0.95, scale: 0.98 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: 8, opacity: 0.95, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-2xl font-bold text-foreground">Delete this session?</h3>
+                  <p className="mt-3 text-lg text-muted-foreground">
+                    Session topic: &quot;{topic.trim() || initialSession?.topic || 'Untitled'}&quot;. This action cannot be undone.
+                  </p>
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="rounded-xl border border-border bg-card px-5 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDeleteConfirm(false);
+                        onDelete?.();
+                      }}
+                      className="rounded-xl bg-red-600 px-5 py-2.5 text-base font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
           </motion.div>
         </motion.div>

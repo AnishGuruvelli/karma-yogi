@@ -220,6 +220,18 @@ func (r *pgSubjectRepo) GetLatestIcon(ctx context.Context, userID string) (strin
 	}
 	return icon, nil
 }
+func (r *pgSubjectRepo) UpdateColor(ctx context.Context, id, userID, color string) (domain.Subject, error) {
+	var s domain.Subject
+	err := r.pool.QueryRow(ctx, `UPDATE subjects SET color=$3 WHERE id=$1 AND user_id=$2 RETURNING id,user_id,name,color,icon,created_at`, id, userID, color).
+		Scan(&s.ID, &s.UserID, &s.Name, &s.Color, &s.Icon, &s.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Subject{}, errors.New("not found")
+		}
+		return domain.Subject{}, err
+	}
+	return s, nil
+}
 func (r *pgSubjectRepo) Delete(ctx context.Context, id, userID string) error {
 	ct, err := r.pool.Exec(ctx, `DELETE FROM subjects WHERE id=$1 AND user_id=$2`, id, userID)
 	if err != nil {

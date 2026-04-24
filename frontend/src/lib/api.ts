@@ -233,6 +233,13 @@ export async function removeSubject(id: string): Promise<void> {
   if (!res.ok) throw new Error('Unable to delete subject');
 }
 
+export async function updateSubjectColor(id: string, color: string): Promise<Subject> {
+  const res = await request(`/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ color }) });
+  if (!res.ok) throw new Error('Unable to update subject color');
+  const s = (await res.json()) as BackendSubject;
+  return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) };
+}
+
 export async function fetchTimerState(): Promise<TimerStatePayload | null> {
   const res = await request('/timer-state');
   if (!res.ok) throw new Error('Unable to fetch timer state');
@@ -309,6 +316,11 @@ export async function createFriendSession(payload: {
   friendIds: string[];
   subjectName: string;
   topic: string;
+  perFriendPlans?: Array<{
+    friendId: string;
+    subjectName: string;
+    topic: string;
+  }>;
   durationMin: number;
   mood: string;
   startedAt: string;

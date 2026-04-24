@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { Subject, Session, Goal, UserProfile } from '@/lib/types';
-import { createOrUpdateGoal, createSession, createSubject, ensureDevAuth, fetchGoals, fetchMe, fetchSessions, fetchSubjects, removeSession, removeSubject, updateMe, updateSession } from '@/lib/api';
+import { createOrUpdateGoal, createSession, createSubject, ensureDevAuth, fetchGoals, fetchMe, fetchSessions, fetchSubjects, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
 import { toLocalDateKey } from '@/lib/date';
 
@@ -18,6 +18,7 @@ interface StoreContextType {
   user: UserProfile;
   timer: TimerState;
   addSubject: (name: string, color: string) => Promise<Subject | null>;
+  updateSubjectColor: (id: string, color: string) => Promise<boolean>;
   deleteSubject: (id: string) => void;
   addSession: (session: Omit<Session, 'id'>) => void;
   deleteSession: (id: string) => void;
@@ -30,6 +31,7 @@ interface StoreContextType {
   isDark: boolean;
   toggleTheme: () => void;
   updateUserProfile: (payload: { name: string; username: string; phone: string }) => Promise<void>;
+  reloadStoreData: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -44,20 +46,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerStartRef = useRef<Date | null>(null);
 
-  useEffect(() => {
-    void ensureDevAuth().then(() => Promise.allSettled([fetchMe(), fetchSubjects(), fetchSessions(), fetchGoals()])).then(([me, subs, sess, goals]) => {
-      if (me.status === 'fulfilled') setUser(me.value);
-      if (subs.status === 'fulfilled' && subs.value.length > 0) setSubjects(subs.value);
-      if (sess.status === 'fulfilled') {
-        setSessions(sess.value);
-        setGoal((prev) => ({ ...prev, currentProgress: +(sess.value.reduce((a, s) => a + s.duration, 0) / 60).toFixed(1) }));
-        setUser((prev) => ({ ...prev, currentStreak: currentStreakUntilToday(sess.value) }));
-      }
-      if (goals.status === 'fulfilled' && goals.value.length > 0) {
-        setGoal((prev) => ({ ...prev, ...goals.value[0] }));
-      }
-    });
+  const reloadStoreData = useCallback(async () => {
+    await ensureDevAuth();
+    const [me, subs, sess, goals] = await Promise.allSettled([fetchMe(), fetchSubjects(), fetchSessions(), fetchGoals()]);
+    if (me.status === 'fulfilled') setUser(me.value);
+    if (subs.status === 'fulfilled') setSubjects(subs.value);
+    if (sess.status === 'fulfilled') {
+      setSessions(sess.value);
+      setGoal((prev) => ({ ...prev, currentProgress: +(sess.value.reduce((a, s) => a + s.duration, 0) / 60).toFixed(1) }));
+      setUser((prev) => ({ ...prev, currentStreak: currentStreakUntilToday(sess.value) }));
+    }
+    if (goals.status === 'fulfilled' && goals.value.length > 0) {
+      setGoal((prev) => ({ ...prev, ...goals.value[0] }));
+    }
   }, []);
+
+  useEffect(() => {
+    void reloadStoreData();
+  }, [reloadStoreData]);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -96,6 +102,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // If refetch fails, the optimistic filter above still keeps the UI consistent.
       }
     });
+  }, []);
+
+  const updateSubjectColor = useCallback(async (id: string, color: string): Promise<boolean> => {
+    try {
+      const updated = await patchSubjectColor(id, color);
+      setSubjects((prev) => prev.map((s) => (s.id === id ? { ...s, color: updated.color } : s)));
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   const addSession = useCallback((session: Omit<Session, 'id'>) => {
@@ -182,8 +198,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     <StoreContext.Provider value={{
       subjects, sessions, goal, user, timer,
       addSubject, deleteSubject, addSession, deleteSession,
+      updateSubjectColor,
       updateGoal, startTimer, stopTimer, resetTimer, getSubject, editSession,
-      isDark, toggleTheme, updateUserProfile,
+      isDark, toggleTheme, updateUserProfile, reloadStoreData,
     }}>
       {children}
     </StoreContext.Provider>

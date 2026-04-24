@@ -40,6 +40,7 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 			p.Patch("/users/me", h.Users.Update)
 			p.Post("/subjects", h.Subjects.Create)
 			p.Get("/subjects", h.Subjects.List)
+			p.Patch("/subjects/{id}", h.Subjects.UpdateColor)
 			p.Delete("/subjects/{id}", h.Subjects.Delete)
 			p.Post("/sessions", h.Sessions.Create)
 			p.Get("/sessions", h.Sessions.List)

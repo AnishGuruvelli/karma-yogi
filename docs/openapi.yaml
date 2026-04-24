@@ -286,6 +286,38 @@ paths:
         "400":
           description: Bad request
   /subjects/{id}:
+    patch:
+      tags: [Subjects]
+      summary: Update subject color
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                color:
+                  type: string
+              required: [color]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+        "400":
+          description: Bad request
+        "404":
+          description: Not found
     delete:
       tags: [Subjects]
       summary: Delete subject (sessions under it are removed)
@@ -727,6 +759,11 @@ paths:
                   type: string
                 topic:
                   type: string
+                perFriendPlans:
+                  type: array
+                  description: Optional per-friend override for subject/topic when friends are studying different topics.
+                  items:
+                    $ref: "#/components/schemas/FriendSessionPlanEntry"
                 durationMin:
                   type: integer
                 mood:
@@ -983,6 +1020,16 @@ components:
           type: string
         weeklyMinutes:
           type: integer
+    FriendSessionPlanEntry:
+      type: object
+      required: [friendId, subjectName, topic]
+      properties:
+        friendId:
+          type: string
+        subjectName:
+          type: string
+        topic:
+          type: string
     TimerStartResponse:
       type: object
       required: [startedAt, startedAtMs]

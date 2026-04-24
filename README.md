@@ -83,7 +83,7 @@ The API supports:
 | Logout | `POST /api/v1/auth/logout` | Body: `refreshId` |
 | Dev login | `POST /api/v1/auth/dev-login` | Optional `{"email":"..."}`; intended for local convenience—creates or reuses a dev user |
 | Timer state sync | `GET/PUT/DELETE /api/v1/timer-state` | Persists active timer UI state per user so running timers can recover after tab switches or page refresh |
-| Friends | `/api/v1/friends/*` | Discover users, send/accept friend requests, create shared friend sessions, and view weekly friend leaderboard (`weekOffset` supported) |
+| Friends | `/api/v1/friends/*` | Discover users, send/accept friend requests, create shared friend sessions (same subject/topic or per-friend subject/topic overrides), and view weekly friend leaderboard (`weekOffset` supported) |
 
 Frontend env (see `.env.example`):
 

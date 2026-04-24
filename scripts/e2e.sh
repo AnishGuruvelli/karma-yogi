@@ -150,10 +150,15 @@ if ! printf "%s" "$FRIENDS_LIST" | jq -e --arg fid "$FRIEND_USER_ID" '.[] | sele
   echo "[ERROR] Friend was not added after accepting request."
   exit 1
 fi
-api_call POST "/api/v1/friends/sessions" "{\"friendIds\":[\"$FRIEND_USER_ID\"],\"subjectName\":\"quant\",\"topic\":\"friend quant\",\"durationMin\":45,\"mood\":\"4\",\"startedAt\":\"2026-04-20T06:00:00Z\"}" >/dev/null
+api_call POST "/api/v1/friends/sessions" "{\"friendIds\":[\"$FRIEND_USER_ID\"],\"subjectName\":\"quant\",\"topic\":\"self quant\",\"perFriendPlans\":[{\"friendId\":\"$FRIEND_USER_ID\",\"subjectName\":\"lrdi\",\"topic\":\"friend quant\"}],\"durationMin\":45,\"mood\":\"4\",\"startedAt\":\"2026-04-20T06:00:00Z\"}" >/dev/null
 FRIEND_SESSIONS="$(friend_api_call GET "/api/v1/sessions")"
 if ! printf "%s" "$FRIEND_SESSIONS" | jq -e '.[] | select(.topic == "friend quant")' >/dev/null; then
   echo "[ERROR] Friend session was not created for friend user."
+  exit 1
+fi
+SELF_SESSIONS="$(api_call GET "/api/v1/sessions")"
+if ! printf "%s" "$SELF_SESSIONS" | jq -e '.[] | select(.topic == "self quant")' >/dev/null; then
+  echo "[ERROR] Friend session was not created for self user."
   exit 1
 fi
 LEADERBOARD="$(api_call GET "/api/v1/friends/leaderboard")"

@@ -280,6 +280,22 @@ func (h *SubjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, subs)
 }
+func (h *SubjectHandler) UpdateColor(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		Color string `json:"color"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	sub, err := h.svc.UpdateColor(r.Context(), claims.UserID, chi.URLParam(r, "id"), req.Color)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, sub)
+}
 func (h *SubjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	if err := h.svc.Delete(r.Context(), claims.UserID, chi.URLParam(r, "id")); err != nil {
@@ -496,19 +512,43 @@ func (h *FriendHandler) WeeklyLeaderboard(w http.ResponseWriter, r *http.Request
 
 func (h *FriendHandler) CreateFriendSession(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	type friendSessionPlanEntry struct {
+		FriendID    string `json:"friendId"`
+		SubjectName string `json:"subjectName"`
+		Topic       string `json:"topic"`
+	}
 	var req struct {
-		FriendIDs   []string  `json:"friendIds"`
-		SubjectName string    `json:"subjectName"`
-		Topic       string    `json:"topic"`
-		DurationMin int       `json:"durationMin"`
-		Mood        string    `json:"mood"`
-		StartedAt   time.Time `json:"startedAt"`
+		FriendIDs      []string                 `json:"friendIds"`
+		SubjectName    string                   `json:"subjectName"`
+		Topic          string                   `json:"topic"`
+		DurationMin    int                      `json:"durationMin"`
+		Mood           string                   `json:"mood"`
+		StartedAt      time.Time                `json:"startedAt"`
+		PerFriendPlans []friendSessionPlanEntry `json:"perFriendPlans"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	out, err := h.svc.CreateFriendSession(r.Context(), claims.UserID, req.FriendIDs, req.SubjectName, req.Topic, req.Mood, req.DurationMin, req.StartedAt)
+	perFriendPlans := make([]service.FriendSessionPlanEntry, 0, len(req.PerFriendPlans))
+	for _, item := range req.PerFriendPlans {
+		perFriendPlans = append(perFriendPlans, service.FriendSessionPlanEntry{
+			FriendID:    item.FriendID,
+			SubjectName: item.SubjectName,
+			Topic:       item.Topic,
+		})
+	}
+	out, err := h.svc.CreateFriendSession(
+		r.Context(),
+		claims.UserID,
+		req.FriendIDs,
+		req.SubjectName,
+		req.Topic,
+		perFriendPlans,
+		req.Mood,
+		req.DurationMin,
+		req.StartedAt,
+	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

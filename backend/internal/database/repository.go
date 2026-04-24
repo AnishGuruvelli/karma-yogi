@@ -32,6 +32,7 @@ type SubjectRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]domain.Subject, error)
 	GetByUserAndName(ctx context.Context, userID, name string) (domain.Subject, error)
 	GetLatestIcon(ctx context.Context, userID string) (string, error)
+	UpdateColor(ctx context.Context, id, userID, color string) (domain.Subject, error)
 	Delete(ctx context.Context, id, userID string) error
 }
 

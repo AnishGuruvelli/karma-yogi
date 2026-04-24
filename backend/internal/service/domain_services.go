@@ -74,6 +74,9 @@ func (s *SubjectService) Create(ctx context.Context, userID, name, color string)
 func (s *SubjectService) List(ctx context.Context, userID string) ([]domain.Subject, error) {
 	return s.repo.ListByUser(ctx, userID)
 }
+func (s *SubjectService) UpdateColor(ctx context.Context, userID, id, color string) (domain.Subject, error) {
+	return s.repo.UpdateColor(ctx, id, userID, color)
+}
 func (s *SubjectService) Delete(ctx context.Context, userID, id string) error {
 	return s.repo.Delete(ctx, id, userID)
 }
@@ -181,6 +184,12 @@ type FriendService struct {
 	sessions database.SessionRepository
 }
 
+type FriendSessionPlanEntry struct {
+	FriendID    string
+	SubjectName string
+	Topic       string
+}
+
 func NewFriendService(f database.FriendRepository, sub database.SubjectRepository, sess database.SessionRepository) *FriendService {
 	return &FriendService{friends: f, subjects: sub, sessions: sess}
 }
@@ -229,13 +238,48 @@ func (s *FriendService) WeeklyLeaderboard(ctx context.Context, userID string, we
 	return s.friends.ListWeeklyLeaderboard(ctx, userID, weekStart, weekEnd)
 }
 
-func (s *FriendService) CreateFriendSession(ctx context.Context, userID string, friendIDs []string, subjectName, topic, mood string, duration int, startedAt time.Time) ([]domain.Session, error) {
+func (s *FriendService) CreateFriendSession(
+	ctx context.Context,
+	userID string,
+	friendIDs []string,
+	subjectName, topic string,
+	perFriendPlans []FriendSessionPlanEntry,
+	mood string,
+	duration int,
+	startedAt time.Time,
+) ([]domain.Session, error) {
 	if duration <= 0 {
 		return nil, errors.New("duration must be positive")
 	}
-	if strings.TrimSpace(subjectName) == "" {
+	defaultSubject := strings.TrimSpace(subjectName)
+	defaultTopic := strings.TrimSpace(topic)
+	if defaultSubject == "" {
 		return nil, errors.New("subject name is required")
 	}
+	if defaultTopic == "" {
+		return nil, errors.New("topic is required")
+	}
+	planByFriend := make(map[string]FriendSessionPlanEntry, len(perFriendPlans))
+	for _, item := range perFriendPlans {
+		friendID := strings.TrimSpace(item.FriendID)
+		if friendID == "" || friendID == userID {
+			continue
+		}
+		trimmedSubject := strings.TrimSpace(item.SubjectName)
+		trimmedTopic := strings.TrimSpace(item.Topic)
+		if trimmedSubject == "" {
+			return nil, errors.New("friend subject name is required")
+		}
+		if trimmedTopic == "" {
+			return nil, errors.New("friend topic is required")
+		}
+		planByFriend[friendID] = FriendSessionPlanEntry{
+			FriendID:    friendID,
+			SubjectName: trimmedSubject,
+			Topic:       trimmedTopic,
+		}
+	}
+
 	friendSet := map[string]bool{}
 	for _, id := range friendIDs {
 		id = strings.TrimSpace(id)
@@ -259,7 +303,15 @@ func (s *FriendService) CreateFriendSession(ctx context.Context, userID string, 
 	}
 	out := make([]domain.Session, 0, len(userIDs))
 	for _, uid := range userIDs {
-		sub, err := s.subjects.GetByUserAndName(ctx, uid, subjectName)
+		sessionSubject := defaultSubject
+		sessionTopic := defaultTopic
+		if uid != userID {
+			if plan, ok := planByFriend[uid]; ok {
+				sessionSubject = plan.SubjectName
+				sessionTopic = plan.Topic
+			}
+		}
+		sub, err := s.subjects.GetByUserAndName(ctx, uid, sessionSubject)
 		if err != nil {
 			if errors.Is(err, database.ErrUserNotFound) {
 				prevIcon, iconErr := s.subjects.GetLatestIcon(ctx, uid)
@@ -269,7 +321,7 @@ func (s *FriendService) CreateFriendSession(ctx context.Context, userID string, 
 				sub, err = s.subjects.Create(ctx, domain.Subject{
 					ID:     uuid.NewString(),
 					UserID: uid,
-					Name:   subjectName,
+					Name:   sessionSubject,
 					Color:  "green",
 					Icon:   pickStudyIcon(prevIcon),
 				})
@@ -284,7 +336,7 @@ func (s *FriendService) CreateFriendSession(ctx context.Context, userID string, 
 			ID:          uuid.NewString(),
 			UserID:      uid,
 			SubjectID:   sub.ID,
-			Topic:       topic,
+			Topic:       sessionTopic,
 			DurationMin: duration,
 			Mood:        mood,
 			StartedAt:   startedAt,

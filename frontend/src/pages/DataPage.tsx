@@ -12,10 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function DataPage() {
-  const { subjects, sessions, getSubject, addSubject, deleteSubject, deleteSession } = useStore();
+  const { subjects, sessions, getSubject, addSubject, updateSubjectColor, deleteSubject, deleteSession } = useStore();
   const [addOpen, setAddOpen] = useState(false);
+  const [colorPickerSubjectId, setColorPickerSubjectId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("cyan");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -102,12 +104,50 @@ export default function DataPage() {
                   key={sub.id}
                   className="flex items-center gap-3 border-b border-border/50 px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: colorMap[sub.color] + "1A" }}
+                  <Popover
+                    open={colorPickerSubjectId === sub.id}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setNewColor(sub.color);
+                        setColorPickerSubjectId(sub.id);
+                        return;
+                      }
+                      setColorPickerSubjectId(null);
+                    }}
                   >
-                    <span className="text-base">{sub.icon || sub.name.charAt(0)}</span>
-                  </div>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform hover:scale-105"
+                        style={{ backgroundColor: colorMap[sub.color] + "1A" }}
+                        title="Change subject color"
+                      >
+                        <span className="text-base">{sub.icon || sub.name.charAt(0)}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="z-[80] w-auto rounded-xl border-border bg-card/95 p-1.5 shadow-lg" align="start" side="bottom" sideOffset={8}>
+                      <div className="flex gap-1.5">
+                        {Object.entries(colorMap).map(([key, val]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={async () => {
+                              setNewColor(key);
+                              const ok = await updateSubjectColor(sub.id, key);
+                              if (ok) setColorPickerSubjectId(null);
+                            }}
+                            aria-pressed={(colorPickerSubjectId === sub.id ? newColor : sub.color) === key}
+                            className={`h-9 w-9 rounded-full transition-all ${
+                              (colorPickerSubjectId === sub.id ? newColor : sub.color) === key
+                                ? "scale-105 border-2 border-background ring-2 ring-primary ring-offset-1 ring-offset-card"
+                                : "border border-transparent hover:scale-105"
+                            }`}
+                            style={{ backgroundColor: val }}
+                          />
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <div className="flex-1">
                     <div className="font-semibold text-foreground">{sub.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -116,7 +156,10 @@ export default function DataPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => requestDeleteSubject(sub.id, sub.name)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      requestDeleteSubject(sub.id, sub.name);
+                    }}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />

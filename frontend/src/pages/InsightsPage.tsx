@@ -141,17 +141,15 @@ export default function InsightsPage() {
     return +(dailyAvg / 60).toFixed(2);
   }, [mode, totalMinutes, dailyAvg, barData]);
 
-  const colorMap: Record<string, string> = {
-    green: "#4ade80",
-    cyan: "#22d3ee",
-    orange: "#fb923c",
-    pink: "#f472b6",
-    purple: "#a78bfa",
-  };
+  const piePalette = ["#f9a8d4", "#fde68a", "#93c5fd", "#fca5a5", "#fdba74", "#c4b5fd", "#fbcfe8", "#bfdbfe"];
   const pieData = subjects
-    .map((sub) => {
+    .map((sub, index) => {
       const mins = filteredSessions.filter((s) => s.subjectId === sub.id).reduce((sum, s) => sum + s.duration, 0);
-      return { name: `${sub.icon} ${sub.name}`, value: mins, color: colorMap[sub.color] || "#888" };
+      return {
+        name: `${sub.icon} ${sub.name}`,
+        value: mins,
+        color: piePalette[index % piePalette.length] || "#cbd5e1",
+      };
     })
     .filter((d) => d.value > 0);
   const pieTotal = pieData.reduce((sum, d) => sum + d.value, 0);
@@ -382,6 +380,35 @@ export default function InsightsPage() {
                     <Cell key={d.name} fill={d.color} />
                   ))}
                 </Pie>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const item = payload[0]?.payload as { name: string; value: number } | undefined;
+                    if (!item) return null;
+                    const percentage = pieTotal > 0 ? Math.round((item.value / pieTotal) * 100) : 0;
+                    return (
+                      <div
+                        style={{
+                          borderRadius: 12,
+                          border: "1px solid var(--color-border)",
+                          background: "var(--color-card)",
+                          color: "var(--color-foreground)",
+                          padding: "10px 12px",
+                        }}
+                      >
+                        <p>Subject: {item.name}</p>
+                        <p>Percentage: {percentage}%</p>
+                        <p>Hours: {formatDuration(item.value)}</p>
+                      </div>
+                    );
+                  }}
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-card)",
+                    color: "var(--color-foreground)",
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-4">
@@ -490,7 +517,19 @@ export default function InsightsPage() {
                       return (
                         <div key={day.date} className="group relative aspect-square w-full">
                           <div className="h-full w-full rounded-[2px] border border-black/5" style={{ backgroundColor: bg }} />
-                          <div className="pointer-events-none absolute -top-10 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                          <div
+                            className={`pointer-events-none absolute z-20 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${
+                              day.dayOfWeek === 0
+                                ? "top-full mt-1"
+                                : "bottom-full mb-1"
+                            } ${
+                              weekIndex === 0
+                                ? "left-0"
+                                : weekIndex === heatmapData.weeks.length - 1
+                                  ? "right-0"
+                                  : "left-1/2 -translate-x-1/2"
+                            } bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}
+                          >
                             {formatDuration(day.minutes)} studied on{" "}
                             {new Date(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
                           </div>

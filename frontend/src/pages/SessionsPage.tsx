@@ -8,7 +8,7 @@ import { toLocalDateKey } from "@/lib/date";
 import { toast } from "sonner";
 
 export default function SessionsPage() {
-  const { sessions, getSubject, editSession } = useStore();
+  const { sessions, getSubject, editSession, deleteSession } = useStore();
   const [timerOpen, setTimerOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [editing, setEditing] = useState<null | (typeof sessions)[number]>(null);
@@ -127,6 +127,11 @@ export default function SessionsPage() {
               return;
             }
             toast.error("Couldn't update session. Please try again.");
+          }}
+          onDelete={() => {
+            deleteSession(editing.id);
+            toast.success("Session deleted");
+            setEditing(null);
           }}
         />
       )}
