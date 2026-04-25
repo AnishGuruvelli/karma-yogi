@@ -105,17 +105,30 @@ export default function InsightsPage() {
         const dateStr = toLocalDateKey(targetDate);
         const mins = filteredSessions.filter((s) => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
         const isToday = dateStr === toLocalDateKey(now);
-        return { name, hours: +(mins / 60).toFixed(1), minutes: mins, isToday };
+        return {
+          name,
+          hours: +(mins / 60).toFixed(1),
+          minutes: mins,
+          isToday,
+          tooltipLabel: targetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+        };
       });
     }
     if (mode === "month") {
       const daysInMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
       return Array.from({ length: daysInMonth }, (_, i) => {
         const day = i + 1;
-        const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const targetDate = new Date(start.getFullYear(), start.getMonth(), day);
+        const dateStr = toLocalDateKey(targetDate);
         const mins = filteredSessions.filter((s) => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
         const isToday = dateStr === toLocalDateKey(now);
-        return { name: String(day), hours: +(mins / 60).toFixed(1), minutes: mins, isToday };
+        return {
+          name: String(day),
+          hours: +(mins / 60).toFixed(1),
+          minutes: mins,
+          isToday,
+          tooltipLabel: targetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+        };
       });
     }
     return MONTH_LABELS.map((name, i) => {
@@ -128,7 +141,13 @@ export default function InsightsPage() {
         })
         .reduce((sum, s) => sum + s.duration, 0);
       const isCurrentMonth = i === now.getMonth() && start.getFullYear() === now.getFullYear();
-      return { name, hours: +(mins / 60).toFixed(1), minutes: mins, isToday: isCurrentMonth };
+      return {
+        name,
+        hours: +(mins / 60).toFixed(1),
+        minutes: mins,
+        isToday: isCurrentMonth,
+        tooltipLabel: monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      };
     });
   }, [mode, filteredSessions, sessions, start, now]);
 
@@ -321,7 +340,7 @@ export default function InsightsPage() {
                 const d = payload[0].payload;
                 return (
                   <div className="rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" style={{ boxShadow: "var(--shadow-md)" }}>
-                    {d.name}: {formatDuration(d.minutes)}
+                    {(d.tooltipLabel as string) || d.name}: {formatDuration(d.minutes)}
                   </div>
                 );
               }}

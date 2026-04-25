@@ -8,6 +8,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getSafeSubjectIcon } from '@/lib/subject-icon';
+import { getLastStudiedSubjectId } from '@/lib/last-studied-subject';
+import { toast } from 'sonner';
 const SHEET_CLOSE_DRAG_Y = 120;
 const SHEET_CLOSE_VELOCITY_Y = 700;
 
@@ -28,8 +30,8 @@ interface LogSessionModalProps {
 }
 
 export function LogSessionModal({ open, onClose, initialSession, onSave, onDelete }: LogSessionModalProps) {
-  const { subjects, addSession, addSubject } = useStore();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
+  const { subjects, sessions, addSession, addSubject } = useStore();
+  const [subjectId, setSubjectId] = useState(() => getLastStudiedSubjectId(sessions, subjects));
   const [topic, setTopic] = useState(initialSession?.topic || '');
   const initialDuration = initialSession?.duration ?? 30;
   const [hours, setHours] = useState(Math.floor(initialDuration / 60));
@@ -57,19 +59,20 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       setMood(initialSession.moodRating);
       setSessionDate(initialSession.date);
     } else {
+      setSubjectId(getLastStudiedSubjectId(sessions, subjects));
       setTopic('');
       setHours(0);
       setMinutes(30);
       setMood(3);
       setSessionDate(toLocalDateString(new Date()));
     }
-  }, [initialSession]);
+  }, [initialSession, sessions, subjects]);
 
   useEffect(() => {
     if (!subjectId && subjects.length > 0) {
-      setSubjectId(subjects[0].id);
+      setSubjectId(getLastStudiedSubjectId(sessions, subjects));
     }
-  }, [subjectId, subjects]);
+  }, [subjectId, sessions, subjects]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,10 +84,20 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   }, [open]);
 
   const handleCreateSubject = async () => {
-    if (!newSubjectName.trim()) return;
-    const created = await addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
+    const normalizedName = newSubjectName.trim().toUpperCase();
+    if (!normalizedName) return;
+    const alreadyExists = subjects.some((s) => s.name.trim().toUpperCase() === normalizedName);
+    if (alreadyExists) {
+      toast.error('Subject already exists.');
+      return;
+    }
+    const created = await addSubject(normalizedName, newSubjectColor);
     if (created) {
       setSubjectId(created.id);
+      toast.success('Subject created.');
+    } else {
+      toast.error('Unable to create subject. Please try again.');
+      return;
     }
     setNewSubjectName('');
     setShowCreateSubject(false);

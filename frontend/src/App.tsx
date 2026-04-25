@@ -668,7 +668,7 @@ export default function App() {
               </Routes>
             </AppErrorBoundary>
           </main>
-          <Toaster />
+          <Toaster position="top-right" />
         </StoreProvider>
       )}
     </>

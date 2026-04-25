@@ -4,8 +4,10 @@ import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { clearTimerState, fetchTimerState, saveTimerState, startTimerFromServer } from '@/lib/api';
 import { toLocalDateKey } from '@/lib/date';
 import { getSafeSubjectIcon } from '@/lib/subject-icon';
+import { getLastStudiedSubjectId } from '@/lib/last-studied-subject';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AnimatePresence, motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 type TimerMode = 'stopwatch' | 'pomodoro';
 type PomodoroPhase = 'focus' | 'break';
@@ -22,8 +24,8 @@ const SHEET_CLOSE_DRAG_Y = 120;
 const SHEET_CLOSE_VELOCITY_Y = 700;
 
 export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
-  const { subjects, addSession, addSubject } = useStore();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
+  const { subjects, sessions, addSession, addSubject } = useStore();
+  const [subjectId, setSubjectId] = useState(() => getLastStudiedSubjectId(sessions, subjects));
   const [topic, setTopic] = useState('');
   const [mode, setMode] = useState<TimerMode>('stopwatch');
   const [showCreateSubject, setShowCreateSubject] = useState(false);
@@ -70,9 +72,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
 
   useEffect(() => {
     if (!subjectId && subjects.length > 0) {
-      setSubjectId(subjects[0].id);
+      setSubjectId(getLastStudiedSubjectId(sessions, subjects));
     }
-  }, [subjectId, subjects]);
+  }, [subjectId, sessions, subjects]);
 
   useEffect(() => {
     if (!open) return;
@@ -319,10 +321,20 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const circumference = 2 * Math.PI * 90;
   const canStart = subjects.length > 0 && topic.trim().length > 0;
   const handleCreateSubject = async () => {
-    if (!newSubjectName.trim()) return;
-    const created = await addSubject(newSubjectName.trim().toUpperCase(), newSubjectColor);
+    const normalizedName = newSubjectName.trim().toUpperCase();
+    if (!normalizedName) return;
+    const alreadyExists = subjects.some((s) => s.name.trim().toUpperCase() === normalizedName);
+    if (alreadyExists) {
+      toast.error('Subject already exists.');
+      return;
+    }
+    const created = await addSubject(normalizedName, newSubjectColor);
     if (created) {
       setSubjectId(created.id);
+      toast.success('Subject created.');
+    } else {
+      toast.error('Unable to create subject. Please try again.');
+      return;
     }
     setNewSubjectName('');
     setShowCreateSubject(false);

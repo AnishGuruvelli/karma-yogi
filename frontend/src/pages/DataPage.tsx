@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getSafeSubjectIcon } from "@/lib/subject-icon";
+import { toast } from "sonner";
 
 export default function DataPage() {
   const { subjects, sessions, getSubject, addSubject, updateSubjectColor, deleteSubject, deleteSession } = useStore();
@@ -46,9 +47,20 @@ export default function DataPage() {
     return `${m}m`;
   };
 
-  const handleAddSubject = () => {
-    if (!newName.trim()) return;
-    addSubject(newName.trim().toUpperCase(), newColor);
+  const handleAddSubject = async () => {
+    const normalizedName = newName.trim().toUpperCase();
+    if (!normalizedName) return;
+    const alreadyExists = subjects.some((s) => s.name.trim().toUpperCase() === normalizedName);
+    if (alreadyExists) {
+      toast.error("Subject already exists.");
+      return;
+    }
+    const created = await addSubject(normalizedName, newColor);
+    if (!created) {
+      toast.error("Unable to create subject. Please try again.");
+      return;
+    }
+    toast.success("Subject created.");
     setNewName("");
     setAddOpen(false);
   };
