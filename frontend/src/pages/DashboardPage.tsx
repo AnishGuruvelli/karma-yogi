@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const circumference = 2 * Math.PI * 70;
   const strokeDashoffset = circumference * (1 - goalProgress);
   const currentStreak = currentStreakUntilToday(sessions);
+  const hasHighlights = totalWeekMins > 0 || missingSubjects.length > 0;
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -144,43 +145,45 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {totalWeekMins > 0 && (
-              <div className={`glass-card rounded-2xl p-5 ${missingSubjects.length === 0 ? "sm:col-span-2" : ""}`}>
-                <h2 className="mb-3 font-semibold text-foreground">This Week by Subject</h2>
-                <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-muted">
-                  {weekBySubject.map((s) => (
-                    <div
-                      key={s.id}
-                      className="transition-all duration-500"
-                      style={{
-                        width: `${(s.minutes / totalWeekMins) * 100}%`,
-                        backgroundColor: colorMap[s.color] || "#888",
-                      }}
-                    />
-                  ))}
+          {hasHighlights && (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {totalWeekMins > 0 && (
+                <div className={`glass-card rounded-2xl p-5 ${missingSubjects.length === 0 ? "sm:col-span-2" : ""}`}>
+                  <h2 className="mb-3 font-semibold text-foreground">This Week by Subject</h2>
+                  <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-muted">
+                    {weekBySubject.map((s) => (
+                      <div
+                        key={s.id}
+                        className="transition-all duration-500"
+                        style={{
+                          width: `${(s.minutes / totalWeekMins) * 100}%`,
+                          backgroundColor: colorMap[s.color] || "#888",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    {weekBySubject.map((s) => (
+                      <div key={s.id} className="flex items-center gap-2 text-sm">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorMap[s.color] || "#888" }} />
+                        <span className="font-medium text-foreground">{s.name}</span>
+                        <span className="text-muted-foreground">{formatDuration(s.minutes)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-4">
-                  {weekBySubject.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 text-sm">
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorMap[s.color] || "#888" }} />
-                      <span className="font-medium text-foreground">{s.name}</span>
-                      <span className="text-muted-foreground">{formatDuration(s.minutes)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
-            {missingSubjects.length > 0 && (
-              <div className="glass-card flex items-center gap-3 rounded-2xl border-neon-orange/20 bg-neon-orange/5 p-5">
-                <span className="text-2xl">✨</span>
-                <p className="text-sm text-foreground">
-                  You haven&apos;t logged any sessions for <strong>{missingSubjects[0].name}</strong> yet. Start today!
-                </p>
-              </div>
-            )}
-          </div>
+              {missingSubjects.length > 0 && (
+                <div className="glass-card flex items-center gap-3 rounded-2xl border-neon-orange/20 bg-neon-orange/5 p-5">
+                  <span className="text-2xl">✨</span>
+                  <p className="text-sm text-foreground">
+                    You haven&apos;t logged any sessions for <strong>{missingSubjects[0].name}</strong> yet. Start today!
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="glass-card rounded-2xl p-4 sm:p-5">
             <h2 className="mb-4 font-semibold text-foreground">Recent Sessions</h2>
