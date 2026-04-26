@@ -21,7 +21,8 @@ export default function DashboardPage() {
 
   const now = new Date();
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+  const daysSinceMonday = (now.getDay() + 6) % 7;
+  startOfWeek.setDate(now.getDate() - daysSinceMonday);
   startOfWeek.setHours(0, 0, 0, 0);
   const weekSessions = sessions.filter((s) => fromLocalDateKey(s.date) >= startOfWeek);
   const weekMinutes = weekSessions.reduce((sum, s) => sum + s.duration, 0);

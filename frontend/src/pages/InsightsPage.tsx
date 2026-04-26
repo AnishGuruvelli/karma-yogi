@@ -64,7 +64,7 @@ export default function InsightsPage() {
   const activeSubjects = new Set(filteredSessions.map((s) => s.subjectId)).size;
   const longestSession = filteredSessions.length > 0 ? Math.max(...filteredSessions.map((s) => s.duration)) : 0;
 
-  const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const dayTotalsByWeekday = useMemo(() => {
     const dailyTotals = new Map<string, number>();
     filteredSessions.forEach((s) => {
@@ -79,7 +79,8 @@ export default function InsightsPage() {
 
     while (cursor <= endCursor) {
       const dateStr = toLocalDateKey(cursor);
-      totals[cursor.getDay()] += dailyTotals.get(dateStr) || 0;
+      const mondayFirstIndex = (cursor.getDay() + 6) % 7;
+      totals[mondayFirstIndex] += dailyTotals.get(dateStr) || 0;
       cursor.setDate(cursor.getDate() + 1);
     }
     return totals;
@@ -188,9 +189,9 @@ export default function InsightsPage() {
     });
 
     const startDate = new Date(heatmapYear, 0, 1);
-    startDate.setDate(startDate.getDate() - startDate.getDay());
+    startDate.setDate(startDate.getDate() - ((startDate.getDay() + 6) % 7));
     const endDate = new Date(heatmapYear, 11, 31);
-    endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
+    endDate.setDate(endDate.getDate() + ((7 - ((endDate.getDay() + 6) % 7) - 1) % 7));
 
     const days: { date: string; minutes: number; month: string; dayOfWeek: number }[] = [];
     const cursor = new Date(startDate);
@@ -200,7 +201,7 @@ export default function InsightsPage() {
         date: dateStr,
         minutes: dailyTotals.get(dateStr) || 0,
         month: cursor.toLocaleDateString("en-US", { month: "short" }),
-        dayOfWeek: cursor.getDay(),
+        dayOfWeek: (cursor.getDay() + 6) % 7,
       });
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -510,13 +511,13 @@ export default function InsightsPage() {
             </div>
             <div className="grid grid-cols-[26px_1fr] gap-1">
               <div className="flex flex-col justify-between py-[1px] text-[9px] text-muted-foreground">
-                <span>Sun</span>
                 <span>Mon</span>
                 <span>Tue</span>
                 <span>Wed</span>
                 <span>Thu</span>
                 <span>Fri</span>
                 <span>Sat</span>
+                <span>Sun</span>
               </div>
               <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px]">
                 {heatmapData.weeks.map((week, weekIndex) => (
@@ -539,7 +540,7 @@ export default function InsightsPage() {
                           <div className="h-full w-full rounded-[2px] border border-black/5" style={{ backgroundColor: bg }} />
                           <div
                             className={`pointer-events-none absolute z-20 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${
-                              day.dayOfWeek === 0
+                              day.dayOfWeek === 6
                                 ? "top-full mt-1"
                                 : "bottom-full mb-1"
                             } ${
