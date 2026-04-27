@@ -6,6 +6,7 @@ import { toLocalDateKey } from '@/lib/date';
 import { getSafeSubjectIcon } from '@/lib/subject-icon';
 import { getLastStudiedSubjectId } from '@/lib/last-studied-subject';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -29,12 +30,14 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const [topic, setTopic] = useState('');
   const [mode, setMode] = useState<TimerMode>('stopwatch');
   const [showCreateSubject, setShowCreateSubject] = useState(false);
+  const [subjectSelectOpen, setSubjectSelectOpen] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectColor, setNewSubjectColor] = useState('cyan');
   const selectedSubject = subjects.find((s) => s.id === subjectId);
   const colorMap: Record<string, string> = {
     green: '#4ade80', cyan: '#22d3ee', orange: '#fb923c', pink: '#f472b6', purple: '#a78bfa',
   };
+  const CREATE_SUBJECT_VALUE = "__create_subject__";
 
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -332,12 +335,24 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     if (created) {
       setSubjectId(created.id);
       toast.success('Subject created.');
+      setSubjectSelectOpen(false);
     } else {
       toast.error('Unable to create subject. Please try again.');
       return;
     }
     setNewSubjectName('');
     setShowCreateSubject(false);
+  };
+
+  const handleSubjectChange = (value: string) => {
+    if (value === CREATE_SUBJECT_VALUE) {
+      setShowCreateSubject(true);
+      window.setTimeout(() => setSubjectSelectOpen(true), 0);
+      return;
+    }
+    setSubjectId(value);
+    setShowCreateSubject(false);
+    setSubjectSelectOpen(false);
   };
 
   return (
@@ -415,71 +430,89 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
             <div className="mb-5 space-y-3">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Subject</label>
-                <select
-                  value={subjectId}
-                  onChange={e => setSubjectId(e.target.value)}
-                  className="input-field w-full rounded-xl p-3 text-foreground"
-                >
-                  {subjects.length === 0 && <option value="">No subjects yet</option>}
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {`${getSafeSubjectIcon(s.icon, s.name.charAt(0) || '📘')} ${s.name}`}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground">
-                    {subjects.length === 0 ? 'No subjects available. Create one now:' : "Can't find your subject? Create one now:"}
-                  </p>
-                  {!showCreateSubject ? (
-                    <button type="button" onClick={() => setShowCreateSubject(true)} className="mt-2 text-sm font-semibold text-primary hover:underline">
-                      + Create Subject
-                    </button>
-                  ) : (
-                    <div className="mt-2 space-y-2">
-                      <input
-                        value={newSubjectName}
-                        onChange={(e) => setNewSubjectName(e.target.value)}
-                        placeholder="Subject name"
-                        className="input-field w-full rounded-lg p-2 text-sm"
-                      />
-                      <div className="flex gap-2 pt-1">
-                        {Object.entries(colorMap).map(([key, val]) => (
+                <Select value={subjectId} onValueChange={handleSubjectChange} open={subjectSelectOpen} onOpenChange={setSubjectSelectOpen}>
+                  <SelectTrigger
+                    className="h-12 rounded-xl border-border bg-card/80 px-3 text-base font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 data-[state=open]:border-primary/50 data-[state=open]:bg-card [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180"
+                    style={{ boxShadow: 'var(--shadow-sm)' }}
+                  >
+                    {selectedSubject ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-base">{getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}</span>
+                        <span className="font-medium">{selectedSubject.name}</span>
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Select subject" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="z-[80] rounded-xl border-border bg-card p-1 shadow-xl">
+                    {subjects.length === 0 ? (
+                      <SelectItem value="__no_subjects__" disabled>No subjects yet</SelectItem>
+                    ) : (
+                      subjects.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-base">{getSafeSubjectIcon(s.icon, s.name.charAt(0) || '📘')}</span>
+                            <span className="font-medium">{s.name}</span>
+                          </span>
+                        </SelectItem>
+                      ))
+                    )}
+                    <SelectItem
+                      value={CREATE_SUBJECT_VALUE}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        setShowCreateSubject(true);
+                        setSubjectSelectOpen(true);
+                      }}
+                    >
+                      <span className="font-semibold text-primary">+ Create Subject</span>
+                    </SelectItem>
+                    {showCreateSubject && (
+                      <div className="mt-1 space-y-2 rounded-lg border border-border bg-muted/30 p-2">
+                        <input
+                          value={newSubjectName}
+                          onChange={(e) => setNewSubjectName(e.target.value)}
+                          placeholder="Subject name"
+                          className="input-field w-full rounded-lg p-2 text-sm"
+                        />
+                        <div className="flex gap-2 pt-1">
+                          {Object.entries(colorMap).map(([key, val]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                setNewSubjectColor(key);
+                              }}
+                              onClick={() => setNewSubjectColor(key)}
+                              aria-pressed={newSubjectColor === key}
+                              className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
+                              style={{ backgroundColor: val }}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            key={key}
                             type="button"
-                            onPointerDown={(e) => {
-                              e.preventDefault();
-                              setNewSubjectColor(key);
+                            onClick={() => {
+                              void handleCreateSubject();
                             }}
-                            onClick={() => setNewSubjectColor(key)}
-                            aria-pressed={newSubjectColor === key}
-                            className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
-                            style={{ backgroundColor: val }}
-                          />
-                        ))}
+                            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateSubject(false)}
+                            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleCreateSubject();
-                          }}
-                          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
-                        >
-                          Add
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowCreateSubject(false)}
-                          className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Topic</label>

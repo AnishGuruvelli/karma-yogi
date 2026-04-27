@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { MOOD_EMOJIS } from "@/lib/types";
 import { Play, Plus } from "lucide-react";
@@ -12,6 +12,8 @@ export default function SessionsPage() {
   const [timerOpen, setTimerOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [editing, setEditing] = useState<null | (typeof sessions)[number]>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 18;
 
   const colorMap: Record<string, string> = {
     green: "#4ade80",
@@ -41,14 +43,29 @@ export default function SessionsPage() {
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
   const yesterday = toLocalDateKey(yesterdayDate);
 
-  const grouped: { label: string; sessions: typeof sessions }[] = [];
-  const todaySessions = sessions.filter((s) => s.date === today);
-  const yesterdaySessions = sessions.filter((s) => s.date === yesterday);
-  const olderSessions = sessions.filter((s) => s.date !== today && s.date !== yesterday);
+  const totalPages = Math.max(1, Math.ceil(sessions.length / pageSize));
+  const safePage = Math.min(page, totalPages);
 
-  if (todaySessions.length > 0) grouped.push({ label: "Today", sessions: todaySessions });
-  if (yesterdaySessions.length > 0) grouped.push({ label: "Yesterday", sessions: yesterdaySessions });
-  if (olderSessions.length > 0) grouped.push({ label: "Earlier", sessions: olderSessions });
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
+
+  const pagedSessions = useMemo(() => {
+    const startIndex = (safePage - 1) * pageSize;
+    return sessions.slice(startIndex, startIndex + pageSize);
+  }, [sessions, safePage]);
+
+  const grouped = useMemo(() => {
+    const result: { label: string; sessions: typeof sessions }[] = [];
+    const todaySessions = pagedSessions.filter((s) => s.date === today);
+    const yesterdaySessions = pagedSessions.filter((s) => s.date === yesterday);
+    const olderSessions = pagedSessions.filter((s) => s.date !== today && s.date !== yesterday);
+
+    if (todaySessions.length > 0) result.push({ label: "Today", sessions: todaySessions });
+    if (yesterdaySessions.length > 0) result.push({ label: "Yesterday", sessions: yesterdaySessions });
+    if (olderSessions.length > 0) result.push({ label: "Earlier", sessions: olderSessions });
+    return result;
+  }, [pagedSessions, today, yesterday]);
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -75,7 +92,40 @@ export default function SessionsPage() {
         </div>
       </div>
 
+      <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+        <span>
+          Showing {sessions.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-
+          {Math.min(safePage * pageSize, sessions.length)} of {sessions.length}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <span className="text-xs font-semibold text-foreground">
+            Page {safePage} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-8">
+        {grouped.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            No sessions yet. Start a timer or log your first session.
+          </div>
+        )}
         {grouped.map((group) => (
           <div key={group.label}>
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.label}</h2>

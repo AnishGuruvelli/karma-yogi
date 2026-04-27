@@ -493,6 +493,41 @@ func (h *FriendHandler) RejectRequest(w http.ResponseWriter, r *http.Request) {
 
 func (h *FriendHandler) WeeklyLeaderboard(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	fromRaw := r.URL.Query().Get("from")
+	toRaw := r.URL.Query().Get("to")
+	if fromRaw != "" || toRaw != "" {
+		if fromRaw == "" || toRaw == "" {
+			http.Error(w, "both from and to are required", http.StatusBadRequest)
+			return
+		}
+		from, err := time.Parse(time.RFC3339Nano, fromRaw)
+		if err != nil {
+			from, err = time.Parse(time.RFC3339, fromRaw)
+		}
+		if err != nil {
+			http.Error(w, "invalid from", http.StatusBadRequest)
+			return
+		}
+		to, err := time.Parse(time.RFC3339Nano, toRaw)
+		if err != nil {
+			to, err = time.Parse(time.RFC3339, toRaw)
+		}
+		if err != nil {
+			http.Error(w, "invalid to", http.StatusBadRequest)
+			return
+		}
+		if !to.After(from) {
+			http.Error(w, "to must be after from", http.StatusBadRequest)
+			return
+		}
+		rows, err := h.svc.WeeklyLeaderboardInRange(r.Context(), claims.UserID, from, to)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, rows)
+		return
+	}
 	weekOffset := 0
 	if raw := r.URL.Query().Get("weekOffset"); raw != "" {
 		parsed, err := strconv.Atoi(raw)

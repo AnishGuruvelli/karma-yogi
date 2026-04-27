@@ -238,6 +238,10 @@ func (s *FriendService) WeeklyLeaderboard(ctx context.Context, userID string, we
 	return s.friends.ListWeeklyLeaderboard(ctx, userID, weekStart, weekEnd)
 }
 
+func (s *FriendService) WeeklyLeaderboardInRange(ctx context.Context, userID string, from, to time.Time) ([]domain.FriendLeaderboardEntry, error) {
+	return s.friends.ListWeeklyLeaderboard(ctx, userID, from, to)
+}
+
 func (s *FriendService) CreateFriendSession(
 	ctx context.Context,
 	userID string,

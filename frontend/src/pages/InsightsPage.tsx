@@ -189,11 +189,9 @@ export default function InsightsPage() {
     });
 
     const startDate = new Date(heatmapYear, 0, 1);
-    startDate.setDate(startDate.getDate() - ((startDate.getDay() + 6) % 7));
     const endDate = new Date(heatmapYear, 11, 31);
-    endDate.setDate(endDate.getDate() + ((7 - ((endDate.getDay() + 6) % 7) - 1) % 7));
 
-    const days: { date: string; minutes: number; month: string; dayOfWeek: number }[] = [];
+    const days: { date: string; minutes: number; month: string; monthIndex: number; year: number; dayOfWeek: number }[] = [];
     const cursor = new Date(startDate);
     while (cursor <= endDate) {
       const dateStr = toLocalDateKey(cursor);
@@ -201,22 +199,34 @@ export default function InsightsPage() {
         date: dateStr,
         minutes: dailyTotals.get(dateStr) || 0,
         month: cursor.toLocaleDateString("en-US", { month: "short" }),
+        monthIndex: cursor.getMonth(),
+        year: cursor.getFullYear(),
         dayOfWeek: (cursor.getDay() + 6) % 7,
       });
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    const weeks: (typeof days)[] = [];
-    for (let i = 0; i < days.length; i += 7) {
-      weeks.push(days.slice(i, i + 7));
-    }
+    const weekMap = new Map<string, (typeof days[number] | undefined)[]>();
+    const weekOrder: string[] = [];
+    days.forEach((day) => {
+      const dayDate = fromLocalDateKey(day.date);
+      const monday = new Date(dayDate);
+      monday.setDate(dayDate.getDate() - day.dayOfWeek);
+      const weekKey = toLocalDateKey(monday);
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, Array(7).fill(undefined));
+        weekOrder.push(weekKey);
+      }
+      weekMap.get(weekKey)![day.dayOfWeek] = day;
+    });
+    const weeks = weekOrder.map((weekKey) => weekMap.get(weekKey) || []);
 
     const maxMinutes = Math.max(...days.map((d) => d.minutes), 1);
     const monthLabels = weeks.map((week, idx) => {
-      const first = week[0];
-      const prev = idx > 0 ? weeks[idx - 1][0] : null;
-      if (!first) return "";
-      if (!prev || prev.month !== first.month) return first.month;
+      const firstInYear = week.find((day) => day && day.year === heatmapYear);
+      const prevInYear = idx > 0 ? weeks[idx - 1]?.find((day) => day && day.year === heatmapYear) : null;
+      if (!firstInYear) return "";
+      if (!prevInYear || prevInYear.monthIndex !== firstInYear.monthIndex) return firstInYear.month;
       return "";
     });
 
@@ -497,7 +507,7 @@ export default function InsightsPage() {
             ))}
           </div>
         </div>
-        <div className="w-full overflow-x-auto">
+        <div className="w-full overflow-x-auto overflow-y-visible">
           <div className="min-w-[680px] sm:min-w-0">
             <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
               <div />
@@ -539,20 +549,16 @@ export default function InsightsPage() {
                         <div key={day.date} className="group relative aspect-square w-full">
                           <div className="h-full w-full rounded-[2px] border border-black/5" style={{ backgroundColor: bg }} />
                           <div
-                            className={`pointer-events-none absolute z-20 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${
-                              day.dayOfWeek === 6
-                                ? "top-full mt-1"
-                                : "bottom-full mb-1"
-                            } ${
-                              weekIndex === 0
+                            className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${
+                              weekIndex <= 2
                                 ? "left-0"
-                                : weekIndex === heatmapData.weeks.length - 1
+                                : weekIndex >= heatmapData.weeks.length - 3
                                   ? "right-0"
                                   : "left-1/2 -translate-x-1/2"
                             } bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}
                           >
                             {formatDuration(day.minutes)} studied on{" "}
-                            {new Date(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                            {fromLocalDateKey(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
                           </div>
                         </div>
                       );

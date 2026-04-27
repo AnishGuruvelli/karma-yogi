@@ -305,9 +305,19 @@ export async function rejectFriendRequest(requestId: string): Promise<void> {
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to reject request'));
 }
 
-export async function fetchFriendsLeaderboard(weekOffset = 0): Promise<LeaderboardEntry[]> {
-  const qs = weekOffset === 0 ? "" : `?weekOffset=${encodeURIComponent(String(weekOffset))}`;
-  const res = await request(`/friends/leaderboard${qs}`);
+export async function fetchFriendsLeaderboard(params?: {
+  weekOffset?: number;
+  fromIso?: string;
+  toIso?: string;
+}): Promise<LeaderboardEntry[]> {
+  const query = new URLSearchParams();
+  if (typeof params?.weekOffset === "number" && params.weekOffset !== 0) {
+    query.set("weekOffset", String(params.weekOffset));
+  }
+  if (params?.fromIso) query.set("from", params.fromIso);
+  if (params?.toIso) query.set("to", params.toIso);
+  const qs = query.toString();
+  const res = await request(`/friends/leaderboard${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error('Unable to fetch friends leaderboard');
   return await res.json();
 }

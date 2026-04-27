@@ -46,15 +46,22 @@ function initials(name: string): string {
     .join("");
 }
 
-function weekLabel(weekOffset = 0, now = new Date()): string {
+function getWeekRange(weekOffset = 0, now = new Date()): { start: Date; endExclusive: Date; label: string } {
   const day = now.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
   const start = new Date(now);
   start.setDate(now.getDate() + diffToMonday + weekOffset * 7);
+  start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  return `${start.toLocaleDateString(undefined, options)} - ${end.toLocaleDateString(undefined, options)}`;
+  const endExclusive = new Date(start);
+  endExclusive.setDate(start.getDate() + 7);
+  return {
+    start,
+    endExclusive,
+    label: `${start.toLocaleDateString(undefined, options)} - ${end.toLocaleDateString(undefined, options)}`,
+  };
 }
 
 const durationPresets = [30, 45, 60, 90, 120];
@@ -90,6 +97,7 @@ export default function FriendsPage() {
   const [friendTimerRestored, setFriendTimerRestored] = useState(false);
   const baseLoadRequestRef = useRef(0);
   const leaderboardLoadRequestRef = useRef(0);
+  const selectedWeek = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const incomingCount = incomingRequests.length;
@@ -195,7 +203,12 @@ export default function FriendsPage() {
     leaderboardLoadRequestRef.current = requestId;
     setLoadingLeaderboard(true);
     try {
-      const l = await fetchFriendsLeaderboard(offset);
+      const range = getWeekRange(offset);
+      const l = await fetchFriendsLeaderboard({
+        weekOffset: offset,
+        fromIso: range.start.toISOString(),
+        toIso: range.endExclusive.toISOString(),
+      });
       if (leaderboardLoadRequestRef.current !== requestId) return;
       setLeaderboard(l);
     } catch (e) {
@@ -466,7 +479,7 @@ export default function FriendsPage() {
               </button>
               <div className="text-center">
                 <p className="text-sm text-muted-foreground dark:text-slate-400">{weekOffset === 0 ? "This Week" : "Selected Week"}</p>
-                <p className="text-sm font-semibold text-foreground dark:text-slate-200">{weekLabel(weekOffset)}</p>
+                <p className="text-sm font-semibold text-foreground dark:text-slate-200">{selectedWeek.label}</p>
               </div>
               <button
                 type="button"
@@ -520,7 +533,7 @@ export default function FriendsPage() {
 
           <div className="rounded-3xl border border-border bg-background p-5 dark:border-slate-800 dark:bg-[#071027]">
             <h3 className="mb-4 text-lg font-semibold text-foreground dark:text-slate-100 sm:text-xl">
-              Full Ranking - {weekOffset === 0 ? "This Week" : weekLabel(weekOffset)}
+              Full Ranking - {weekOffset === 0 ? "This Week" : selectedWeek.label}
             </h3>
             <div className="space-y-3">
               {leaderboardWithRank.map((row) => {
