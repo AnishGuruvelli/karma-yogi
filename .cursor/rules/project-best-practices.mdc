@@ -12,6 +12,7 @@ alwaysApply: true
 - Keep E2E current: update `scripts/e2e.sh` whenever auth, routes, or key user flows change.
 - Validate before finishing: run focused checks (`go test ./...`, frontend build/lint, smoke API calls).
 - Prefer additive migrations: use forward/backward SQL migrations for schema changes, avoid destructive edits.
+- Keep migration numbering strictly unique and increasing; never reuse an existing migration index.
 - Keep commits clean: no generated binaries, no `node_modules`, no temporary files.
 - Minimize regressions: avoid changing unrelated behavior; keep changes scoped and reversible.
 - Use consistent ports and CORS: ensure frontend dev ports are reflected in backend CORS config.

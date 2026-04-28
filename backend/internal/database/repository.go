@@ -18,6 +18,7 @@ type UserRepository interface {
 	ListOthers(ctx context.Context, userID string) ([]domain.User, error)
 	UpdateProfile(ctx context.Context, id, fullName, username, phone, avatarURL string) (domain.User, error)
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
+	GetByUsername(ctx context.Context, username string) (domain.User, error)
 }
 
 type SessionRepository interface {
@@ -41,6 +42,27 @@ type GoalRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]domain.Goal, error)
 	Update(ctx context.Context, goal domain.Goal) (domain.Goal, error)
 	Delete(ctx context.Context, id, userID string) error
+}
+
+type ExamGoalRepository interface {
+	GetByUser(ctx context.Context, userID string) (domain.ExamGoal, error)
+	Upsert(ctx context.Context, examGoal domain.ExamGoal) (domain.ExamGoal, error)
+	DeleteByUser(ctx context.Context, userID string) error
+}
+
+type UserPublicProfileRepository interface {
+	GetByUser(ctx context.Context, userID string) (domain.UserPublicProfile, error)
+	Upsert(ctx context.Context, profile domain.UserPublicProfile) (domain.UserPublicProfile, error)
+}
+
+type UserPreferencesRepository interface {
+	GetByUser(ctx context.Context, userID string) (domain.UserPreferences, error)
+	Upsert(ctx context.Context, preferences domain.UserPreferences) (domain.UserPreferences, error)
+}
+
+type UserPrivacyRepository interface {
+	GetByUser(ctx context.Context, userID string) (domain.UserPrivacySettings, error)
+	Upsert(ctx context.Context, privacy domain.UserPrivacySettings) (domain.UserPrivacySettings, error)
 }
 
 type TimerStateRepository interface {

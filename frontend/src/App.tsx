@@ -13,6 +13,7 @@ import InsightsPage from "@/pages/InsightsPage";
 import FriendsPage from "@/pages/FriendsPage";
 import DataPage from "@/pages/DataPage";
 import ProfilePage from "@/pages/ProfilePage";
+import PublicProfilePage from "@/pages/PublicProfilePage";
 import { Toaster } from "@/components/ui/sonner";
 
 declare global {
@@ -662,8 +663,10 @@ export default function App() {
                 <Route path="/sessions" element={<SessionsPage />} />
                 <Route path="/insights" element={<InsightsPage />} />
                 <Route path="/friends" element={<FriendsPage />} />
+                <Route path="/library" element={<DataPage />} />
                 <Route path="/data" element={<DataPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/profile/:userId" element={<PublicProfilePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AppErrorBoundary>

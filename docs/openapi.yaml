@@ -2,1041 +2,130 @@ openapi: 3.0.3
 info:
   title: Karma Yogi API
   version: 1.0.0
-  description: |
-    Public HTTP API for Karma Yogi. All paths below are rooted at `/api/v1` (e.g. full URL `http://localhost:8080/api/v1/auth/login`).
-    Authenticated routes expect `Authorization: Bearer <accessToken>`.
 servers:
   - url: /api/v1
 paths:
   /healthz:
     get:
-      tags: [System]
-      summary: Health check
       description: Service-level health endpoint exposed at server root (not under `/api/v1`).
-      responses:
-        "200":
-          description: Healthy
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
   /auth/google:
     post:
-      tags: [Auth]
-      summary: Exchange Google ID token for app session
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [token]
-              properties:
-                token:
-                  type: string
-                  description: Google ID token (JWT) from Google Identity Services
-      responses:
-        "200":
-          description: Authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResult"
-        "401":
-          description: Invalid or unverifiable Google token
+      description: Exchange a Google ID token for an application session.
   /auth/dev-login:
     post:
-      tags: [Auth]
-      summary: Development convenience login (creates or reuses a user)
-      description: |
-        Optional body `{"email":"..."}`. If `email` is omitted or empty, defaults to `dev@karmayogi.local`.
-        Returns the same shape as other auth flows. Prefer email/password or Google in real environments.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  format: email
-      responses:
-        "200":
-          description: Authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResult"
-        "400":
-          description: Bad request
+      description: Development-only login helper that creates or reuses a user.
   /auth/register:
     post:
-      tags: [Auth]
-      summary: Register with email, password, and security answer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password, secretAnswer]
-              properties:
-                email:
-                  type: string
-                  format: email
-                fullName:
-                  type: string
-                password:
-                  type: string
-                  minLength: 8
-                secretAnswer:
-                  type: string
-                  description: Answer to the standard security question (client displays the prompt)
-      responses:
-        "200":
-          description: Registered and authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResult"
-        "400":
-          description: Validation or registration error
+      description: Create an account using email, password, and secret answer.
   /auth/login:
     post:
-      tags: [Auth]
-      summary: Login with email and password
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password]
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-      responses:
-        "200":
-          description: Authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResult"
-        "401":
-          description: Invalid credentials or password login not available for this account
+      description: Authenticate using email and password.
   /auth/password-reset:
     post:
-      tags: [Auth]
-      summary: Reset password using email and security answer (no email delivery)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, secretAnswer, newPassword]
-              properties:
-                email:
-                  type: string
-                  format: email
-                secretAnswer:
-                  type: string
-                newPassword:
-                  type: string
-                  minLength: 8
-      responses:
-        "200":
-          description: Password updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
-        "400":
-          description: |
-            Unable to reset. JSON body uses `error` string. Common values:
-            - `incorrect email or security answer` (includes unknown email to limit enumeration)
-            - `this account uses google sign-in; password reset is not available`
-            - `this account does not have a security answer on file; create a new account or contact support`
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
+      description: Reset password by verifying email and secret answer.
   /auth/refresh:
     post:
-      tags: [Auth]
-      summary: Rotate access token using refresh token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [refreshId, refreshToken]
-              properties:
-                refreshId:
-                  type: string
-                refreshToken:
-                  type: string
-      responses:
-        "200":
-          description: New tokens issued
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResult"
-        "401":
-          description: Invalid or expired refresh session
+      description: Rotate and issue a fresh access token from refresh credentials.
   /auth/logout:
     post:
-      tags: [Auth]
-      summary: Revoke refresh token session
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [refreshId]
-              properties:
-                refreshId:
-                  type: string
-      responses:
-        "200":
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
-        "400":
-          description: Bad request
+      description: Revoke refresh session and end current authenticated session.
   /users/me:
     get:
-      tags: [Users]
-      summary: Current user profile
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Profile
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "404":
-          description: User not found
+      description: Retrieve current authenticated user profile.
     patch:
-      tags: [Users]
-      summary: Update current user profile
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateUserRequest"
-      responses:
-        "200":
-          description: Updated profile
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        "400":
-          description: Validation error
+      description: Update editable profile fields for current authenticated user.
+  /users/me/public-profile:
+    get:
+      description: Retrieve current user's public profile metadata fields.
+    patch:
+      description: Update current user's public profile metadata fields.
+  /users/me/preferences:
+    get:
+      description: Retrieve current user's study and notification preferences.
+    patch:
+      description: Update current user's study and notification preferences.
+  /users/me/privacy:
+    get:
+      description: Retrieve current user's privacy and visibility settings.
+    patch:
+      description: Update current user's privacy and visibility settings.
+  /users/{username}/public-profile:
+    get:
+      description: Retrieve privacy-aware public profile information for a user.
   /subjects:
     get:
-      tags: [Subjects]
-      summary: List subjects
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Subjects
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Subject"
-        "400":
-          description: Bad request
+      description: List all subjects for the current authenticated user.
     post:
-      tags: [Subjects]
-      summary: Create subject
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SubjectCreateRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Subject"
-        "400":
-          description: Bad request
+      description: Create a new subject for the current authenticated user.
   /subjects/{id}:
     patch:
-      tags: [Subjects]
-      summary: Update subject color
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                color:
-                  type: string
-              required: [color]
-      responses:
-        "200":
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Subject"
-        "400":
-          description: Bad request
-        "404":
-          description: Not found
+      description: Update color metadata for a subject owned by current user.
     delete:
-      tags: [Subjects]
-      summary: Delete subject (sessions under it are removed)
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
-        "404":
-          description: Not found
+      description: Delete a subject and any dependent user-owned records.
   /sessions:
     get:
-      tags: [Sessions]
-      summary: List sessions
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Sessions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Session"
-        "400":
-          description: Bad request
+      description: List all study sessions for current authenticated user.
     post:
-      tags: [Sessions]
-      summary: Create session
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SessionCreateRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-        "400":
-          description: Bad request
+      description: Create a new study session for current authenticated user.
   /sessions/{id}:
     patch:
-      tags: [Sessions]
-      summary: Update session
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SessionUpdateRequest"
-      responses:
-        "200":
-          description: Updated session
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Session"
-        "400":
-          description: Bad request
+      description: Update an existing study session owned by current user.
     delete:
-      tags: [Sessions]
-      summary: Delete session
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusDeleted"
-        "404":
-          description: Not found
+      description: Delete a study session owned by current user.
   /goals:
     get:
-      tags: [Goals]
-      summary: List goals
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Goals
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Goal"
-        "400":
-          description: Bad request
+      description: List goals configured for current authenticated user.
     post:
-      tags: [Goals]
-      summary: Create goal
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GoalCreateRequest"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Goal"
-        "400":
-          description: Bad request
+      description: Create a new study goal for current authenticated user.
   /goals/{id}:
     patch:
-      tags: [Goals]
-      summary: Update goal
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GoalUpdateRequest"
-      responses:
-        "200":
-          description: Updated goal
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Goal"
-        "400":
-          description: Bad request
+      description: Update a goal owned by current authenticated user.
     delete:
-      tags: [Goals]
-      summary: Delete goal
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusDeleted"
-        "404":
-          description: Not found
+      description: Delete a goal owned by current authenticated user.
+  /exam-goal:
+    get:
+      description: Retrieve current authenticated user's exam goal.
+    put:
+      description: Create or update current authenticated user's exam goal.
+    delete:
+      description: Delete current authenticated user's exam goal.
   /insights:
     get:
-      tags: [Insights]
-      summary: Aggregated insights for the current user
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Insights snapshot
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Insights"
-        "400":
-          description: Bad request
+      description: Retrieve aggregated insights for current authenticated user.
   /timer-state:
     get:
-      tags: [Timer]
-      summary: Get persisted timer state for current user
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Timer state payload or null
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TimerStateResponse"
-        "400":
-          description: Bad request
+      description: Fetch persisted timer state for current authenticated user.
     put:
-      tags: [Timer]
-      summary: Upsert persisted timer state for current user
-      description: |
-        Persists arbitrary timer UI state JSON for the current user.
-        Used by both the main timer flow (`timerType: main`) and friend live timer flow (`timerType: friend`).
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [state]
-              properties:
-                state:
-                  type: object
-                  additionalProperties: true
-                  description: Flexible timer payload (example keys: `timerType`, `mode`, `isRunning`, `startedAtMs`, `friendIds`)
-      responses:
-        "200":
-          description: Saved
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
-        "400":
-          description: Bad request
+      description: Create or update persisted timer state for current user.
     delete:
-      tags: [Timer]
-      summary: Clear persisted timer state for current user
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Cleared
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
-        "400":
-          description: Bad request
+      description: Clear persisted timer state for current authenticated user.
   /timer-state/start:
     post:
-      tags: [Timer]
-      summary: Get server-authoritative timer start timestamp
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Server start timestamp
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TimerStartResponse"
-        "400":
-          description: Bad request
+      description: Returns server-authoritative timer start timestamp.
   /friends/users:
     get:
-      tags: [Friends]
-      summary: List all users with friendship status
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Users with friendship status
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/FriendUser"
+      description: List discoverable users with friendship relation status.
   /friends:
     get:
-      tags: [Friends]
-      summary: List confirmed friends
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Friends list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
+      description: List confirmed friends for current authenticated user.
   /friends/requests/incoming:
     get:
-      tags: [Friends]
-      summary: List incoming pending friend requests
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Incoming requests
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/FriendRequest"
+      description: List pending incoming friend requests.
   /friends/requests/outgoing:
     get:
-      tags: [Friends]
-      summary: List outgoing pending friend requests
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Outgoing requests
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/FriendRequest"
+      description: List pending outgoing friend requests.
   /friends/requests:
     post:
-      tags: [Friends]
-      summary: Send a friend request
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [receiverId]
-              properties:
-                receiverId:
-                  type: string
-      responses:
-        "200":
-          description: Request sent
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FriendRequest"
+      description: Send a friend request to another user.
   /friends/requests/{id}/accept:
     post:
-      tags: [Friends]
-      summary: Accept incoming friend request
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
+      description: Accept an incoming friend request by request id.
   /friends/requests/{id}/reject:
     post:
-      tags: [Friends]
-      summary: Reject incoming friend request
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusOk"
+      description: Reject an incoming friend request by request id.
   /friends/leaderboard:
     get:
-      tags: [Friends]
-      summary: Weekly study leaderboard for confirmed friends (includes current user)
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: weekOffset
-          in: query
-          required: false
-          schema:
-            type: integer
-          description: Week offset from current week (`0` current week, `-1` previous week)
-      responses:
-        "200":
-          description: Leaderboard
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/FriendLeaderboardEntry"
+      description: Get weekly leaderboard among current user and confirmed friends.
   /friends/sessions:
     post:
-      tags: [Friends]
-      summary: Create shared friend session for self and selected confirmed friends
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [friendIds, subjectName, topic, durationMin, mood, startedAt]
-              properties:
-                friendIds:
-                  type: array
-                  items:
-                    type: string
-                subjectName:
-                  type: string
-                topic:
-                  type: string
-                perFriendPlans:
-                  type: array
-                  description: Optional per-friend override for subject/topic when friends are studying different topics.
-                  items:
-                    $ref: "#/components/schemas/FriendSessionPlanEntry"
-                durationMin:
-                  type: integer
-                mood:
-                  type: string
-                startedAt:
-                  type: string
-                  format: date-time
-      responses:
-        "200":
-          description: Sessions created
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Session"
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  schemas:
-    StatusOk:
-      type: object
-      properties:
-        status:
-          type: string
-          example: ok
-    StatusDeleted:
-      type: object
-      properties:
-        status:
-          type: string
-          example: deleted
-    ErrorBody:
-      type: object
-      properties:
-        error:
-          type: string
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-        email:
-          type: string
-        fullName:
-          type: string
-        username:
-          type: string
-        phone:
-          type: string
-        avatarUrl:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    UpdateUserRequest:
-      type: object
-      properties:
-        fullName:
-          type: string
-        username:
-          type: string
-        phone:
-          type: string
-        avatarUrl:
-          type: string
-    AuthResult:
-      type: object
-      properties:
-        user:
-          $ref: "#/components/schemas/User"
-        accessToken:
-          type: string
-        refreshId:
-          type: string
-        refreshToken:
-          type: string
-    Subject:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        name:
-          type: string
-        color:
-          type: string
-        icon:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-    SubjectCreateRequest:
-      type: object
-      required: [name, color]
-      properties:
-        name:
-          type: string
-        color:
-          type: string
-    Session:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        subjectId:
-          type: string
-        topic:
-          type: string
-        durationMin:
-          type: integer
-        mood:
-          type: string
-        startedAt:
-          type: string
-          format: date-time
-        createdAt:
-          type: string
-          format: date-time
-    SessionCreateRequest:
-      type: object
-      required: [subjectId, topic, durationMin, mood, startedAt]
-      properties:
-        subjectId:
-          type: string
-        topic:
-          type: string
-        durationMin:
-          type: integer
-        mood:
-          type: string
-        startedAt:
-          type: string
-          format: date-time
-    SessionUpdateRequest:
-      type: object
-      required: [subjectId, topic, durationMin, mood, startedAt]
-      properties:
-        subjectId:
-          type: string
-        topic:
-          type: string
-        durationMin:
-          type: integer
-        mood:
-          type: string
-        startedAt:
-          type: string
-          format: date-time
-    Goal:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        title:
-          type: string
-        targetMinutes:
-          type: integer
-        deadline:
-          type: string
-          format: date-time
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    GoalCreateRequest:
-      type: object
-      required: [title, targetMinutes, deadline]
-      properties:
-        title:
-          type: string
-        targetMinutes:
-          type: integer
-        deadline:
-          type: string
-          format: date-time
-    GoalUpdateRequest:
-      type: object
-      required: [title, targetMinutes, deadline]
-      properties:
-        title:
-          type: string
-        targetMinutes:
-          type: integer
-        deadline:
-          type: string
-          format: date-time
-    Insights:
-      type: object
-      properties:
-        totalMinutes:
-          type: integer
-        sessionCount:
-          type: integer
-        weeklyMinutes:
-          type: integer
-        goalCompletion:
-          type: integer
-    TimerStateResponse:
-      type: object
-      properties:
-        state:
-          type: object
-          nullable: true
-          additionalProperties: true
-    FriendRequest:
-      type: object
-      properties:
-        id:
-          type: string
-        senderId:
-          type: string
-        receiverId:
-          type: string
-        status:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-    FriendUser:
-      type: object
-      properties:
-        id:
-          type: string
-        email:
-          type: string
-        fullName:
-          type: string
-        username:
-          type: string
-        friendshipStatus:
-          type: string
-    FriendLeaderboardEntry:
-      type: object
-      properties:
-        userId:
-          type: string
-        fullName:
-          type: string
-        username:
-          type: string
-        weeklyMinutes:
-          type: integer
-    FriendSessionPlanEntry:
-      type: object
-      required: [friendId, subjectName, topic]
-      properties:
-        friendId:
-          type: string
-        subjectName:
-          type: string
-        topic:
-          type: string
-    TimerStartResponse:
-      type: object
-      required: [startedAt, startedAtMs]
-      properties:
-        startedAt:
-          type: string
-          format: date-time
-        startedAtMs:
-          type: integer
-          format: int64
+      description: Create shared friend sessions for current user and selected friends.

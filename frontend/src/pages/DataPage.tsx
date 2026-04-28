@@ -98,7 +98,7 @@ export default function DataPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <h1 className="mb-8 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Data</h1>
+      <h1 className="mb-8 font-display text-4xl font-semibold tracking-tight text-foreground">Library</h1>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div>

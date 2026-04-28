@@ -34,8 +34,8 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const [subjectId, setSubjectId] = useState(() => getLastStudiedSubjectId(sessions, subjects));
   const [topic, setTopic] = useState(initialSession?.topic || '');
   const initialDuration = initialSession?.duration ?? 30;
-  const [hours, setHours] = useState(Math.floor(initialDuration / 60));
-  const [minutes, setMinutes] = useState(initialDuration % 60);
+  const [hours, setHours] = useState<number | null>(Math.floor(initialDuration / 60));
+  const [minutes, setMinutes] = useState<number | null>(initialDuration % 60);
   const [mood, setMood] = useState(initialSession?.moodRating || 3);
   const toLocalDateString = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const [sessionDate, setSessionDate] = useState(initialSession?.date || toLocalDateString(new Date()));
@@ -118,9 +118,11 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   };
 
   const handleSubmit = () => {
+    const safeHours = hours ?? 0;
+    const safeMinutes = minutes ?? 0;
     const trimmedTopic = topic.trim();
-    if (!subjectId || (!hours && !minutes) || !trimmedTopic) return;
-    const duration = hours * 60 + minutes;
+    if (!subjectId || (!safeHours && !safeMinutes) || !trimmedTopic) return;
+    const duration = safeHours * 60 + safeMinutes;
     const now = new Date();
     const endDateTime = new Date(`${sessionDate}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`);
     const startDate = new Date(endDateTime.getTime() - duration * 60000);
@@ -199,7 +201,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 style={{ boxShadow: 'var(--shadow-sm)' }}
               >
                 {selectedSubject ? (
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center gap-3">
                     <span className="text-base">{getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}</span>
                     <span className="font-medium">{selectedSubject.name}</span>
                   </span>
@@ -214,7 +216,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 ) : (
                   subjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex items-center gap-3">
                         <span className="text-base">{getSafeSubjectIcon(s.icon, s.name.charAt(0) || '📘')}</span>
                         <span className="font-medium">{s.name}</span>
                       </span>
@@ -355,8 +357,16 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 type="number"
                 min={0}
                 max={12}
-                value={hours}
-                onChange={(e) => setHours(Number(e.target.value))}
+                value={hours ?? ''}
+                onChange={(e) => {
+                  if (e.target.value === '') {
+                    setHours(null);
+                    return;
+                  }
+                  const next = Number(e.target.value);
+                  if (Number.isNaN(next)) return;
+                  setHours(Math.max(0, Math.min(12, Math.floor(next))));
+                }}
                 className="input-field mt-3 w-full rounded-xl p-3 text-foreground"
               />
             </div>
@@ -386,8 +396,16 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 type="number"
                 min={0}
                 max={59}
-                value={minutes}
-                onChange={(e) => setMinutes(Number(e.target.value))}
+                value={minutes ?? ''}
+                onChange={(e) => {
+                  if (e.target.value === '') {
+                    setMinutes(null);
+                    return;
+                  }
+                  const next = Number(e.target.value);
+                  if (Number.isNaN(next)) return;
+                  setMinutes(Math.max(0, Math.min(59, Math.floor(next))));
+                }}
                 className="input-field mt-3 w-full rounded-xl p-3 text-foreground"
               />
             </div>
@@ -422,7 +440,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={subjects.length === 0 || !topic.trim() || (!hours && !minutes)}
+                  disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0))}
                   className="rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   style={{ boxShadow: 'var(--shadow-md)' }}
                 >
@@ -432,7 +450,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={subjects.length === 0 || !topic.trim() || (!hours && !minutes)}
+                disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0))}
                 className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ boxShadow: 'var(--shadow-md)' }}
               >

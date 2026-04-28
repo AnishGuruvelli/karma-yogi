@@ -58,6 +58,33 @@ func (s *GoalService) Delete(ctx context.Context, userID, id string) error {
 	return s.repo.Delete(ctx, id, userID)
 }
 
+type ExamGoalService struct{ repo database.ExamGoalRepository }
+
+func NewExamGoalService(repo database.ExamGoalRepository) *ExamGoalService {
+	return &ExamGoalService{repo: repo}
+}
+
+func (s *ExamGoalService) Get(ctx context.Context, userID string) (domain.ExamGoal, error) {
+	return s.repo.GetByUser(ctx, userID)
+}
+
+func (s *ExamGoalService) Upsert(ctx context.Context, userID, name string, examDate time.Time) (domain.ExamGoal, error) {
+	normalized := strings.TrimSpace(name)
+	if normalized == "" {
+		return domain.ExamGoal{}, errors.New("name is required")
+	}
+	return s.repo.Upsert(ctx, domain.ExamGoal{
+		ID:       uuid.NewString(),
+		UserID:   userID,
+		Name:     normalized,
+		ExamDate: examDate,
+	})
+}
+
+func (s *ExamGoalService) Delete(ctx context.Context, userID string) error {
+	return s.repo.DeleteByUser(ctx, userID)
+}
+
 type SubjectService struct{ repo database.SubjectRepository }
 
 func NewSubjectService(repo database.SubjectRepository) *SubjectService {
@@ -184,6 +211,15 @@ type FriendService struct {
 	sessions database.SessionRepository
 }
 
+type ProfileService struct {
+	users       database.UserRepository
+	publicRepo  database.UserPublicProfileRepository
+	prefRepo    database.UserPreferencesRepository
+	privacyRepo database.UserPrivacyRepository
+	friendRepo  database.FriendRepository
+	sessionRepo database.SessionRepository
+}
+
 type FriendSessionPlanEntry struct {
 	FriendID    string
 	SubjectName string
@@ -192,6 +228,149 @@ type FriendSessionPlanEntry struct {
 
 func NewFriendService(f database.FriendRepository, sub database.SubjectRepository, sess database.SessionRepository) *FriendService {
 	return &FriendService{friends: f, subjects: sub, sessions: sess}
+}
+
+func NewProfileService(
+	users database.UserRepository,
+	publicRepo database.UserPublicProfileRepository,
+	prefRepo database.UserPreferencesRepository,
+	privacyRepo database.UserPrivacyRepository,
+	friendRepo database.FriendRepository,
+	sessionRepo database.SessionRepository,
+) *ProfileService {
+	return &ProfileService{
+		users: users, publicRepo: publicRepo, prefRepo: prefRepo, privacyRepo: privacyRepo, friendRepo: friendRepo, sessionRepo: sessionRepo,
+	}
+}
+
+func (s *ProfileService) GetMyPublicProfile(ctx context.Context, userID string) (domain.UserPublicProfile, error) {
+	return s.publicRepo.GetByUser(ctx, userID)
+}
+
+func (s *ProfileService) UpsertMyPublicProfile(ctx context.Context, userID string, profile domain.UserPublicProfile) (domain.UserPublicProfile, error) {
+	profile.UserID = userID
+	profile.Bio = strings.TrimSpace(profile.Bio)
+	profile.Location = strings.TrimSpace(profile.Location)
+	profile.Education = strings.TrimSpace(profile.Education)
+	profile.Occupation = strings.TrimSpace(profile.Occupation)
+	profile.TargetExam = strings.TrimSpace(profile.TargetExam)
+	profile.TargetCollege = strings.TrimSpace(profile.TargetCollege)
+	return s.publicRepo.Upsert(ctx, profile)
+}
+
+func (s *ProfileService) GetMyPreferences(ctx context.Context, userID string) (domain.UserPreferences, error) {
+	return s.prefRepo.GetByUser(ctx, userID)
+}
+
+func (s *ProfileService) UpsertMyPreferences(ctx context.Context, userID string, prefs domain.UserPreferences) (domain.UserPreferences, error) {
+	prefs.UserID = userID
+	prefs.PreferredStudyTime = strings.TrimSpace(prefs.PreferredStudyTime)
+	prefs.StudyLevel = strings.TrimSpace(prefs.StudyLevel)
+	if prefs.DefaultSessionMinutes <= 0 {
+		prefs.DefaultSessionMinutes = 50
+	}
+	if prefs.BreakMinutes < 0 {
+		prefs.BreakMinutes = 10
+	}
+	if prefs.PomodoroCycles <= 0 {
+		prefs.PomodoroCycles = 4
+	}
+	if prefs.WeeklyGoalHours <= 0 {
+		prefs.WeeklyGoalHours = 20
+	}
+	return s.prefRepo.Upsert(ctx, prefs)
+}
+
+func (s *ProfileService) GetMyPrivacy(ctx context.Context, userID string) (domain.UserPrivacySettings, error) {
+	return s.privacyRepo.GetByUser(ctx, userID)
+}
+
+func (s *ProfileService) UpsertMyPrivacy(ctx context.Context, userID string, privacy domain.UserPrivacySettings) (domain.UserPrivacySettings, error) {
+	privacy.UserID = userID
+	return s.privacyRepo.Upsert(ctx, privacy)
+}
+
+func (s *ProfileService) GetPublicProfile(ctx context.Context, requesterID, username string) (domain.PublicProfileView, error) {
+	target, err := s.users.GetByUsername(ctx, username)
+	if err != nil {
+		return domain.PublicProfileView{}, err
+	}
+	profile, err := s.publicRepo.GetByUser(ctx, target.ID)
+	if err != nil {
+		return domain.PublicProfileView{}, err
+	}
+	privacy, err := s.privacyRepo.GetByUser(ctx, target.ID)
+	if err != nil {
+		return domain.PublicProfileView{}, err
+	}
+	view := domain.PublicProfileView{
+		User: target, Profile: profile, Privacy: privacy,
+	}
+	canViewAll := requesterID == target.ID || privacy.ProfilePublic
+	if !canViewAll && !privacy.ProfilePublic {
+		friends, ferr := s.friendRepo.ListFriends(ctx, target.ID)
+		if ferr == nil {
+			for _, f := range friends {
+				if f.ID == requesterID {
+					canViewAll = true
+					break
+				}
+			}
+		}
+	}
+	if !canViewAll {
+		view.Profile.Bio = ""
+		view.Profile.Location = ""
+		view.Profile.Education = ""
+		view.Profile.Occupation = ""
+		view.Profile.TargetExam = ""
+		view.Profile.TargetCollege = ""
+		return view, nil
+	}
+	if privacy.ShowStats {
+		stats, serr := s.computeStats(ctx, target.ID)
+		if serr == nil {
+			view.Stats = &stats
+		}
+	}
+	return view, nil
+}
+
+func (s *ProfileService) computeStats(ctx context.Context, userID string) (domain.PublicProfileStats, error) {
+	sessions, err := s.sessionRepo.ListByUser(ctx, userID, nil, nil)
+	if err != nil {
+		return domain.PublicProfileStats{}, err
+	}
+	totalMinutes := 0
+	longest := 0
+	days := map[string]bool{}
+	now := time.Now()
+	weekAgo := now.AddDate(0, 0, -7)
+	thisWeek := 0
+	for _, sess := range sessions {
+		totalMinutes += sess.DurationMin
+		if sess.DurationMin > longest {
+			longest = sess.DurationMin
+		}
+		days[sess.StartedAt.Format("2006-01-02")] = true
+		if sess.StartedAt.After(weekAgo) {
+			thisWeek += sess.DurationMin
+		}
+	}
+	avg := 0
+	if len(sessions) > 0 {
+		avg = totalMinutes / len(sessions)
+	}
+	friends, _ := s.friendRepo.ListFriends(ctx, userID)
+	return domain.PublicProfileStats{
+		TotalMinutes:      totalMinutes,
+		TotalSessions:     len(sessions),
+		ActiveDays:        len(days),
+		AvgSessionMinutes: avg,
+		LongestSession:    longest,
+		ThisWeekMinutes:   thisWeek,
+		FriendCount:       len(friends),
+	}, nil
 }
 
 func (s *FriendService) Users(ctx context.Context, userID string) ([]domain.FriendUser, error) {

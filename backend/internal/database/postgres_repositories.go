@@ -12,24 +12,32 @@ import (
 )
 
 type Repositories struct {
-	Users    UserRepository
-	Subjects SubjectRepository
-	Sessions SessionRepository
-	Goals    GoalRepository
-	Timer    TimerStateRepository
-	Friends  FriendRepository
-	Auth     AuthRepository
+	Users          UserRepository
+	Subjects       SubjectRepository
+	Sessions       SessionRepository
+	Goals          GoalRepository
+	ExamGoals      ExamGoalRepository
+	PublicProfiles UserPublicProfileRepository
+	Preferences    UserPreferencesRepository
+	Privacy        UserPrivacyRepository
+	Timer          TimerStateRepository
+	Friends        FriendRepository
+	Auth           AuthRepository
 }
 
 func NewRepositories(pool *pgxpool.Pool) Repositories {
 	return Repositories{
-		Users:    &pgUserRepo{pool: pool},
-		Subjects: &pgSubjectRepo{pool: pool},
-		Sessions: &pgSessionRepo{pool: pool},
-		Goals:    &pgGoalRepo{pool: pool},
-		Timer:    &pgTimerStateRepo{pool: pool},
-		Friends:  &pgFriendRepo{pool: pool},
-		Auth:     &pgAuthRepo{pool: pool},
+		Users:          &pgUserRepo{pool: pool},
+		Subjects:       &pgSubjectRepo{pool: pool},
+		Sessions:       &pgSessionRepo{pool: pool},
+		Goals:          &pgGoalRepo{pool: pool},
+		ExamGoals:      &pgExamGoalRepo{pool: pool},
+		PublicProfiles: &pgUserPublicProfileRepo{pool: pool},
+		Preferences:    &pgUserPreferencesRepo{pool: pool},
+		Privacy:        &pgUserPrivacyRepo{pool: pool},
+		Timer:          &pgTimerStateRepo{pool: pool},
+		Friends:        &pgFriendRepo{pool: pool},
+		Auth:           &pgAuthRepo{pool: pool},
 	}
 }
 
@@ -72,7 +80,26 @@ func (r *pgUserRepo) GetByID(ctx context.Context, id string) (domain.User, error
 	q := `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at FROM users WHERE id=$1`
 	var u domain.User
 	err := r.pool.QueryRow(ctx, q, id).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
-	return u, err
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.User{}, ErrUserNotFound
+		}
+		return domain.User{}, err
+	}
+	return u, nil
+}
+
+func (r *pgUserRepo) GetByUsername(ctx context.Context, username string) (domain.User, error) {
+	q := `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at FROM users WHERE lower(username)=lower($1) LIMIT 1`
+	var u domain.User
+	err := r.pool.QueryRow(ctx, q, username).Scan(&u.ID, &u.Email, &u.FullName, &u.Username, &u.Phone, &u.AvatarURL, &u.GoogleSub, &u.PasswordHash, &u.SecretAnswerHash, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.User{}, ErrUserNotFound
+		}
+		return domain.User{}, err
+	}
+	return u, nil
 }
 func (r *pgUserRepo) ListOthers(ctx context.Context, userID string) ([]domain.User, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at
@@ -172,6 +199,10 @@ func (r *pgSessionRepo) Delete(ctx context.Context, id, userID string) error {
 }
 
 type pgGoalRepo struct{ pool *pgxpool.Pool }
+type pgExamGoalRepo struct{ pool *pgxpool.Pool }
+type pgUserPublicProfileRepo struct{ pool *pgxpool.Pool }
+type pgUserPreferencesRepo struct{ pool *pgxpool.Pool }
+type pgUserPrivacyRepo struct{ pool *pgxpool.Pool }
 
 type pgSubjectRepo struct{ pool *pgxpool.Pool }
 
@@ -278,6 +309,119 @@ func (r *pgGoalRepo) Delete(ctx context.Context, id, userID string) error {
 		return errors.New("not found")
 	}
 	return nil
+}
+
+func (r *pgExamGoalRepo) GetByUser(ctx context.Context, userID string) (domain.ExamGoal, error) {
+	var g domain.ExamGoal
+	err := r.pool.QueryRow(ctx, `SELECT id,user_id,name,exam_date,created_at,updated_at FROM exam_goals WHERE user_id=$1`, userID).
+		Scan(&g.ID, &g.UserID, &g.Name, &g.ExamDate, &g.CreatedAt, &g.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ExamGoal{}, ErrUserNotFound
+		}
+		return domain.ExamGoal{}, err
+	}
+	return g, nil
+}
+
+func (r *pgExamGoalRepo) Upsert(ctx context.Context, g domain.ExamGoal) (domain.ExamGoal, error) {
+	q := `INSERT INTO exam_goals (id,user_id,name,exam_date) VALUES ($1,$2,$3,$4)
+		ON CONFLICT (user_id) DO UPDATE SET name=EXCLUDED.name, exam_date=EXCLUDED.exam_date, updated_at=now()
+		RETURNING id,user_id,name,exam_date,created_at,updated_at`
+	err := r.pool.QueryRow(ctx, q, g.ID, g.UserID, g.Name, g.ExamDate).
+		Scan(&g.ID, &g.UserID, &g.Name, &g.ExamDate, &g.CreatedAt, &g.UpdatedAt)
+	return g, err
+}
+
+func (r *pgExamGoalRepo) DeleteByUser(ctx context.Context, userID string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM exam_goals WHERE user_id=$1`, userID)
+	return err
+}
+
+func (r *pgUserPublicProfileRepo) GetByUser(ctx context.Context, userID string) (domain.UserPublicProfile, error) {
+	var p domain.UserPublicProfile
+	_, err := r.pool.Exec(ctx, `INSERT INTO user_public_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
+	if err != nil {
+		return domain.UserPublicProfile{}, err
+	}
+	err = r.pool.QueryRow(ctx, `SELECT user_id,bio,location,education,occupation,target_exam,target_college,created_at,updated_at
+		FROM user_public_profiles WHERE user_id=$1`, userID).Scan(
+		&p.UserID, &p.Bio, &p.Location, &p.Education, &p.Occupation, &p.TargetExam, &p.TargetCollege, &p.CreatedAt, &p.UpdatedAt,
+	)
+	return p, err
+}
+
+func (r *pgUserPublicProfileRepo) Upsert(ctx context.Context, profile domain.UserPublicProfile) (domain.UserPublicProfile, error) {
+	q := `INSERT INTO user_public_profiles (user_id,bio,location,education,occupation,target_exam,target_college)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		ON CONFLICT (user_id) DO UPDATE
+		SET bio=EXCLUDED.bio, location=EXCLUDED.location, education=EXCLUDED.education, occupation=EXCLUDED.occupation,
+			target_exam=EXCLUDED.target_exam, target_college=EXCLUDED.target_college, updated_at=now()
+		RETURNING user_id,bio,location,education,occupation,target_exam,target_college,created_at,updated_at`
+	err := r.pool.QueryRow(ctx, q, profile.UserID, profile.Bio, profile.Location, profile.Education, profile.Occupation, profile.TargetExam, profile.TargetCollege).Scan(
+		&profile.UserID, &profile.Bio, &profile.Location, &profile.Education, &profile.Occupation, &profile.TargetExam, &profile.TargetCollege, &profile.CreatedAt, &profile.UpdatedAt,
+	)
+	return profile, err
+}
+
+func (r *pgUserPreferencesRepo) GetByUser(ctx context.Context, userID string) (domain.UserPreferences, error) {
+	var p domain.UserPreferences
+	_, err := r.pool.Exec(ctx, `INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
+	if err != nil {
+		return domain.UserPreferences{}, err
+	}
+	err = r.pool.QueryRow(ctx, `SELECT user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,created_at,updated_at
+		FROM user_preferences WHERE user_id=$1`, userID).Scan(
+		&p.UserID, &p.PreferredStudyTime, &p.DefaultSessionMinutes, &p.BreakMinutes, &p.PomodoroCycles, &p.StudyLevel, &p.WeeklyGoalHours, &p.EmailNotifications, &p.PushNotifications, &p.ReminderNotifications, &p.MarketingNotifications, &p.CreatedAt, &p.UpdatedAt,
+	)
+	return p, err
+}
+
+func (r *pgUserPreferencesRepo) Upsert(ctx context.Context, preferences domain.UserPreferences) (domain.UserPreferences, error) {
+	q := `INSERT INTO user_preferences (user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		ON CONFLICT (user_id) DO UPDATE SET
+			preferred_study_time=EXCLUDED.preferred_study_time,
+			default_session_minutes=EXCLUDED.default_session_minutes,
+			break_minutes=EXCLUDED.break_minutes,
+			pomodoro_cycles=EXCLUDED.pomodoro_cycles,
+			study_level=EXCLUDED.study_level,
+			weekly_goal_hours=EXCLUDED.weekly_goal_hours,
+			email_notifications=EXCLUDED.email_notifications,
+			push_notifications=EXCLUDED.push_notifications,
+			reminder_notifications=EXCLUDED.reminder_notifications,
+			marketing_notifications=EXCLUDED.marketing_notifications,
+			updated_at=now()
+		RETURNING user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,created_at,updated_at`
+	err := r.pool.QueryRow(ctx, q, preferences.UserID, preferences.PreferredStudyTime, preferences.DefaultSessionMinutes, preferences.BreakMinutes, preferences.PomodoroCycles, preferences.StudyLevel, preferences.WeeklyGoalHours, preferences.EmailNotifications, preferences.PushNotifications, preferences.ReminderNotifications, preferences.MarketingNotifications).Scan(
+		&preferences.UserID, &preferences.PreferredStudyTime, &preferences.DefaultSessionMinutes, &preferences.BreakMinutes, &preferences.PomodoroCycles, &preferences.StudyLevel, &preferences.WeeklyGoalHours, &preferences.EmailNotifications, &preferences.PushNotifications, &preferences.ReminderNotifications, &preferences.MarketingNotifications, &preferences.CreatedAt, &preferences.UpdatedAt,
+	)
+	return preferences, err
+}
+
+func (r *pgUserPrivacyRepo) GetByUser(ctx context.Context, userID string) (domain.UserPrivacySettings, error) {
+	var p domain.UserPrivacySettings
+	_, err := r.pool.Exec(ctx, `INSERT INTO user_privacy_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
+	if err != nil {
+		return domain.UserPrivacySettings{}, err
+	}
+	err = r.pool.QueryRow(ctx, `SELECT user_id,profile_public,show_stats,show_leaderboard,created_at,updated_at
+		FROM user_privacy_settings WHERE user_id=$1`, userID).Scan(&p.UserID, &p.ProfilePublic, &p.ShowStats, &p.ShowLeaderboard, &p.CreatedAt, &p.UpdatedAt)
+	return p, err
+}
+
+func (r *pgUserPrivacyRepo) Upsert(ctx context.Context, privacy domain.UserPrivacySettings) (domain.UserPrivacySettings, error) {
+	q := `INSERT INTO user_privacy_settings (user_id,profile_public,show_stats,show_leaderboard)
+		VALUES ($1,$2,$3,$4)
+		ON CONFLICT (user_id) DO UPDATE SET
+			profile_public=EXCLUDED.profile_public,
+			show_stats=EXCLUDED.show_stats,
+			show_leaderboard=EXCLUDED.show_leaderboard,
+			updated_at=now()
+		RETURNING user_id,profile_public,show_stats,show_leaderboard,created_at,updated_at`
+	err := r.pool.QueryRow(ctx, q, privacy.UserID, privacy.ProfilePublic, privacy.ShowStats, privacy.ShowLeaderboard).
+		Scan(&privacy.UserID, &privacy.ProfilePublic, &privacy.ShowStats, &privacy.ShowLeaderboard, &privacy.CreatedAt, &privacy.UpdatedAt)
+	return privacy, err
 }
 
 type pgAuthRepo struct{ pool *pgxpool.Pool }

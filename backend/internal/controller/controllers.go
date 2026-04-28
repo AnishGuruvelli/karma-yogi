@@ -9,32 +9,37 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/karma-yogi/backend/internal/auth"
+	"github.com/karma-yogi/backend/internal/database"
 	"github.com/karma-yogi/backend/internal/domain"
 	"github.com/karma-yogi/backend/internal/middleware"
 	"github.com/karma-yogi/backend/internal/service"
 )
 
 type Handlers struct {
-	Auth     *AuthHandler
-	Users    *UserHandler
-	Subjects *SubjectHandler
-	Sessions *SessionHandler
-	Goals    *GoalHandler
-	Insights *InsightsHandler
-	Timer    *TimerStateHandler
-	Friends  *FriendHandler
+	Auth      *AuthHandler
+	Users     *UserHandler
+	Profile   *ProfileHandler
+	Subjects  *SubjectHandler
+	Sessions  *SessionHandler
+	Goals     *GoalHandler
+	ExamGoals *ExamGoalHandler
+	Insights  *InsightsHandler
+	Timer     *TimerStateHandler
+	Friends   *FriendHandler
 }
 
-func NewHandlers(a *service.AuthService, u *service.UserService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService) Handlers {
+func NewHandlers(a *service.AuthService, u *service.UserService, p *service.ProfileService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, eg *service.ExamGoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService) Handlers {
 	return Handlers{
-		Auth:     &AuthHandler{svc: a},
-		Users:    &UserHandler{svc: u},
-		Subjects: &SubjectHandler{svc: sub},
-		Sessions: &SessionHandler{svc: s},
-		Goals:    &GoalHandler{svc: g},
-		Insights: &InsightsHandler{svc: i},
-		Timer:    &TimerStateHandler{svc: t},
-		Friends:  &FriendHandler{svc: f},
+		Auth:      &AuthHandler{svc: a},
+		Users:     &UserHandler{svc: u},
+		Profile:   &ProfileHandler{svc: p},
+		Subjects:  &SubjectHandler{svc: sub},
+		Sessions:  &SessionHandler{svc: s},
+		Goals:     &GoalHandler{svc: g},
+		ExamGoals: &ExamGoalHandler{svc: eg},
+		Insights:  &InsightsHandler{svc: i},
+		Timer:     &TimerStateHandler{svc: t},
+		Friends:   &FriendHandler{svc: f},
 	}
 }
 
@@ -159,6 +164,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type UserHandler struct{ svc *service.UserService }
+type ProfileHandler struct{ svc *service.ProfileService }
 
 func (h *UserHandler) Me(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
@@ -187,6 +193,126 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, u)
+}
+
+func (h *ProfileHandler) GetMyPublicProfile(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	out, err := h.svc.GetMyPublicProfile(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) PatchMyPublicProfile(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		Bio           string `json:"bio"`
+		Location      string `json:"location"`
+		Education     string `json:"education"`
+		Occupation    string `json:"occupation"`
+		TargetExam    string `json:"targetExam"`
+		TargetCollege string `json:"targetCollege"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.UpsertMyPublicProfile(r.Context(), claims.UserID, domain.UserPublicProfile{
+		Bio: req.Bio, Location: req.Location, Education: req.Education, Occupation: req.Occupation, TargetExam: req.TargetExam, TargetCollege: req.TargetCollege,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) GetMyPreferences(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	out, err := h.svc.GetMyPreferences(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) PatchMyPreferences(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		PreferredStudyTime     string `json:"preferredStudyTime"`
+		DefaultSessionMinutes  int    `json:"defaultSessionMinutes"`
+		BreakMinutes           int    `json:"breakMinutes"`
+		PomodoroCycles         int    `json:"pomodoroCycles"`
+		StudyLevel             string `json:"studyLevel"`
+		WeeklyGoalHours        int    `json:"weeklyGoalHours"`
+		EmailNotifications     bool   `json:"emailNotifications"`
+		PushNotifications      bool   `json:"pushNotifications"`
+		ReminderNotifications  bool   `json:"reminderNotifications"`
+		MarketingNotifications bool   `json:"marketingNotifications"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.UpsertMyPreferences(r.Context(), claims.UserID, domain.UserPreferences{
+		PreferredStudyTime: req.PreferredStudyTime, DefaultSessionMinutes: req.DefaultSessionMinutes, BreakMinutes: req.BreakMinutes,
+		PomodoroCycles: req.PomodoroCycles, StudyLevel: req.StudyLevel, WeeklyGoalHours: req.WeeklyGoalHours,
+		EmailNotifications: req.EmailNotifications, PushNotifications: req.PushNotifications, ReminderNotifications: req.ReminderNotifications, MarketingNotifications: req.MarketingNotifications,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) GetMyPrivacy(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	out, err := h.svc.GetMyPrivacy(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) PatchMyPrivacy(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		ProfilePublic   bool `json:"profilePublic"`
+		ShowStats       bool `json:"showStats"`
+		ShowLeaderboard bool `json:"showLeaderboard"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.UpsertMyPrivacy(r.Context(), claims.UserID, domain.UserPrivacySettings{
+		ProfilePublic: req.ProfilePublic, ShowStats: req.ShowStats, ShowLeaderboard: req.ShowLeaderboard,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	username := chi.URLParam(r, "username")
+	out, err := h.svc.GetPublicProfile(r.Context(), claims.UserID, username)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type SessionHandler struct{ svc *service.SessionService }
@@ -251,6 +377,7 @@ func (h *SessionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 type GoalHandler struct{ svc *service.GoalService }
+type ExamGoalHandler struct{ svc *service.ExamGoalService }
 
 type SubjectHandler struct{ svc *service.SubjectService }
 
@@ -354,6 +481,47 @@ func (h *GoalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	if err := h.svc.Delete(r.Context(), claims.UserID, chi.URLParam(r, "id")); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *ExamGoalHandler) Get(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	g, err := h.svc.Get(r.Context(), claims.UserID)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			writeJSON(w, http.StatusOK, map[string]any{"examGoal": nil})
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"examGoal": g})
+}
+
+func (h *ExamGoalHandler) Upsert(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	var req struct {
+		Name     string    `json:"name"`
+		ExamDate time.Time `json:"examDate"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	g, err := h.svc.Upsert(r.Context(), claims.UserID, req.Name, req.ExamDate)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"examGoal": g})
+}
+
+func (h *ExamGoalHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	if err := h.svc.Delete(r.Context(), claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})

@@ -54,14 +54,16 @@ func main() {
 
 	authSvc := service.NewAuthService(repos.Users, repos.Auth, tm, gv)
 	userSvc := service.NewUserService(repos.Users)
+	profileSvc := service.NewProfileService(repos.Users, repos.PublicProfiles, repos.Preferences, repos.Privacy, repos.Friends, repos.Sessions)
 	subjectSvc := service.NewSubjectService(repos.Subjects)
 	sessSvc := service.NewSessionService(repos.Sessions)
 	goalSvc := service.NewGoalService(repos.Goals)
+	examGoalSvc := service.NewExamGoalService(repos.ExamGoals)
 	insSvc := service.NewInsightsService(repos.Sessions, repos.Goals)
 	timerSvc := service.NewTimerStateService(repos.Timer)
 	friendSvc := service.NewFriendService(repos.Friends, repos.Subjects, repos.Sessions)
 
-	h := controller.NewHandlers(authSvc, userSvc, subjectSvc, sessSvc, goalSvc, insSvc, timerSvc, friendSvc)
+	h := controller.NewHandlers(authSvc, userSvc, profileSvc, subjectSvc, sessSvc, goalSvc, examGoalSvc, insSvc, timerSvc, friendSvc)
 	router := httpx.NewRouter(h, tm, cfg.CORSAllowedOrigins)
 
 	srv := &http.Server{Addr: ":" + cfg.API.Port, Handler: router, ReadHeaderTimeout: 5 * time.Second}

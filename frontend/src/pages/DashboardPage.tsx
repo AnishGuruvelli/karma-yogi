@@ -5,9 +5,11 @@ import { Flame, Sun, Calendar, Play, Plus, Pencil } from "lucide-react";
 import { TimerModal } from "@/components/TimerModal";
 import { LogSessionModal } from "@/components/LogSessionModal";
 import { GoalEditModal } from "@/components/GoalEditModal";
+import { ExamCountdownCard } from "@/components/ExamCountdownCard";
 import { currentStreakUntilToday } from "@/lib/stats";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 import { motion } from "framer-motion";
+import { subjectColor } from "@/lib/colors";
 
 export default function DashboardPage() {
   const { user, sessions, subjects, goal, getSubject } = useStore();
@@ -60,14 +62,6 @@ export default function DashboardPage() {
     return "Good Evening";
   };
 
-  const colorMap: Record<string, string> = {
-    green: "#4ade80",
-    cyan: "#22d3ee",
-    orange: "#fb923c",
-    pink: "#f472b6",
-    purple: "#a78bfa",
-  };
-
   const weekHours = weekMinutes / 60;
   const goalProgress = Math.min(weekHours / goal.targetHours, 1);
   const circumference = 2 * Math.PI * 70;
@@ -77,32 +71,31 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          <p className="eyebrow mb-2">{now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground">
             {greeting()}, {user.name}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-            {now.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">Show up today, however small.</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <motion.button
             type="button"
             onClick={() => setTimerOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neon-orange px-5 py-2.5 font-semibold text-white transition-all hover:opacity-90 neon-glow-orange sm:w-auto"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 sm:w-auto"
             whileHover={{ y: -1, scale: 1.01 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 500, damping: 28 }}
           >
             <Play className="h-4 w-4" />
-            Start Timer
+            Begin Sit
           </motion.button>
           <motion.button
             type="button"
             onClick={() => setLogOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-all hover:opacity-90 sm:w-auto"
-            style={{ boxShadow: "var(--shadow-md)" }}
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-all hover:border-foreground/30 sm:w-auto"
+            style={{ boxShadow: "var(--shadow-sm)" }}
             whileHover={{ y: -1, scale: 1.01 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 500, damping: 28 }}
@@ -112,6 +105,8 @@ export default function DashboardPage() {
           </motion.button>
         </div>
       </div>
+
+      <ExamCountdownCard />
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="stat-card flex items-center gap-4 rounded-2xl p-5">
@@ -157,7 +152,7 @@ export default function DashboardPage() {
                         className="transition-all duration-500"
                         style={{
                           width: `${(s.minutes / totalWeekMins) * 100}%`,
-                          backgroundColor: colorMap[s.color] || "#888",
+                          backgroundColor: subjectColor(s.color),
                         }}
                       />
                     ))}
@@ -165,7 +160,7 @@ export default function DashboardPage() {
                   <div className="flex flex-wrap gap-4">
                     {weekBySubject.map((s) => (
                       <div key={s.id} className="flex items-center gap-2 text-sm">
-                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorMap[s.color] || "#888" }} />
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: subjectColor(s.color) }} />
                         <span className="font-medium text-foreground">{s.name}</span>
                         <span className="text-muted-foreground">{formatDuration(s.minutes)}</span>
                       </div>
@@ -195,7 +190,7 @@ export default function DashboardPage() {
                     <div className="flex items-start gap-3">
                     <div
                       className="w-1 self-stretch rounded-full"
-                      style={{ backgroundColor: colorMap[subject?.color || "cyan"] }}
+                      style={{ backgroundColor: subjectColor(subject?.color) }}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-foreground">{subject?.name}</div>
@@ -270,7 +265,7 @@ export default function DashboardPage() {
                     key={sub.id}
                     className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
                   >
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: colorMap[sub.color] }} />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: subjectColor(sub.color) }} />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-foreground">{sub.name}</div>
                     </div>

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { Subject, Session, Goal, UserProfile } from '@/lib/types';
-import { createOrUpdateGoal, createSession, createSubject, ensureDevAuth, fetchGoals, fetchMe, fetchSessions, fetchSubjects, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor } from '@/lib/api';
+import type { Subject, Session, Goal, UserProfile, ExamGoal, UserPreferences, UserPrivacySettings, UserPublicProfile } from '@/lib/types';
+import { createOrUpdateGoal, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor, upsertExamGoal } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
 import { toLocalDateKey } from '@/lib/date';
 
@@ -10,6 +10,8 @@ interface TimerState {
   subjectId: string | null;
   topic: string;
 }
+
+export type ThemeName = "sky" | "honey" | "forest" | "blossom" | "ember";
 
 interface StoreContextType {
   subjects: Subject[];
@@ -30,8 +32,19 @@ interface StoreContextType {
   getSubject: (id: string) => Subject | undefined;
   isDark: boolean;
   toggleTheme: () => void;
+  theme: ThemeName;
+  setTheme: (theme: ThemeName) => void;
+  examGoal: ExamGoal | null;
+  setExamGoal: (name: string, date: string) => Promise<void>;
+  clearExamGoal: () => Promise<void>;
   updateUserProfile: (payload: { name: string; username: string; phone: string }) => Promise<void>;
   reloadStoreData: () => Promise<void>;
+  profileMeta: UserPublicProfile;
+  preferences: UserPreferences;
+  privacy: UserPrivacySettings;
+  saveProfileMeta: (payload: Omit<UserPublicProfile, 'userId'>) => Promise<void>;
+  savePreferences: (payload: Omit<UserPreferences, 'userId'>) => Promise<void>;
+  savePrivacy: (payload: Omit<UserPrivacySettings, 'userId'>) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -42,13 +55,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [goal, setGoal] = useState<Goal>({ id: 'default', targetHours: 20, currentProgress: 0 });
   const [user, setUser] = useState<UserProfile>({ id: 'anon', email: '', name: 'Guest', username: '', phone: '', currentStreak: 0, lastActiveDate: toLocalDateKey(new Date()) });
   const [isDark, setIsDark] = useState(false);
+  const [theme, setThemeState] = useState<ThemeName>("blossom");
+  const [examGoal, setExamGoalState] = useState<ExamGoal | null>(null);
   const [timer, setTimer] = useState<TimerState>({ isRunning: false, elapsed: 0, subjectId: null, topic: '' });
+  const [profileMeta, setProfileMeta] = useState<UserPublicProfile>({ userId: '', bio: '', location: '', education: '', occupation: '', targetExam: '', targetCollege: '' });
+  const [preferences, setPreferences] = useState<UserPreferences>({
+    userId: '', preferredStudyTime: '', defaultSessionMinutes: 50, breakMinutes: 10, pomodoroCycles: 4, studyLevel: '', weeklyGoalHours: 20,
+    emailNotifications: true, pushNotifications: true, reminderNotifications: true, marketingNotifications: false,
+  });
+  const [privacy, setPrivacy] = useState<UserPrivacySettings>({ userId: '', profilePublic: true, showStats: true, showLeaderboard: true });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerStartRef = useRef<Date | null>(null);
 
   const reloadStoreData = useCallback(async () => {
     await ensureDevAuth();
-    const [me, subs, sess, goals] = await Promise.allSettled([fetchMe(), fetchSubjects(), fetchSessions(), fetchGoals()]);
+    const [me, subs, sess, goals, examGoalRes, publicProfileRes, preferencesRes, privacyRes] = await Promise.allSettled([
+      fetchMe(), fetchSubjects(), fetchSessions(), fetchGoals(), fetchExamGoal(), fetchMyPublicProfile(), fetchMyPreferences(), fetchMyPrivacy(),
+    ]);
     if (me.status === 'fulfilled') setUser(me.value);
     if (subs.status === 'fulfilled') setSubjects(subs.value);
     if (sess.status === 'fulfilled') {
@@ -59,6 +82,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (goals.status === 'fulfilled' && goals.value.length > 0) {
       setGoal((prev) => ({ ...prev, ...goals.value[0] }));
     }
+    if (examGoalRes.status === 'fulfilled') {
+      setExamGoalState(examGoalRes.value);
+    }
+    if (publicProfileRes.status === 'fulfilled') setProfileMeta(publicProfileRes.value);
+    if (preferencesRes.status === 'fulfilled') setPreferences(preferencesRes.value);
+    if (privacyRes.status === 'fulfilled') setPrivacy(privacyRes.value);
   }, []);
 
   useEffect(() => {
@@ -66,9 +95,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [reloadStoreData]);
 
   useEffect(() => {
+    const savedMode = localStorage.getItem("karma_theme_mode");
+    const savedTheme = localStorage.getItem("karma_theme_name");
+    if (savedMode === "dark") setIsDark(true);
+    if (savedTheme && ["sky", "honey", "forest", "blossom", "ember"].includes(savedTheme)) {
+      setThemeState(savedTheme as ThemeName);
+    }
+  }, []);
+
+  useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
+    localStorage.setItem("karma_theme_mode", isDark ? "dark" : "light");
   }, [isDark]);
+
+  useEffect(() => {
+    const root = document.documentElement.classList;
+    root.remove("theme-sky", "theme-honey", "theme-forest", "theme-blossom", "theme-ember");
+    root.add(`theme-${theme}`);
+    localStorage.setItem("karma_theme_name", theme);
+  }, [theme]);
 
   useEffect(() => {
     if (timer.isRunning) {
@@ -189,9 +235,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const getSubject = useCallback((id: string) => subjects.find((s) => s.id === id), [subjects]);
   const toggleTheme = useCallback(() => setIsDark((prev) => !prev), []);
+  const setTheme = useCallback((nextTheme: ThemeName) => setThemeState(nextTheme), []);
+  const setExamGoal = useCallback(async (name: string, date: string) => {
+    const saved = await upsertExamGoal(name, date);
+    setExamGoalState(saved);
+  }, []);
+  const clearExamGoal = useCallback(async () => {
+    await deleteExamGoal();
+    setExamGoalState(null);
+  }, []);
   const updateUserProfile = useCallback(async (payload: { name: string; username: string; phone: string }) => {
     const updated = await updateMe({ fullName: payload.name, username: payload.username, phone: payload.phone });
     setUser((prev) => ({ ...prev, ...updated }));
+  }, []);
+  const saveProfileMeta = useCallback(async (payload: Omit<UserPublicProfile, 'userId'>) => {
+    const updated = await patchMyPublicProfile(payload);
+    setProfileMeta(updated);
+  }, []);
+  const savePreferences = useCallback(async (payload: Omit<UserPreferences, 'userId'>) => {
+    const updated = await patchMyPreferences(payload);
+    setPreferences(updated);
+  }, []);
+  const savePrivacy = useCallback(async (payload: Omit<UserPrivacySettings, 'userId'>) => {
+    const updated = await patchMyPrivacy(payload);
+    setPrivacy(updated);
   }, []);
 
   return (
@@ -200,7 +267,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addSubject, deleteSubject, addSession, deleteSession,
       updateSubjectColor,
       updateGoal, startTimer, stopTimer, resetTimer, getSubject, editSession,
-      isDark, toggleTheme, updateUserProfile, reloadStoreData,
+      isDark, toggleTheme, theme, setTheme, examGoal, setExamGoal, clearExamGoal, updateUserProfile, reloadStoreData,
+      profileMeta, preferences, privacy, saveProfileMeta, savePreferences, savePrivacy,
     }}>
       {children}
     </StoreContext.Provider>

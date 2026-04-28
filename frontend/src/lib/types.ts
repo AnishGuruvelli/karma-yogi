@@ -24,6 +24,12 @@ export interface Goal {
   currentProgress: number; // hours
 }
 
+export interface ExamGoal {
+  id: string;
+  name: string;
+  date: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -32,6 +38,60 @@ export interface UserProfile {
   phone: string;
   currentStreak: number;
   lastActiveDate: string;
+}
+
+export interface UserPublicProfile {
+  userId: string;
+  bio: string;
+  location: string;
+  education: string;
+  occupation: string;
+  targetExam: string;
+  targetCollege: string;
+}
+
+export interface UserPreferences {
+  userId: string;
+  preferredStudyTime: string;
+  defaultSessionMinutes: number;
+  breakMinutes: number;
+  pomodoroCycles: number;
+  studyLevel: string;
+  weeklyGoalHours: number;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  reminderNotifications: boolean;
+  marketingNotifications: boolean;
+}
+
+export interface UserPrivacySettings {
+  userId: string;
+  profilePublic: boolean;
+  showStats: boolean;
+  showLeaderboard: boolean;
+}
+
+export interface PublicProfileStats {
+  totalMinutes: number;
+  totalSessions: number;
+  activeDays: number;
+  avgSessionMinutes: number;
+  longestSession: number;
+  thisWeekMinutes: number;
+  friendCount: number;
+}
+
+export interface PublicProfileView {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    username: string;
+    avatarUrl?: string;
+  };
+  profile: UserPublicProfile;
+  privacy: UserPrivacySettings;
+  stats?: PublicProfileStats;
 }
 
 export interface FriendUser {

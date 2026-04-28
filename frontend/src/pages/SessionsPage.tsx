@@ -6,6 +6,7 @@ import { TimerModal } from "@/components/TimerModal";
 import { LogSessionModal } from "@/components/LogSessionModal";
 import { toLocalDateKey } from "@/lib/date";
 import { toast } from "sonner";
+import { subjectColor, subjectColorSoft } from "@/lib/colors";
 
 export default function SessionsPage() {
   const { sessions, getSubject, editSession, deleteSession } = useStore();
@@ -14,14 +15,6 @@ export default function SessionsPage() {
   const [editing, setEditing] = useState<null | (typeof sessions)[number]>(null);
   const [page, setPage] = useState(1);
   const pageSize = 18;
-
-  const colorMap: Record<string, string> = {
-    green: "#4ade80",
-    cyan: "#22d3ee",
-    orange: "#fb923c",
-    pink: "#f472b6",
-    purple: "#a78bfa",
-  };
 
   const formatDuration = (m: number) => {
     if (m >= 60) {
@@ -128,7 +121,11 @@ export default function SessionsPage() {
         )}
         {grouped.map((group) => (
           <div key={group.label}>
-            <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.label}</h2>
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{group.label}</h2>
+              <div className="ink-divider flex-1" />
+              <span className="text-xs text-muted-foreground">{group.sessions.length}</span>
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {group.sessions.map((session) => {
                 const subject = getSubject(session.subjectId);
@@ -141,7 +138,10 @@ export default function SessionsPage() {
                   >
                     <div
                       className="w-1 self-stretch rounded-full"
-                      style={{ backgroundColor: colorMap[subject?.color || "cyan"] }}
+                      style={{
+                        backgroundColor: subjectColor(subject?.color),
+                        boxShadow: `0 0 12px ${subjectColor(subject?.color)}, 0 0 24px ${subjectColorSoft(subject?.color, 45)}`,
+                      }}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-foreground">{subject?.name}</div>
