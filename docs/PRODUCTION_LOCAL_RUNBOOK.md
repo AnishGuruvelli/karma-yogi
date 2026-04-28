@@ -65,6 +65,12 @@ What it validates (high level):
 - **`POST /api/v1/auth/password-reset`** then login with old password fails (`401`) and with new password succeeds
 - Authenticated **`GET /api/v1/users/me`**
 - Subject create + session create/update/list + goal create/update/list + insights
+- Exam goal upsert/get/delete (+ post-delete null assertion)
+- Profile/public endpoints:
+  - `GET/PATCH /api/v1/users/me/public-profile`
+  - `GET/PATCH /api/v1/users/me/preferences`
+  - `GET/PATCH /api/v1/users/me/privacy`
+  - `GET /api/v1/users/{username}/public-profile` (privacy-aware response)
 - Subject delete cascades sessions (assertion)
 - Goal delete
 - **`POST /api/v1/auth/refresh`** and **`POST /api/v1/auth/logout`**

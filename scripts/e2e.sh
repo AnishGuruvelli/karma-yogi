@@ -135,6 +135,39 @@ GOAL_CREATE="$(api_call POST "/api/v1/goals" '{"title":"Weekly Goal","targetMinu
 GOAL_ID="$(printf "%s" "$GOAL_CREATE" | jq -r '.id')"
 GOAL_UPDATE="$(api_call PATCH "/api/v1/goals/$GOAL_ID" '{"title":"Weekly Goal Updated","targetMinutes":360,"deadline":"2026-05-20T00:00:00Z"}')"
 GOAL_LIST="$(api_call GET "/api/v1/goals")"
+EXAM_GOAL_UPSERT="$(api_call PUT "/api/v1/exam-goal" '{"name":"CAT","examDate":"2026-11-29T00:00:00Z"}')"
+EXAM_GOAL_GET="$(api_call GET "/api/v1/exam-goal")"
+if [[ "$(printf "%s" "$EXAM_GOAL_UPSERT" | jq -r '.examGoal.name')" != "CAT" ]]; then
+  echo "[ERROR] Exam goal upsert did not return expected name."
+  exit 1
+fi
+if [[ "$(printf "%s" "$EXAM_GOAL_GET" | jq -r '.examGoal.name')" != "CAT" ]]; then
+  echo "[ERROR] Exam goal get did not return expected value."
+  exit 1
+fi
+PROFILE_PUBLIC_PATCH="$(api_call PATCH "/api/v1/users/me/public-profile" '{"bio":"E2E bio","location":"Bengaluru","education":"B.Tech","occupation":"Engineer","targetExam":"CAT 2026","targetCollege":"IIM A"}')"
+PROFILE_PUBLIC_GET="$(api_call GET "/api/v1/users/me/public-profile")"
+if [[ "$(printf "%s" "$PROFILE_PUBLIC_GET" | jq -r '.bio')" != "E2E bio" ]]; then
+  echo "[ERROR] Public profile patch/get mismatch."
+  exit 1
+fi
+PREFERENCES_PATCH="$(api_call PATCH "/api/v1/users/me/preferences" '{"preferredStudyTime":"Evening","defaultSessionMinutes":55,"breakMinutes":12,"pomodoroCycles":5,"studyLevel":"Intermediate","weeklyGoalHours":24,"emailNotifications":true,"pushNotifications":true,"reminderNotifications":true,"marketingNotifications":false}')"
+PREFERENCES_GET="$(api_call GET "/api/v1/users/me/preferences")"
+if [[ "$(printf "%s" "$PREFERENCES_GET" | jq -r '.defaultSessionMinutes')" != "55" ]]; then
+  echo "[ERROR] Preferences patch/get mismatch."
+  exit 1
+fi
+PRIVACY_PATCH="$(api_call PATCH "/api/v1/users/me/privacy" '{"profilePublic":true,"showStats":true,"showLeaderboard":true}')"
+PRIVACY_GET="$(api_call GET "/api/v1/users/me/privacy")"
+if [[ "$(printf "%s" "$PRIVACY_GET" | jq -r '.profilePublic')" != "true" ]]; then
+  echo "[ERROR] Privacy patch/get mismatch."
+  exit 1
+fi
+PUBLIC_PROFILE_GET="$(friend_api_call GET "/api/v1/users/$(printf "%s" "$ME" | jq -r '.username')/public-profile")"
+if [[ "$(printf "%s" "$PUBLIC_PROFILE_GET" | jq -r '.profile.targetExam')" != "CAT 2026" ]]; then
+  echo "[ERROR] Public profile endpoint did not expose expected profile metadata."
+  exit 1
+fi
 INSIGHTS="$(api_call GET "/api/v1/insights")"
 echo "[INFO] Running friends flow..."
 api_call POST "/api/v1/friends/requests" "{\"receiverId\":\"$FRIEND_USER_ID\"}" >/dev/null
@@ -226,6 +259,12 @@ if printf "%s" "$CASCaded_LIST" | jq -e --arg sid "$SESSION_ID" '.[] | select(.i
   exit 1
 fi
 api_call DELETE "/api/v1/goals/$GOAL_ID" >/dev/null
+api_call DELETE "/api/v1/exam-goal" >/dev/null
+EXAM_GOAL_AFTER_DELETE="$(api_call GET "/api/v1/exam-goal")"
+if [[ "$(printf "%s" "$EXAM_GOAL_AFTER_DELETE" | jq -r '.examGoal')" != "null" ]]; then
+  echo "[ERROR] Exam goal was not cleared after delete."
+  exit 1
+fi
 
 echo "[INFO] Running refresh token rotation + logout flow..."
 RAW_REFRESH="refresh-e2e-token"

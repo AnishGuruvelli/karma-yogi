@@ -1,4 +1,17 @@
-import type { FriendRequest, FriendUser, Goal, LeaderboardEntry, Session, Subject, UserProfile } from '@/lib/types';
+import type {
+  ExamGoal,
+  FriendRequest,
+  FriendUser,
+  Goal,
+  LeaderboardEntry,
+  PublicProfileView,
+  Session,
+  Subject,
+  UserPreferences,
+  UserPrivacySettings,
+  UserProfile,
+  UserPublicProfile,
+} from '@/lib/types';
 import { toLocalDateKey } from '@/lib/date';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
@@ -8,7 +21,12 @@ type BackendUser = { id: string; email?: string; fullName?: string; name?: strin
 type BackendSession = { id: string; startedAt: string; durationMin: number; subject: string; mood?: string | number };
 type BackendSessionV2 = { id: string; startedAt: string; durationMin: number; subjectId?: string; topic?: string; mood?: string | number };
 type BackendGoal = { id: string; targetMinutes: number };
+type BackendExamGoal = { id: string; name: string; examDate: string };
 type BackendSubject = { id: string; name: string; color: string; icon?: string; createdAt: string };
+type BackendUserPublicProfile = UserPublicProfile;
+type BackendUserPreferences = UserPreferences;
+type BackendUserPrivacy = UserPrivacySettings;
+type BackendPublicProfileView = PublicProfileView;
 type TimerStatePayload = Record<string, unknown>;
 const authKey = 'karma_auth';
 
@@ -163,6 +181,55 @@ export async function fetchMe(): Promise<UserProfile> {
   if (!res.ok) throw new Error('Unable to fetch profile');
   const user = await res.json();
   return mapUser(user);
+}
+
+export async function fetchMyPublicProfile(): Promise<UserPublicProfile> {
+  const res = await request('/users/me/public-profile');
+  if (!res.ok) throw new Error('Unable to fetch public profile settings');
+  return (await res.json()) as BackendUserPublicProfile;
+}
+
+export async function patchMyPublicProfile(payload: {
+  bio: string;
+  location: string;
+  education: string;
+  occupation: string;
+  targetExam: string;
+  targetCollege: string;
+}): Promise<UserPublicProfile> {
+  const res = await request('/users/me/public-profile', { method: 'PATCH', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error('Unable to save public profile settings');
+  return (await res.json()) as BackendUserPublicProfile;
+}
+
+export async function fetchMyPreferences(): Promise<UserPreferences> {
+  const res = await request('/users/me/preferences');
+  if (!res.ok) throw new Error('Unable to fetch preferences');
+  return (await res.json()) as BackendUserPreferences;
+}
+
+export async function patchMyPreferences(payload: Omit<UserPreferences, 'userId'>): Promise<UserPreferences> {
+  const res = await request('/users/me/preferences', { method: 'PATCH', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error('Unable to save preferences');
+  return (await res.json()) as BackendUserPreferences;
+}
+
+export async function fetchMyPrivacy(): Promise<UserPrivacySettings> {
+  const res = await request('/users/me/privacy');
+  if (!res.ok) throw new Error('Unable to fetch privacy settings');
+  return (await res.json()) as BackendUserPrivacy;
+}
+
+export async function patchMyPrivacy(payload: Omit<UserPrivacySettings, 'userId'>): Promise<UserPrivacySettings> {
+  const res = await request('/users/me/privacy', { method: 'PATCH', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error('Unable to save privacy settings');
+  return (await res.json()) as BackendUserPrivacy;
+}
+
+export async function fetchPublicProfile(username: string): Promise<PublicProfileView> {
+  const res = await request(`/users/${encodeURIComponent(username)}/public-profile`);
+  if (!res.ok) throw new Error('Unable to fetch public profile');
+  return (await res.json()) as BackendPublicProfileView;
 }
 
 export async function updateMe(payload: { fullName: string; username: string; phone: string; avatarUrl?: string }): Promise<UserProfile> {
@@ -354,6 +421,28 @@ export async function createOrUpdateGoal(targetHours: number): Promise<Goal> {
   return mapGoal(await res.json());
 }
 
+export async function fetchExamGoal(): Promise<ExamGoal | null> {
+  const res = await request('/exam-goal');
+  if (!res.ok) throw new Error('Unable to fetch exam goal');
+  const data = (await res.json()) as { examGoal?: BackendExamGoal | null };
+  if (!data.examGoal) return null;
+  return mapExamGoal(data.examGoal);
+}
+
+export async function upsertExamGoal(name: string, dateIso: string): Promise<ExamGoal> {
+  const examDate = new Date(`${dateIso}T00:00:00`).toISOString();
+  const res = await request('/exam-goal', { method: 'PUT', body: JSON.stringify({ name, examDate }) });
+  if (!res.ok) throw new Error('Unable to save exam goal');
+  const data = (await res.json()) as { examGoal?: BackendExamGoal | null };
+  if (!data.examGoal) throw new Error('Invalid exam goal response');
+  return mapExamGoal(data.examGoal);
+}
+
+export async function deleteExamGoal(): Promise<void> {
+  const res = await request('/exam-goal', { method: 'DELETE' });
+  if (!res.ok) throw new Error('Unable to delete exam goal');
+}
+
 function mapUser(raw: BackendUser): UserProfile {
   return {
     id: raw.id,
@@ -386,4 +475,12 @@ function mapSession(raw: BackendSession | BackendSessionV2): Session {
 
 function mapGoal(raw: BackendGoal): Goal {
   return { id: raw.id, targetHours: Number(raw.targetMinutes || 0) / 60, currentProgress: 0 };
+}
+
+function mapExamGoal(raw: BackendExamGoal): ExamGoal {
+  return {
+    id: raw.id,
+    name: raw.name,
+    date: toLocalDateKey(new Date(raw.examDate)),
+  };
 }

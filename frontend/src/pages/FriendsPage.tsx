@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Play, Search, Square, 
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { AnimatePresence, motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   acceptFriendRequest,
   clearTimerState,
@@ -193,8 +194,9 @@ export default function FriendsPage() {
       if (baseLoadRequestRef.current !== requestId) return;
       toast.error(e instanceof Error ? e.message : "Failed to load friends");
     } finally {
-      if (baseLoadRequestRef.current !== requestId) return;
-      setLoadingBase(false);
+      if (baseLoadRequestRef.current === requestId) {
+        setLoadingBase(false);
+      }
     }
   };
 
@@ -215,8 +217,9 @@ export default function FriendsPage() {
       if (leaderboardLoadRequestRef.current !== requestId) return;
       toast.error(e instanceof Error ? e.message : "Failed to load leaderboard");
     } finally {
-      if (leaderboardLoadRequestRef.current !== requestId) return;
-      setLoadingLeaderboard(false);
+      if (leaderboardLoadRequestRef.current === requestId) {
+        setLoadingLeaderboard(false);
+      }
     }
   };
 
@@ -588,9 +591,11 @@ export default function FriendsPage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-pink-100 text-sm font-bold text-pink-700">
                     {initials(friend.name || friend.email)}
                   </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{friend.name || friend.email}</p>
-                    <p className="text-xs text-muted-foreground">@{friend.username || "friend"}</p>
+                    <div>
+                      <Link to={`/profile/${friend.username || friend.id}`} className="font-semibold text-foreground transition-colors hover:text-primary">
+                        {friend.name || friend.email}
+                      </Link>
+                      <p className="text-xs text-muted-foreground">@{friend.username || "friend"}</p>
                     <p className="mt-1 text-sm text-muted-foreground">{lb ? `${formatDuration(lb.weeklyMinutes)} this week` : "No study data yet"}</p>
                   </div>
                 </div>
@@ -635,8 +640,10 @@ export default function FriendsPage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-700">
                     {initials(u.fullName || u.email)}
                   </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{u.fullName || u.email}</p>
+                    <div>
+                      <Link to={`/profile/${u.username || u.id}`} className="font-semibold text-foreground transition-colors hover:text-primary">
+                        {u.fullName || u.email}
+                      </Link>
                     <p className="text-xs text-muted-foreground">@{u.username || "new-user"}</p>
                   </div>
                 </div>

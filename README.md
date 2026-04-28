@@ -83,6 +83,10 @@ The API supports:
 | Logout | `POST /api/v1/auth/logout` | Body: `refreshId` |
 | Dev login | `POST /api/v1/auth/dev-login` | Optional `{"email":"..."}`; intended for local convenience—creates or reuses a dev user |
 | Timer state sync | `GET/PUT/DELETE /api/v1/timer-state` | Persists active timer UI state per user so running timers can recover after tab switches or page refresh |
+| Profile settings | `GET/PATCH /api/v1/users/me/public-profile` | Public profile metadata (bio, location, education, target exam, etc.) |
+| Preferences | `GET/PATCH /api/v1/users/me/preferences` | Study defaults and notification toggles |
+| Privacy settings | `GET/PATCH /api/v1/users/me/privacy` | Public profile / stats / leaderboard visibility controls |
+| Public profile lookup | `GET /api/v1/users/{username}/public-profile` | Privacy-aware public profile payload for profile pages |
 | Friends | `/api/v1/friends/*` | Discover users, send/accept friend requests, create shared friend sessions (same subject/topic or per-friend subject/topic overrides), and view weekly friend leaderboard (`weekOffset` supported) |
 
 Frontend env (see `.env.example`):
@@ -112,7 +116,7 @@ From the repo root (requires Docker and `jq`):
 ./scripts/e2e.sh
 ```
 
-This exercises register, login, password reset, authenticated CRUD (subjects, sessions, goals), insights, friend requests + shared sessions + leaderboard week switching, timer-state persistence (including friend live timer payloads), refresh + logout, Nginx `/api/v1` proxying, and invalid Google token handling. Details: `docs/PRODUCTION_LOCAL_RUNBOOK.md`.
+This exercises register, login, password reset, authenticated CRUD (subjects, sessions, goals), exam goal lifecycle, profile/preferences/privacy read-write flows, privacy-aware public profile retrieval, insights, friend requests + shared sessions + leaderboard week switching, timer-state persistence (including friend live timer payloads), refresh + logout, Nginx `/api/v1` proxying, and invalid Google token handling. Details: `docs/PRODUCTION_LOCAL_RUNBOOK.md`.
 
 ## API documentation
 

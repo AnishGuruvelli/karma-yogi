@@ -11,7 +11,7 @@ type PeriodMode = "week" | "month" | "all";
 const MONTH_LABELS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
 export default function InsightsPage() {
-  const { sessions, subjects } = useStore();
+  const { sessions, subjects, isDark } = useStore();
   const [mode, setMode] = useState<PeriodMode>("week");
   const [offset, setOffset] = useState(0);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -539,15 +539,30 @@ export default function InsightsPage() {
                       }
 
                       const ratio = day.minutes / heatmapData.maxMinutes;
-                      let bg = "oklch(0.95 0.01 255)";
-                      if (day.minutes > 0 && ratio <= 0.25) bg = "oklch(0.88 0.08 170)";
-                      else if (ratio > 0.25 && ratio <= 0.5) bg = "oklch(0.78 0.12 165)";
-                      else if (ratio > 0.5 && ratio <= 0.75) bg = "oklch(0.68 0.16 160)";
-                      else if (ratio > 0.75) bg = "oklch(0.58 0.19 155)";
+                      const scale = isDark
+                        ? [
+                            "oklch(0.23 0.03 160)",
+                            "oklch(0.42 0.09 172)",
+                            "oklch(0.55 0.13 174)",
+                            "oklch(0.66 0.16 176)",
+                            "oklch(0.74 0.2 178)",
+                          ]
+                        : [
+                            "oklch(0.95 0.01 255)",
+                            "oklch(0.88 0.08 170)",
+                            "oklch(0.78 0.12 165)",
+                            "oklch(0.68 0.16 160)",
+                            "oklch(0.58 0.19 155)",
+                          ];
+                      let bg = scale[0];
+                      if (day.minutes > 0 && ratio <= 0.25) bg = scale[1];
+                      else if (ratio > 0.25 && ratio <= 0.5) bg = scale[2];
+                      else if (ratio > 0.5 && ratio <= 0.75) bg = scale[3];
+                      else if (ratio > 0.75) bg = scale[4];
 
                       return (
                         <div key={day.date} className="group relative aspect-square w-full">
-                          <div className="h-full w-full rounded-[2px] border border-black/5" style={{ backgroundColor: bg }} />
+                          <div className="h-full w-full rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: bg }} />
                           <div
                             className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${
                               weekIndex <= 2
@@ -569,9 +584,18 @@ export default function InsightsPage() {
             </div>
             <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
               <span>Less</span>
-              {["oklch(0.95 0.01 255)", "oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"].map(
+              {(isDark
+                ? [
+                    "oklch(0.23 0.03 160)",
+                    "oklch(0.42 0.09 172)",
+                    "oklch(0.55 0.13 174)",
+                    "oklch(0.66 0.16 176)",
+                    "oklch(0.74 0.2 178)",
+                  ]
+                : ["oklch(0.95 0.01 255)", "oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"]
+              ).map(
                 (c) => (
-                  <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5" style={{ backgroundColor: c }} />
+                  <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />
                 ),
               )}
               <span>More</span>
