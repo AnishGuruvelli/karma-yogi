@@ -12,7 +12,7 @@ type Config struct {
 		Port string
 	}
 	DatabaseURL string
-	Postgres struct {
+	Postgres    struct {
 		Host     string
 		Port     string
 		DB       string

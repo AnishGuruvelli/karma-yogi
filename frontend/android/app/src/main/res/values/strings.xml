@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Karma Yogi</string>
+    <string name="title_activity_main">Karma Yogi</string>
+    <string name="package_name">com.karmayogi.app</string>
+    <string name="custom_url_scheme">com.karmayogi.app</string>
+</resources>

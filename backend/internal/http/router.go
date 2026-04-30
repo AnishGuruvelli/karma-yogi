@@ -18,6 +18,8 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 	r.Use(chimiddleware.RealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.ClientMetaMiddleware)
+	r.Use(middleware.RequestLog)
 	r.Use(middleware.RateLimitPerIP(180, time.Minute))
 	r.Use(simpleCORS(corsAllowed))
 
@@ -90,7 +92,7 @@ func simpleCORS(allowed []string) func(http.Handler) http.Handler {
 			if allowedMap[origin] {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin")
-				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client-Platform, X-App-Version")
 				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 			}
 			if r.Method == http.MethodOptions {
