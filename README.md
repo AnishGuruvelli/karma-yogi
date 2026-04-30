@@ -35,6 +35,21 @@ All current UI screenshots:
 - Frontend (official website): [https://karma-yogi-web.onrender.com/](https://karma-yogi-web.onrender.com/)
 - Backend health check: [https://karma-yogi-api.onrender.com/healthz](https://karma-yogi-api.onrender.com/healthz)
 
+## Android (Play Store) build path
+
+- This repo now supports Capacitor Android packaging from `frontend/`.
+- Initial setup commands:
+
+  ```bash
+  cd frontend
+  npm install
+  npm run android:build:sync
+  npm run cap:open:android
+  ```
+
+- If Gradle sync fails with `Unable to locate a Java Runtime`, install JDK 21 and Android Studio SDK tools, then reopen/sync in Android Studio.
+- Build release bundle from Android Studio or Gradle (`bundleRelease`) after signing is configured.
+
 ## Structure
 
 - `frontend/` — React SPA with `react-router-dom`, Tailwind, Vite
@@ -94,6 +109,8 @@ Frontend env (see `.env.example`):
 - `VITE_API_BASE_URL` — e.g. `http://localhost:8080/api/v1`
 - `VITE_GOOGLE_CLIENT_ID` — Google OAuth Web client ID (must match backend Google config for token verification)
 - `VITE_DEV_AUTO_LOGIN` — `true`/`false`; when `true`, dev auto-login behavior in the SPA may apply (see `frontend/src/lib/api.ts`)
+- `VITE_CLIENT_PLATFORM` — request platform tag (`web`, `android`, `ios`), sent as `X-Client-Platform`
+- `VITE_APP_VERSION` — optional client version sent as `X-App-Version`
 
 Google OAuth: set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URL` for server-side verification; align the SPA origin and redirect URL with how you run the frontend.
 
@@ -101,6 +118,7 @@ Google OAuth: set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRE
 
 - Shared template: **`.env.example`** → copy to **`.env`** for Compose and local tooling.
 - **CORS:** `CORS_ALLOWED_ORIGINS` must include the exact browser origin of the SPA (including scheme and port).
+- **Request logs:** backend now logs `platform` and `app_version` (plus route/status/latency/user_id when available) for each request.
 
 ## Production notes
 

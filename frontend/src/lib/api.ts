@@ -15,6 +15,8 @@ import type {
 import { toLocalDateKey } from '@/lib/date';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+const CLIENT_PLATFORM = String(import.meta.env.VITE_CLIENT_PLATFORM || 'web').toLowerCase();
+const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || '').trim();
 
 type AuthState = { accessToken: string; refreshId: string; refreshToken: string };
 type BackendUser = { id: string; email?: string; fullName?: string; name?: string; username?: string; phone?: string; avatarUrl?: string };
@@ -29,6 +31,17 @@ type BackendUserPrivacy = UserPrivacySettings;
 type BackendPublicProfileView = PublicProfileView;
 type TimerStatePayload = Record<string, unknown>;
 const authKey = 'karma_auth';
+
+function withClientHeaders(headers: HeadersInit = {}): HeadersInit {
+  const base: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Client-Platform': CLIENT_PLATFORM,
+  };
+  if (APP_VERSION) {
+    base['X-App-Version'] = APP_VERSION;
+  }
+  return { ...base, ...(headers as Record<string, string>) };
+}
 
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const raw = (await res.text()).trim();
@@ -70,7 +83,7 @@ export async function ensureDevAuth(): Promise<void> {
   if (auth) {
     try {
       const res = await fetch(`${API_BASE}/users/me`, {
-        headers: { Authorization: `Bearer ${auth.accessToken}`, 'Content-Type': 'application/json' },
+        headers: withClientHeaders({ Authorization: `Bearer ${auth.accessToken}` }),
       });
       if (res.ok) return;
       // Keep tokens on server errors so a brief outage does not wipe a good session.
@@ -86,7 +99,7 @@ export async function ensureDevAuth(): Promise<void> {
 
   const res = await fetch(`${API_BASE}/auth/dev-login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: withClientHeaders(),
     body: JSON.stringify({ email: 'dev@karmayogi.local' }),
   });
   if (!res.ok) return;
@@ -96,7 +109,7 @@ export async function ensureDevAuth(): Promise<void> {
 
 async function request(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
   const auth = getAuthState();
-  const headers: HeadersInit = { 'Content-Type': 'application/json', ...(init.headers || {}) };
+  const headers: HeadersInit = withClientHeaders(init.headers || {});
   if (auth?.accessToken) (headers as Record<string, string>).Authorization = `Bearer ${auth.accessToken}`;
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
@@ -114,7 +127,7 @@ async function request(path: string, init: RequestInit = {}, retry = true): Prom
 }
 
 export async function loginWithGoogle(token: string) {
-  const res = await fetch(`${API_BASE}/auth/google`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+  const res = await fetch(`${API_BASE}/auth/google`, { method: 'POST', headers: withClientHeaders(), body: JSON.stringify({ token }) });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Google login failed'));
   const data = await res.json();
   setAuthState({ accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken });
@@ -124,7 +137,7 @@ export async function loginWithGoogle(token: string) {
 export async function loginWithPassword(email: string, password: string) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: withClientHeaders(),
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Email/password login failed'));
@@ -136,7 +149,7 @@ export async function loginWithPassword(email: string, password: string) {
 export async function registerWithPassword(email: string, fullName: string, password: string, secretAnswer: string) {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: withClientHeaders(),
     body: JSON.stringify({ email, fullName, password, secretAnswer }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Sign up failed'));
@@ -148,7 +161,7 @@ export async function registerWithPassword(email: string, fullName: string, pass
 export async function resetPasswordWithSecret(email: string, secretAnswer: string, newPassword: string) {
   const res = await fetch(`${API_BASE}/auth/password-reset`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: withClientHeaders(),
     body: JSON.stringify({ email, secretAnswer, newPassword }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to reset password'));
@@ -160,7 +173,7 @@ export async function logout(): Promise<void> {
     if (auth?.refreshId) {
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withClientHeaders(),
         body: JSON.stringify({ refreshId: auth.refreshId }),
       });
     }
@@ -170,7 +183,7 @@ export async function logout(): Promise<void> {
 }
 
 async function refreshToken(refreshId: string, refreshToken: string): Promise<AuthState> {
-  const res = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshId, refreshToken }) });
+  const res = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', headers: withClientHeaders(), body: JSON.stringify({ refreshId, refreshToken }) });
   if (!res.ok) throw new Error('Unable to refresh token');
   const data = await res.json();
   return { accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken };
