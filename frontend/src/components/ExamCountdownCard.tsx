@@ -95,11 +95,11 @@ export function ExamCountdownCard() {
         </div>
 
         <div className="flex items-baseline gap-3 sm:flex-col sm:items-end sm:gap-0">
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-5xl font-bold leading-none tracking-tight tabular-nums" style={{ color: "var(--neon-orange)" }}>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="font-display text-4xl font-bold leading-none tracking-tight tabular-nums sm:text-5xl" style={{ color: "var(--neon-orange)" }}>
               {headline}
             </span>
-            {days > 0 && <span className="text-sm font-medium text-muted-foreground">{days === 1 ? "day left" : "days left"}</span>}
+            {days > 0 && <span className="text-xs font-medium text-muted-foreground sm:text-sm">{days === 1 ? "day left" : "days left"}</span>}
           </div>
           <p className="text-xs text-muted-foreground sm:mt-1">{sub}</p>
         </div>

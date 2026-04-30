@@ -184,8 +184,8 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-            <div className="flex shrink-0 gap-2 lg:self-start">
-              <button onClick={() => setTab("account")} className="group flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-all hover:opacity-90" style={{ boxShadow: "var(--shadow-md)" }}>
+            <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto lg:self-start">
+              <button onClick={() => setTab("account")} className="group flex flex-1 items-center justify-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-all hover:opacity-90 sm:flex-none" style={{ boxShadow: "var(--shadow-md)" }}>
                 <Edit3 className="h-3.5 w-3.5" /> Edit profile
               </button>
               <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-foreground/20 hover:text-foreground" aria-label="Share">
@@ -206,7 +206,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <div className="mb-6 inline-flex items-center gap-1 rounded-2xl border border-border bg-card p-1" style={{ boxShadow: "var(--shadow-sm)" }}>
+      <div className="mb-6 flex items-center gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1" style={{ boxShadow: "var(--shadow-sm)" }}>
         {([
           { id: "overview", label: "Overview", icon: TrendingUp },
           { id: "achievements", label: "Achievements", icon: Trophy, badge: `${earnedCount}/${achievements.length}` },
@@ -216,7 +216,7 @@ export default function ProfilePage() {
           const Icon = item.icon;
           const active = tab === item.id;
           return (
-            <button key={item.id} onClick={() => setTab(item.id)} className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+            <button key={item.id} onClick={() => setTab(item.id)} className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
               <Icon className="h-3.5 w-3.5" />
               <span>{item.label}</span>
               {"badge" in item && item.badge && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? "bg-background/20" : "bg-muted"}`}>{item.badge}</span>}

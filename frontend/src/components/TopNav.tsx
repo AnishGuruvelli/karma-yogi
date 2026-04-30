@@ -25,7 +25,7 @@ export function TopNav({ onLogout }: { onLogout: () => void }) {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to="/" className="group flex items-center gap-3">
             <div
-              className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card transition-transform group-hover:-rotate-6"
+              className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card"
               style={{ boxShadow: "var(--shadow-sm)" }}
             >
               <LotusIcon size={22} className="text-primary" />

@@ -43,10 +43,10 @@ export function StudyCalendar({ sessions, monthsToShow = 6 }: StudyCalendarProps
 
   return (
     <div className="flex flex-col overflow-hidden">
-      <div className="max-h-[72vh] overflow-y-auto px-5 pb-6">
-        <div className="sticky top-0 z-10 -mx-5 grid grid-cols-7 border-b border-border bg-card px-5 py-3">
+      <div className="max-h-[72vh] overflow-y-auto px-3 pb-6 sm:px-5">
+        <div className="sticky top-0 z-10 -mx-3 grid grid-cols-7 border-b border-border bg-card px-3 py-3 sm:-mx-5 sm:px-5">
           {dayHeaders.map((d, i) => (
-            <div key={i} className="text-center text-base font-semibold text-foreground">{d}</div>
+            <div key={i} className="text-center text-sm font-semibold text-foreground sm:text-base">{d}</div>
           ))}
         </div>
         <div className="space-y-7 py-5">
@@ -55,7 +55,7 @@ export function StudyCalendar({ sessions, monthsToShow = 6 }: StudyCalendarProps
             const firstDay = getFirstDayOfWeek(year, month);
             return (
               <div key={`${year}-${month}`}>
-                <h3 className="mb-4 text-2xl font-bold text-foreground">{label}</h3>
+                <h3 className="mb-4 text-xl font-bold text-foreground sm:text-2xl">{label}</h3>
                 <div className="grid grid-cols-7 gap-y-2">
                   {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
                   {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -66,7 +66,7 @@ export function StudyCalendar({ sessions, monthsToShow = 6 }: StudyCalendarProps
                     const isFuture = new Date(dateStr) > today;
                     return (
                       <div key={day} className="flex justify-center" ref={isToday ? todayRef : undefined}>
-                        <div className={`relative flex h-12 w-12 items-center justify-center rounded-full text-lg font-medium transition-all ${
+                        <div className={`relative flex h-10 w-10 items-center justify-center rounded-full text-base font-medium transition-all sm:h-12 sm:w-12 sm:text-lg ${
                           isToday
                             ? 'bg-slate-900 text-white font-semibold'
                             : isFuture
@@ -79,8 +79,8 @@ export function StudyCalendar({ sessions, monthsToShow = 6 }: StudyCalendarProps
                         >
                           {day}
                           {hasStudy && (
-                            <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
-                              <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 sm:h-5 sm:w-5">
+                              <Check className="h-2.5 w-2.5 text-white sm:h-3 sm:w-3" strokeWidth={3} />
                             </span>
                           )}
                         </div>

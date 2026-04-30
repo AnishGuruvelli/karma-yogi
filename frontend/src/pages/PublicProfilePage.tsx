@@ -59,8 +59,8 @@ export default function PublicProfilePage() {
               <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5" /> {data?.profile.targetExam || "-"}</span>
             </div>
           </div>
-          <div className="shrink-0">
-            <button className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90" style={{ boxShadow: "var(--shadow-sm)" }}>
+          <div className="w-full shrink-0 sm:w-auto">
+            <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 sm:w-auto" style={{ boxShadow: "var(--shadow-sm)" }}>
               <UserPlus className="h-4 w-4" /> Add Friend
             </button>
           </div>

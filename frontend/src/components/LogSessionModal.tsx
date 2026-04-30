@@ -166,7 +166,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
           transition={{ duration: 0.22, ease: 'easeOut' }}
         >
           <motion.div
-            className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:max-w-3xl sm:rounded-2xl"
+            className="glass-modal mt-10 flex max-h-[84dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:max-w-3xl sm:rounded-2xl"
             onClick={e => e.stopPropagation()}
             initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -197,13 +197,13 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
             <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Subject</label>
             <Select value={subjectId} onValueChange={handleSubjectChange} open={subjectSelectOpen} onOpenChange={setSubjectSelectOpen}>
               <SelectTrigger
-                className="h-14 rounded-2xl border-border bg-card/80 px-4 text-lg font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 data-[state=open]:border-primary/50 data-[state=open]:bg-card [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180"
+                className="h-12 rounded-xl border-border bg-card/80 px-3 text-sm font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 sm:h-14 sm:rounded-2xl sm:px-4 sm:text-lg data-[state=open]:border-primary/50 data-[state=open]:bg-card [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180"
                 style={{ boxShadow: 'var(--shadow-sm)' }}
               >
                 {selectedSubject ? (
-                  <span className="inline-flex items-center gap-3">
+                  <span className="inline-flex min-w-0 items-center gap-2 sm:gap-3">
                     <span className="text-base">{getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}</span>
-                    <span className="font-medium">{selectedSubject.name}</span>
+                    <span className="truncate font-medium">{selectedSubject.name}</span>
                   </span>
                 ) : (
                   <SelectValue placeholder="Select subject" />
@@ -413,12 +413,12 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
 
           <div>
             <label className="mb-2 block text-sm font-medium text-muted-foreground">Mood</label>
-            <div className="flex justify-between rounded-xl bg-muted/50 p-2">
+            <div className="flex flex-wrap justify-center gap-1 rounded-xl bg-muted/50 p-2 sm:flex-nowrap sm:justify-between sm:gap-0">
               {[1, 2, 3, 4, 5].map(m => (
                 <button
                   key={m}
                   onClick={() => setMood(m)}
-                  className={`rounded-lg p-2.5 text-2xl transition-all ${
+                  className={`rounded-lg p-2 text-2xl transition-all sm:p-2.5 ${
                     mood === m ? 'scale-110 bg-card' : 'opacity-40 hover:opacity-70'
                   }`}
                   style={mood === m ? { boxShadow: 'var(--shadow-sm)' } : undefined}
@@ -441,7 +441,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 <button
                   onClick={handleSubmit}
                   disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0))}
-                  className="rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl bg-primary px-2 py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
                   style={{ boxShadow: 'var(--shadow-md)' }}
                 >
                   {subjects.length === 0 ? 'Add a subject first' : !topic.trim() ? 'Topic is required' : 'Save Session'}
@@ -461,7 +461,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
           <AnimatePresence>
             {showDeleteConfirm && (
               <motion.div
-                className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+                className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -469,22 +469,22 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 onClick={() => setShowDeleteConfirm(false)}
               >
                 <motion.div
-                  className="w-full max-w-xl rounded-2xl border border-border bg-background p-6 shadow-2xl"
+                  className="w-full max-w-xl rounded-2xl border border-border bg-background p-4 shadow-2xl sm:p-6"
                   initial={{ y: 10, opacity: 0.95, scale: 0.98 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
                   exit={{ y: 8, opacity: 0.95, scale: 0.98 }}
                   transition={{ type: 'spring', stiffness: 320, damping: 28 }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <h3 className="text-2xl font-bold text-foreground">Delete this session?</h3>
-                  <p className="mt-3 text-lg text-muted-foreground">
+                  <h3 className="text-xl font-bold text-foreground sm:text-2xl">Delete this session?</h3>
+                  <p className="mt-3 text-sm text-muted-foreground sm:text-lg">
                     Session topic: &quot;{topic.trim() || initialSession?.topic || 'Untitled'}&quot;. This action cannot be undone.
                   </p>
-                  <div className="mt-6 flex items-center justify-end gap-3">
+                  <div className="mt-6 flex items-center justify-end gap-2 sm:gap-3">
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="rounded-xl border border-border bg-card px-5 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-muted"
+                      className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:px-5 sm:text-base"
                     >
                       Cancel
                     </button>
@@ -494,7 +494,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                         setShowDeleteConfirm(false);
                         onDelete?.();
                       }}
-                      className="rounded-xl bg-red-600 px-5 py-2.5 text-base font-semibold text-white transition-colors hover:bg-red-700"
+                      className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 sm:px-5 sm:text-base"
                     >
                       Delete
                     </button>

@@ -457,7 +457,7 @@ export default function InsightsPage() {
         <div className="space-y-6">
           <div className="glass-card rounded-2xl p-4 sm:p-5">
             <h2 className="mb-4 font-semibold text-foreground">Productivity</h2>
-            <div className="flex items-center justify-around">
+            <div className="flex flex-wrap items-center justify-around gap-y-3 sm:flex-nowrap sm:gap-y-0">
               <div className="text-center">
                 <div className="text-2xl">☀️</div>
                 <div className="text-2xl font-bold text-foreground">{avgMood}</div>

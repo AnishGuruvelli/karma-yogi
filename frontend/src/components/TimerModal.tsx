@@ -369,7 +369,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
           }}
         >
           <motion.div
-            className="glass-modal mt-10 flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(90dvh,860px)] sm:max-w-md sm:rounded-2xl"
+            className="glass-modal mt-10 flex max-h-[84dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(90dvh,860px)] sm:max-w-md sm:rounded-2xl"
             initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
@@ -432,13 +432,13 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Subject</label>
                 <Select value={subjectId} onValueChange={handleSubjectChange} open={subjectSelectOpen} onOpenChange={setSubjectSelectOpen}>
                   <SelectTrigger
-                    className="h-12 rounded-xl border-border bg-card/80 px-3 text-base font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 data-[state=open]:border-primary/50 data-[state=open]:bg-card [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180"
+                    className="h-12 rounded-xl border-border bg-card/80 px-3 text-sm font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 sm:text-base data-[state=open]:border-primary/50 data-[state=open]:bg-card [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180"
                     style={{ boxShadow: 'var(--shadow-sm)' }}
                   >
                     {selectedSubject ? (
-                      <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex min-w-0 items-center gap-2">
                         <span className="text-base">{getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}</span>
-                        <span className="font-medium">{selectedSubject.name}</span>
+                        <span className="truncate font-medium">{selectedSubject.name}</span>
                       </span>
                     ) : (
                       <SelectValue placeholder="Select subject" />
@@ -524,7 +524,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 />
               </div>
               {mode === 'pomodoro' && (
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <div className="flex-1">
                     <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Focus (min)</label>
                     <input
@@ -582,7 +582,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
               {mode === 'pomodoro' ? (
                 <>
                   <div className="relative mb-3">
-                    <svg width="200" height="200" viewBox="0 0 200 200">
+                    <svg width="180" height="180" viewBox="0 0 200 200" className="sm:h-[200px] sm:w-[200px]">
                       <circle cx="100" cy="100" r="90" fill="none" stroke="var(--color-muted)" strokeWidth="8" />
                       <circle
                         cx="100" cy="100" r="90" fill="none"
@@ -595,7 +595,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-4xl font-mono font-bold text-foreground">{formatTime(pomodoroRemaining)}</span>
+                      <span className="text-3xl font-mono font-bold text-foreground sm:text-4xl">{formatTime(pomodoroRemaining)}</span>
                       <span className={`mt-1 text-sm font-semibold ${pomodoroPhase === 'focus' ? 'text-neon-orange' : 'text-neon-green'}`}>
                         {pomodoroPhase === 'focus' ? '🍅 Focus' : '☕ Break'}
                       </span>
@@ -607,9 +607,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                   </div>
                 </>
               ) : (
-                <div className="text-6xl font-mono font-bold text-foreground tracking-tight">{formatTime(computedStopwatchElapsed)}</div>
+                <div className="text-5xl font-mono font-bold tracking-tight text-foreground sm:text-6xl">{formatTime(computedStopwatchElapsed)}</div>
               )}
-              <p className="mt-3 text-sm text-muted-foreground">
+              <p className="mt-3 max-w-full text-center text-sm text-muted-foreground">
                 {selectedSubject
                   ? `${getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')} ${selectedSubject.name}`
                   : 'Subject'}{' '}
@@ -626,7 +626,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-3 sm:gap-4">
               <button
                 onClick={() => {
                   clearTimer();

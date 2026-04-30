@@ -85,12 +85,12 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+      <div className="mb-4 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>
           Showing {sessions.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-
           {Math.min(safePage * pageSize, sessions.length)} of {sessions.length}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}

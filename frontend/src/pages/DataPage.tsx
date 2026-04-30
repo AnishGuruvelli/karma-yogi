@@ -115,7 +115,7 @@ export default function DataPage() {
               return (
                 <div
                   key={sub.id}
-                  className="flex items-center gap-3 border-b border-border/50 px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/30"
+                  className="flex flex-wrap items-center gap-3 border-b border-border/50 px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/30 sm:flex-nowrap"
                 >
                   <Popover
                     open={colorPickerSubjectId === sub.id}

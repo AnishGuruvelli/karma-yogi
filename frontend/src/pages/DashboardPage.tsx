@@ -11,6 +11,16 @@ import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 import { motion } from "framer-motion";
 import { subjectColor } from "@/lib/colors";
 
+const DAILY_QUOTES = [
+  "The journey of a thousand miles begins with a single step.",
+  "Success is the sum of small efforts, repeated day in and day out.",
+  "Little by little, a little becomes a lot.",
+  "Discipline is choosing between what you want now and what you want most.",
+  "You do not rise to the level of your goals. You fall to the level of your systems.",
+  "Small daily improvements are the key to staggering long-term results.",
+  "Consistency compounds louder than intensity.",
+] as const;
+
 export default function DashboardPage() {
   const { user, sessions, subjects, goal, getSubject } = useStore();
   const [timerOpen, setTimerOpen] = useState(false);
@@ -62,6 +72,10 @@ export default function DashboardPage() {
     return "Good Evening";
   };
 
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const quoteIndex = Math.floor(now.getTime() / msPerDay) % DAILY_QUOTES.length;
+  const dailyQuote = DAILY_QUOTES[quoteIndex] || DAILY_QUOTES[0];
+
   const weekHours = weekMinutes / 60;
   const goalProgress = Math.min(weekHours / goal.targetHours, 1);
   const circumference = 2 * Math.PI * 70;
@@ -74,10 +88,11 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="eyebrow mb-2">{now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
-          <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground">
+          <h1 className="break-words font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             {greeting()}, {user.name}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">Show up today, however small.</p>
+          <p className="mt-2 text-sm text-muted-foreground">"{dailyQuote}"</p>
+          <p className="mt-1 text-sm text-muted-foreground">Show up today, however small.</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <motion.button

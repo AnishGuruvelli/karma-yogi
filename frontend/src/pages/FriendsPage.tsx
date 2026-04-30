@@ -480,9 +480,9 @@ export default function FriendsPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="text-center">
+              <div className="min-w-0 px-2 text-center">
                 <p className="text-sm text-muted-foreground dark:text-slate-400">{weekOffset === 0 ? "This Week" : "Selected Week"}</p>
-                <p className="text-sm font-semibold text-foreground dark:text-slate-200">{selectedWeek.label}</p>
+                <p className="truncate text-sm font-semibold text-foreground dark:text-slate-200">{selectedWeek.label}</p>
               </div>
               <button
                 type="button"
@@ -507,7 +507,7 @@ export default function FriendsPage() {
             </article>
             <article className="col-span-2 rounded-3xl border border-border bg-background p-5 text-center dark:border-slate-800 dark:bg-[#081126] lg:col-span-1">
               <p className="text-sm text-muted-foreground dark:text-slate-400">Top Studier</p>
-              <p className="mt-1 text-4xl font-bold leading-none text-amber-600 dark:text-amber-400 sm:text-[38px]">{topStudier?.fullName || topStudier?.username || "-"}</p>
+              <p className="mt-1 truncate text-2xl font-bold leading-none text-amber-600 dark:text-amber-400 sm:text-[38px]">{topStudier?.fullName || topStudier?.username || "-"}</p>
             </article>
           </div>
 
