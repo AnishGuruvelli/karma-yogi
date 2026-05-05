@@ -370,16 +370,16 @@ func (r *pgUserPreferencesRepo) GetByUser(ctx context.Context, userID string) (d
 	if err != nil {
 		return domain.UserPreferences{}, err
 	}
-	err = r.pool.QueryRow(ctx, `SELECT user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,created_at,updated_at
+	err = r.pool.QueryRow(ctx, `SELECT user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,show_strategy_page,created_at,updated_at
 		FROM user_preferences WHERE user_id=$1`, userID).Scan(
-		&p.UserID, &p.PreferredStudyTime, &p.DefaultSessionMinutes, &p.BreakMinutes, &p.PomodoroCycles, &p.StudyLevel, &p.WeeklyGoalHours, &p.EmailNotifications, &p.PushNotifications, &p.ReminderNotifications, &p.MarketingNotifications, &p.CreatedAt, &p.UpdatedAt,
+		&p.UserID, &p.PreferredStudyTime, &p.DefaultSessionMinutes, &p.BreakMinutes, &p.PomodoroCycles, &p.StudyLevel, &p.WeeklyGoalHours, &p.EmailNotifications, &p.PushNotifications, &p.ReminderNotifications, &p.MarketingNotifications, &p.ShowStrategyPage, &p.CreatedAt, &p.UpdatedAt,
 	)
 	return p, err
 }
 
 func (r *pgUserPreferencesRepo) Upsert(ctx context.Context, preferences domain.UserPreferences) (domain.UserPreferences, error) {
-	q := `INSERT INTO user_preferences (user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+	q := `INSERT INTO user_preferences (user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,show_strategy_page)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		ON CONFLICT (user_id) DO UPDATE SET
 			preferred_study_time=EXCLUDED.preferred_study_time,
 			default_session_minutes=EXCLUDED.default_session_minutes,
@@ -391,10 +391,11 @@ func (r *pgUserPreferencesRepo) Upsert(ctx context.Context, preferences domain.U
 			push_notifications=EXCLUDED.push_notifications,
 			reminder_notifications=EXCLUDED.reminder_notifications,
 			marketing_notifications=EXCLUDED.marketing_notifications,
+			show_strategy_page=EXCLUDED.show_strategy_page,
 			updated_at=now()
-		RETURNING user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,created_at,updated_at`
-	err := r.pool.QueryRow(ctx, q, preferences.UserID, preferences.PreferredStudyTime, preferences.DefaultSessionMinutes, preferences.BreakMinutes, preferences.PomodoroCycles, preferences.StudyLevel, preferences.WeeklyGoalHours, preferences.EmailNotifications, preferences.PushNotifications, preferences.ReminderNotifications, preferences.MarketingNotifications).Scan(
-		&preferences.UserID, &preferences.PreferredStudyTime, &preferences.DefaultSessionMinutes, &preferences.BreakMinutes, &preferences.PomodoroCycles, &preferences.StudyLevel, &preferences.WeeklyGoalHours, &preferences.EmailNotifications, &preferences.PushNotifications, &preferences.ReminderNotifications, &preferences.MarketingNotifications, &preferences.CreatedAt, &preferences.UpdatedAt,
+		RETURNING user_id,preferred_study_time,default_session_minutes,break_minutes,pomodoro_cycles,study_level,weekly_goal_hours,email_notifications,push_notifications,reminder_notifications,marketing_notifications,show_strategy_page,created_at,updated_at`
+	err := r.pool.QueryRow(ctx, q, preferences.UserID, preferences.PreferredStudyTime, preferences.DefaultSessionMinutes, preferences.BreakMinutes, preferences.PomodoroCycles, preferences.StudyLevel, preferences.WeeklyGoalHours, preferences.EmailNotifications, preferences.PushNotifications, preferences.ReminderNotifications, preferences.MarketingNotifications, preferences.ShowStrategyPage).Scan(
+		&preferences.UserID, &preferences.PreferredStudyTime, &preferences.DefaultSessionMinutes, &preferences.BreakMinutes, &preferences.PomodoroCycles, &preferences.StudyLevel, &preferences.WeeklyGoalHours, &preferences.EmailNotifications, &preferences.PushNotifications, &preferences.ReminderNotifications, &preferences.MarketingNotifications, &preferences.ShowStrategyPage, &preferences.CreatedAt, &preferences.UpdatedAt,
 	)
 	return preferences, err
 }
@@ -552,6 +553,23 @@ func (r *pgFriendRepo) ListFriends(ctx context.Context, userID string) ([]domain
 			return nil, err
 		}
 		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgFriendRepo) ListFriendshipsCreatedAsc(ctx context.Context, userID string) ([]time.Time, error) {
+	rows, err := r.pool.Query(ctx, `SELECT created_at FROM friends WHERE user_id=$1 ORDER BY created_at ASC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []time.Time
+	for rows.Next() {
+		var t time.Time
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
 	}
 	return out, rows.Err()
 }

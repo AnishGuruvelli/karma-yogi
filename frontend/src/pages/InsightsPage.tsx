@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine } from "recharts";
-import { Clock, BarChart3, BookOpen, List, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Clock, BarChart3, Crown, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 import { getSafeSubjectIcon } from "@/lib/subject-icon";
@@ -61,8 +61,21 @@ export default function InsightsPage() {
   const totalMinutes = filteredSessions.reduce((sum, s) => sum + s.duration, 0);
   const uniqueDays = new Set(filteredSessions.map((s) => s.date)).size;
   const dailyAvg = uniqueDays > 0 ? totalMinutes / uniqueDays : 0;
-  const activeSubjects = new Set(filteredSessions.map((s) => s.subjectId)).size;
   const longestSession = filteredSessions.length > 0 ? Math.max(...filteredSessions.map((s) => s.duration)) : 0;
+
+  const bestSubjectByTime = useMemo(() => {
+    const byId = new Map<string, number>();
+    for (const s of filteredSessions) {
+      byId.set(s.subjectId, (byId.get(s.subjectId) || 0) + s.duration);
+    }
+    const ranked = [...byId.entries()]
+      .map(([subjectId, minutes]) => ({
+        minutes,
+        name: subjects.find((sub) => sub.id === subjectId)?.name ?? "Unknown",
+      }))
+      .sort((a, b) => b.minutes - a.minutes);
+    return ranked[0] ?? null;
+  }, [filteredSessions, subjects]);
 
   const weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const dayTotalsByWeekday = useMemo(() => {
@@ -86,9 +99,29 @@ export default function InsightsPage() {
     return totals;
   }, [filteredSessions, start, end]);
 
-  const bestDay = dayTotalsByWeekday.some((x) => x > 0)
-    ? weekdayNames[dayTotalsByWeekday.indexOf(Math.max(...dayTotalsByWeekday))]
-    : "—";
+  const { bestDay, bestDayMinutes, secondBestDay, secondBestDayMinutes } = useMemo(() => {
+    const totals = dayTotalsByWeekday;
+    const maxVal = Math.max(...totals, 0);
+    if (maxVal <= 0) {
+      return { bestDay: "—", bestDayMinutes: 0, secondBestDay: "—", secondBestDayMinutes: 0 };
+    }
+    const bestIdx = totals.indexOf(maxVal);
+    const bestDay = weekdayNames[bestIdx];
+    const bestDayMinutes = totals[bestIdx];
+
+    const distinct = [...new Set(totals)].filter((t) => t > 0).sort((a, b) => b - a);
+    if (distinct.length < 2) {
+      return { bestDay, bestDayMinutes, secondBestDay: "—", secondBestDayMinutes: 0 };
+    }
+    const target = distinct[1];
+    const secondIdx = totals.findIndex((t) => t === target);
+    return {
+      bestDay,
+      bestDayMinutes,
+      secondBestDay: secondIdx >= 0 ? weekdayNames[secondIdx] : "—",
+      secondBestDayMinutes: secondIdx >= 0 ? totals[secondIdx] : 0,
+    };
+  }, [dayTotalsByWeekday]);
 
   const formatDuration = (m: number) => {
     const h = Math.floor(m / 60);
@@ -382,20 +415,71 @@ export default function InsightsPage() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
-        {[
-          { icon: Clock, value: formatDuration(totalMinutes), label: "Total", color: "text-neon-cyan", bg: "bg-neon-cyan/10" },
-          { icon: BarChart3, value: formatDuration(dailyAvg), label: "Daily Avg", color: "text-neon-purple", bg: "bg-neon-purple/10" },
-          { icon: BookOpen, value: String(activeSubjects), label: "Subjects", color: "text-neon-green", bg: "bg-neon-green/10" },
-          { icon: List, value: String(filteredSessions.length), label: "Sessions", color: "text-neon-orange", bg: "bg-neon-orange/10" },
-          { icon: Trophy, value: formatDuration(longestSession), label: "Longest", color: "text-neon-orange", bg: "bg-neon-orange/10" },
-          { icon: Star, value: bestDay, label: "Best Day", color: "text-neon-pink", bg: "bg-neon-pink/10" },
-        ].map(({ icon: Icon, value, label, color, bg }) => (
+        {(
+          [
+            { icon: Clock, value: formatDuration(totalMinutes), label: "Total", color: "text-neon-cyan", bg: "bg-neon-cyan/10" },
+            { icon: BarChart3, value: formatDuration(dailyAvg), label: "Daily Avg", color: "text-neon-purple", bg: "bg-neon-purple/10" },
+            {
+              icon: Crown,
+              value: bestSubjectByTime ? (
+                <div className="truncate px-0.5 text-base font-bold tracking-tight text-foreground sm:text-lg">{bestSubjectByTime.name}</div>
+              ) : (
+                "—"
+              ),
+              label: "Best Subject",
+              color: "text-neon-green",
+              bg: "bg-neon-green/10",
+            },
+            { icon: Trophy, value: formatDuration(longestSession), label: "Longest", color: "text-neon-orange", bg: "bg-neon-orange/10" },
+            {
+              icon: Star,
+              value:
+                bestDay !== "—" ? (
+                  <div className="truncate px-0.5 text-base font-bold tracking-tight text-foreground sm:text-lg">{bestDay}</div>
+                ) : (
+                  "—"
+                ),
+              label: bestDay !== "—" ? `Best Day : ${formatDuration(bestDayMinutes)}` : "Best Day",
+              labelSentenceCase: true,
+              color: "text-neon-pink",
+              bg: "bg-neon-pink/10",
+            },
+            {
+              icon: Calendar,
+              value:
+                secondBestDay !== "—" ? (
+                  <div className="truncate px-0.5 text-base font-bold tracking-tight text-foreground sm:text-lg">{secondBestDay}</div>
+                ) : (
+                  "—"
+                ),
+              label: secondBestDay !== "—" ? `2nd Best Day : ${formatDuration(secondBestDayMinutes)}` : "2nd Best Day",
+              labelSentenceCase: true,
+              color: "text-neon-purple",
+              bg: "bg-neon-purple/10",
+            },
+          ] satisfies ReadonlyArray<{
+            icon: typeof Clock;
+            value: ReactNode;
+            label: string;
+            color: string;
+            bg: string;
+            labelSentenceCase?: boolean;
+          }>
+        ).map(({ icon: Icon, value, label, color, bg, labelSentenceCase }) => (
           <div key={label} className="stat-card rounded-2xl p-3 text-center sm:p-4">
             <div className={`mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${bg}`}>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
             <div className="text-base font-bold tracking-tight text-foreground sm:text-lg">{value}</div>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+            <div
+              className={
+                labelSentenceCase
+                  ? "mt-0.5 text-xs font-medium tabular-nums tracking-normal text-muted-foreground"
+                  : "text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+              }
+            >
+              {label}
+            </div>
           </div>
         ))}
       </div>

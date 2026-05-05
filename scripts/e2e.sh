@@ -131,6 +131,25 @@ SESSION_ID="$(printf "%s" "$SESSION_CREATE" | jq -r '.id')"
 SESSION_UPDATE="$(api_call PATCH "/api/v1/sessions/$SESSION_ID" "{\"subjectId\":\"$SUBJECT_ID\",\"topic\":\"Algebra Updated\",\"durationMin\":60,\"mood\":\"5\",\"startedAt\":\"2026-04-16T07:00:00Z\"}")"
 UPDATED_DURATION="$(printf "%s" "$SESSION_UPDATE" | jq -r '.durationMin')"
 SESSION_LIST="$(api_call GET "/api/v1/sessions")"
+ACHIEVEMENTS="$(api_call GET "/api/v1/users/me/achievements")"
+if ! printf "%s" "$ACHIEVEMENTS" | jq -e '.achievements | map(.key) | index("first_session")' >/dev/null; then
+  echo "[ERROR] Achievements response missing first_session key."
+  exit 1
+fi
+FIRST_EARNED="$(printf "%s" "$ACHIEVEMENTS" | jq -r '.achievements[] | select(.key=="first_session") | .earned')"
+if [[ "$FIRST_EARNED" != "true" ]]; then
+  echo "[ERROR] Expected first_session achievement earned after creating a session."
+  exit 1
+fi
+STUDY_STATS="$(api_call GET "/api/v1/users/me/study-stats?tz=UTC")"
+if [[ "$(printf "%s" "$STUDY_STATS" | jq -r '.totalSessions')" -lt 1 ]]; then
+  echo "[ERROR] study-stats should report at least one session."
+  exit 1
+fi
+if [[ "$(printf "%s" "$STUDY_STATS" | jq -r '.totalMinutes')" -lt 1 ]]; then
+  echo "[ERROR] study-stats totalMinutes should be positive after session create."
+  exit 1
+fi
 GOAL_CREATE="$(api_call POST "/api/v1/goals" '{"title":"Weekly Goal","targetMinutes":300,"deadline":"2026-05-16T00:00:00Z"}')"
 GOAL_ID="$(printf "%s" "$GOAL_CREATE" | jq -r '.id')"
 GOAL_UPDATE="$(api_call PATCH "/api/v1/goals/$GOAL_ID" '{"title":"Weekly Goal Updated","targetMinutes":360,"deadline":"2026-05-20T00:00:00Z"}')"
@@ -151,7 +170,7 @@ if [[ "$(printf "%s" "$PROFILE_PUBLIC_GET" | jq -r '.bio')" != "E2E bio" ]]; the
   echo "[ERROR] Public profile patch/get mismatch."
   exit 1
 fi
-PREFERENCES_PATCH="$(api_call PATCH "/api/v1/users/me/preferences" '{"preferredStudyTime":"Evening","defaultSessionMinutes":55,"breakMinutes":12,"pomodoroCycles":5,"studyLevel":"Intermediate","weeklyGoalHours":24,"emailNotifications":true,"pushNotifications":true,"reminderNotifications":true,"marketingNotifications":false}')"
+PREFERENCES_PATCH="$(api_call PATCH "/api/v1/users/me/preferences" '{"preferredStudyTime":"Evening","defaultSessionMinutes":55,"breakMinutes":12,"pomodoroCycles":5,"studyLevel":"Intermediate","weeklyGoalHours":24,"emailNotifications":true,"pushNotifications":true,"reminderNotifications":true,"marketingNotifications":false,"showStrategyPage":false}')"
 PREFERENCES_GET="$(api_call GET "/api/v1/users/me/preferences")"
 if [[ "$(printf "%s" "$PREFERENCES_GET" | jq -r '.defaultSessionMinutes')" != "55" ]]; then
   echo "[ERROR] Preferences patch/get mismatch."
@@ -166,6 +185,11 @@ fi
 PUBLIC_PROFILE_GET="$(friend_api_call GET "/api/v1/users/$(printf "%s" "$ME" | jq -r '.username')/public-profile")"
 if [[ "$(printf "%s" "$PUBLIC_PROFILE_GET" | jq -r '.profile.targetExam')" != "CAT 2026" ]]; then
   echo "[ERROR] Public profile endpoint did not expose expected profile metadata."
+  exit 1
+fi
+PUBLIC_PROFILE_DETAILS_PRE="$(friend_api_call GET "/api/v1/users/$(printf "%s" "$ME" | jq -r '.username')/public-profile/details")"
+if [[ "$(printf "%s" "$PUBLIC_PROFILE_DETAILS_PRE" | jq -r '.canViewDetails')" != "false" ]]; then
+  echo "[ERROR] Public profile details should be restricted for non-friends."
   exit 1
 fi
 INSIGHTS="$(api_call GET "/api/v1/insights")"
@@ -192,6 +216,15 @@ fi
 SELF_SESSIONS="$(api_call GET "/api/v1/sessions")"
 if ! printf "%s" "$SELF_SESSIONS" | jq -e '.[] | select(.topic == "self quant")' >/dev/null; then
   echo "[ERROR] Friend session was not created for self user."
+  exit 1
+fi
+PUBLIC_PROFILE_DETAILS_POST="$(friend_api_call GET "/api/v1/users/$(printf "%s" "$ME" | jq -r '.username')/public-profile/details")"
+if [[ "$(printf "%s" "$PUBLIC_PROFILE_DETAILS_POST" | jq -r '.canViewDetails')" != "true" ]]; then
+  echo "[ERROR] Public profile details should be available for confirmed friends."
+  exit 1
+fi
+if ! printf "%s" "$PUBLIC_PROFILE_DETAILS_POST" | jq -e '.sessions | length > 0' >/dev/null; then
+  echo "[ERROR] Public profile details should include sessions for confirmed friends."
   exit 1
 fi
 LEADERBOARD="$(api_call GET "/api/v1/friends/leaderboard")"

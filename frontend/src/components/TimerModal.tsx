@@ -21,8 +21,7 @@ interface TimerModalProps {
 
 const POMODORO_FOCUS = 25 * 60;
 const POMODORO_BREAK = 5 * 60;
-const SHEET_CLOSE_DRAG_Y = 120;
-const SHEET_CLOSE_VELOCITY_Y = 700;
+const labelClass = "mb-1.5 block text-sm font-medium text-muted-foreground";
 
 export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const { subjects, sessions, addSession, addSubject } = useStore();
@@ -359,7 +358,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -369,26 +368,14 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
           }}
         >
           <motion.div
-            className="glass-modal mt-10 flex max-h-[84dvh] w-full flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(90dvh,860px)] sm:max-w-md sm:rounded-2xl"
+            className="glass-modal mt-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:rounded-2xl"
             initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 1 }}
-            drag="y"
-            dragDirectionLock
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.16}
-            dragMomentum={false}
-            onDragEnd={(_, info) => {
-              if (hasStarted) return;
-              if (info.offset.y > SHEET_CLOSE_DRAG_Y || info.velocity.y > SHEET_CLOSE_VELOCITY_Y) {
-                onClose();
-              }
-            }}
             onClick={e => e.stopPropagation()}
           >
-        <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted sm:hidden" />
+        <div className="min-h-0 overflow-y-auto p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-bold text-foreground">Study Timer</h2>
             <button
@@ -396,7 +383,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 if (!hasStarted) onClose();
               }}
               disabled={hasStarted}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -429,15 +416,16 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
             {/* Setup */}
             <div className="mb-5 space-y-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Subject</label>
+                <label className={labelClass}>Subject</label>
                 <Select value={subjectId} onValueChange={handleSubjectChange} open={subjectSelectOpen} onOpenChange={setSubjectSelectOpen}>
                   <SelectTrigger
-                    className="h-12 rounded-xl border-border bg-card/80 px-3 text-sm font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 sm:text-base data-[state=open]:border-primary/50 data-[state=open]:bg-card [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200 data-[state=open]:[&>svg]:rotate-180"
-                    style={{ boxShadow: 'var(--shadow-sm)' }}
+                    className="input-field h-12 rounded-xl px-3 text-sm font-medium text-foreground transition-all hover:border-primary/40 focus:ring-2 focus:ring-primary/20 sm:text-base data-[state=open]:border-primary/50 [&>svg]:text-muted-foreground"
                   >
                     {selectedSubject ? (
-                      <span className="inline-flex min-w-0 items-center gap-2">
-                        <span className="text-base">{getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}</span>
+                      <span className="inline-flex min-w-0 items-center gap-4">
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none">
+                          {getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}
+                        </span>
                         <span className="truncate font-medium">{selectedSubject.name}</span>
                       </span>
                     ) : (
@@ -451,7 +439,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                       subjects.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           <span className="inline-flex items-center gap-2">
-                            <span className="text-base">{getSafeSubjectIcon(s.icon, s.name.charAt(0) || '📘')}</span>
+                            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none">
+                              {getSafeSubjectIcon(s.icon, s.name.charAt(0) || '📘')}
+                            </span>
                             <span className="font-medium">{s.name}</span>
                           </span>
                         </SelectItem>
@@ -468,14 +458,14 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                       <span className="font-semibold text-primary">+ Create Subject</span>
                     </SelectItem>
                     {showCreateSubject && (
-                      <div className="mt-1 space-y-2 rounded-lg border border-border bg-muted/30 p-2">
+                        <div className="mt-1 space-y-2 rounded-xl border border-border bg-muted/50 p-3">
                         <input
                           value={newSubjectName}
                           onChange={(e) => setNewSubjectName(e.target.value)}
                           placeholder="Subject name"
-                          className="input-field w-full rounded-lg p-2 text-sm"
+                          className="input-field w-full rounded-xl p-2 text-sm"
                         />
-                        <div className="flex gap-2 pt-1">
+                          <div className="flex flex-wrap gap-2 pt-0.5">
                           {Object.entries(colorMap).map(([key, val]) => (
                             <button
                               key={key}
@@ -486,25 +476,25 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                               }}
                               onClick={() => setNewSubjectColor(key)}
                               aria-pressed={newSubjectColor === key}
-                              className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card border-2 border-primary/60' : 'border border-transparent hover:scale-105'}`}
+                              className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card' : 'border border-transparent hover:scale-105'}`}
                               style={{ backgroundColor: val }}
                             />
                           ))}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => {
                               void handleCreateSubject();
                             }}
-                            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                           >
                             Add
                           </button>
                           <button
                             type="button"
                             onClick={() => setShowCreateSubject(false)}
-                            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+                            className="rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground"
                           >
                             Cancel
                           </button>
@@ -515,7 +505,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 </Select>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Topic</label>
+                <label className={labelClass}>Topic</label>
                 <input
                   value={topic}
                   onChange={e => setTopic(e.target.value)}
@@ -526,7 +516,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
               {mode === 'pomodoro' && (
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <div className="flex-1">
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Focus (min)</label>
+                    <label className={labelClass}>Focus (min)</label>
                     <input
                       type="number" min={1} max={120} value={focusDuration}
                       onChange={e => { setFocusDuration(Number(e.target.value)); setPomodoroRemaining(Number(e.target.value) * 60); }}
@@ -534,7 +524,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Break (min)</label>
+                    <label className={labelClass}>Break (min)</label>
                     <input
                       type="number" min={1} max={30} value={breakDuration}
                       onChange={e => setBreakDuration(Number(e.target.value))}
@@ -555,9 +545,10 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                       }}
                       aria-disabled={!canStart}
                       title={!canStart ? (subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.') : undefined}
-                      className={`w-full rounded-xl bg-neon-orange py-3.5 font-semibold text-white transition-all neon-glow-orange ${
-                        canStart ? 'hover:opacity-90' : 'cursor-not-allowed opacity-70'
+                      className={`w-full rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-all ${
+                        canStart ? 'hover:opacity-95' : 'cursor-not-allowed opacity-70'
                       }`}
+                      style={{ boxShadow: "var(--shadow-md)" }}
                     >
                       <Play className="mr-2 inline h-4 w-4" />
                       {subjects.length === 0
@@ -610,9 +601,18 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 <div className="text-5xl font-mono font-bold tracking-tight text-foreground sm:text-6xl">{formatTime(computedStopwatchElapsed)}</div>
               )}
               <p className="mt-3 max-w-full text-center text-sm text-muted-foreground">
-                {selectedSubject
-                  ? `${getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')} ${selectedSubject.name}`
-                  : 'Subject'}{' '}
+                <span className="inline-flex max-w-full items-center gap-2.5 align-middle">
+                  {selectedSubject ? (
+                    <>
+                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none">
+                        {getSafeSubjectIcon(selectedSubject.icon, selectedSubject.name.charAt(0) || '📘')}
+                      </span>
+                      <span className="truncate">{selectedSubject.name}</span>
+                    </>
+                  ) : (
+                    <span>Subject</span>
+                  )}
+                </span>{' '}
                 — {topic || 'General study'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground/90">

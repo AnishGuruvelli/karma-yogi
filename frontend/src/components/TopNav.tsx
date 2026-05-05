@@ -1,23 +1,37 @@
+import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, LogOut, Users, User, Palette } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, LogOut, Users, User, Palette, Target } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { LotusIcon } from "@/components/LotusIcon";
 import { ThemePicker } from "@/components/ThemePicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const navLinks = [
+const baseNavLinks: ReadonlyArray<{ to: string; label: string; icon: LucideIcon }> = [
   { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/sessions", label: "Sessions", icon: Timer },
   { to: "/insights", label: "Insights", icon: BarChart3 },
   { to: "/friends", label: "Friends", icon: Users },
   { to: "/library", label: "Library", icon: Database },
   { to: "/profile", label: "Profile", icon: User },
-] as const;
+];
 
 export function TopNav({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const currentPath = location.pathname;
-  const { isDark, toggleTheme } = useStore();
+  const { isDark, toggleTheme, user, preferences } = useStore();
+
+  const navLinks = useMemo(() => {
+    if (user.id === "anon" || !preferences?.showStrategyPage) {
+      return [...baseNavLinks];
+    }
+    const links = [...baseNavLinks];
+    const afterInsights = links.findIndex((l) => l.to === "/insights");
+    if (afterInsights >= 0) {
+      links.splice(afterInsights + 1, 0, { to: "/strategy-dashboard", label: "Strategy", icon: Target });
+    }
+    return links;
+  }, [user.id, preferences.showStrategyPage]);
 
   return (
     <>

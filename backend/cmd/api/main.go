@@ -54,7 +54,7 @@ func main() {
 
 	authSvc := service.NewAuthService(repos.Users, repos.Auth, tm, gv)
 	userSvc := service.NewUserService(repos.Users)
-	profileSvc := service.NewProfileService(repos.Users, repos.PublicProfiles, repos.Preferences, repos.Privacy, repos.Friends, repos.Sessions)
+	profileSvc := service.NewProfileService(repos.Users, repos.PublicProfiles, repos.Preferences, repos.Privacy, repos.Friends, repos.Sessions, repos.Subjects)
 	subjectSvc := service.NewSubjectService(repos.Subjects)
 	sessSvc := service.NewSessionService(repos.Sessions)
 	goalSvc := service.NewGoalService(repos.Goals)
@@ -62,8 +62,10 @@ func main() {
 	insSvc := service.NewInsightsService(repos.Sessions, repos.Goals)
 	timerSvc := service.NewTimerStateService(repos.Timer)
 	friendSvc := service.NewFriendService(repos.Friends, repos.Subjects, repos.Sessions)
+	achievementSvc := service.NewAchievementService(repos.Sessions, repos.Friends)
+	studyStatsSvc := service.NewStudyStatsService(repos.Sessions)
 
-	h := controller.NewHandlers(authSvc, userSvc, profileSvc, subjectSvc, sessSvc, goalSvc, examGoalSvc, insSvc, timerSvc, friendSvc)
+	h := controller.NewHandlers(authSvc, userSvc, profileSvc, subjectSvc, sessSvc, goalSvc, examGoalSvc, insSvc, timerSvc, friendSvc, achievementSvc, studyStatsSvc)
 	router := httpx.NewRouter(h, tm, cfg.CORSAllowedOrigins)
 
 	srv := &http.Server{Addr: ":" + cfg.API.Port, Handler: router, ReadHeaderTimeout: 5 * time.Second}

@@ -61,6 +61,7 @@
   --color-subject-purple: var(--subject-purple);
   --font-display: "Fraunces", ui-serif, Georgia, serif;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 :root {
@@ -75,6 +76,10 @@
   --subject-orange: oklch(0.72 0.18 55);
   --subject-pink: oklch(0.68 0.2 350);
   --subject-purple: oklch(0.6 0.2 295);
+  --tech-cyan: oklch(0.62 0.14 200);
+  --tech-violet: oklch(0.52 0.22 290);
+  --tech-amber: oklch(0.72 0.16 75);
+  --tech-lime: oklch(0.68 0.19 135);
 }
 
 .dark {
@@ -88,6 +93,10 @@
   --subject-orange: oklch(0.8 0.18 55);
   --subject-pink: oklch(0.76 0.2 350);
   --subject-purple: oklch(0.7 0.2 295);
+  --tech-cyan: oklch(0.78 0.14 195);
+  --tech-violet: oklch(0.72 0.18 285);
+  --tech-amber: oklch(0.82 0.16 80);
+  --tech-lime: oklch(0.8 0.19 130);
 }
 
 :root,
@@ -677,6 +686,62 @@
   .ink-divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--foreground) 20%, transparent), transparent);
+  }
+
+  .terminal-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklch, var(--tech-cyan) 35%, var(--border));
+    background: color-mix(in oklch, var(--card) 88%, var(--tech-cyan) 6%);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+
+  /* Log Session modal — frosted sage glass (matches design reference) */
+  .log-session-modal-backdrop {
+    background: color-mix(in oklch, var(--foreground) 38%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .dark .log-session-modal-backdrop {
+    background: color-mix(in oklch, oklch(0.08 0.02 145) 72%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .log-session-modal-panel {
+    background: color-mix(in oklch, var(--card) 80%, var(--neon-green) 12%);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid color-mix(in oklch, var(--neon-green) 28%, var(--border));
+    box-shadow:
+      var(--shadow-xl),
+      0 1px 0 color-mix(in oklch, var(--foreground) 8%, transparent) inset;
+  }
+
+  .dark .log-session-modal-panel {
+    background: color-mix(in oklch, var(--card) 72%, var(--neon-green) 8%);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .log-session-field {
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in oklch, var(--neon-green) 26%, var(--border));
+    background: color-mix(in oklch, var(--muted) 88%, var(--neon-green) 10%);
+    color: var(--color-foreground);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      background 0.15s ease;
+  }
+
+  .log-session-field:focus-within {
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--neon-green));
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 16%, transparent);
+    outline: none;
   }
 }
 

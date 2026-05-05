@@ -1,15 +1,17 @@
 import { Component, useEffect, useState, type ErrorInfo, type FormEvent, type ReactNode } from "react";
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { StoreProvider } from "@/lib/store";
 import { TopNav } from "@/components/TopNav";
 import { SplashScreen } from "@/components/SplashScreen";
 import { getAuthState, loginWithGoogle, loginWithPassword, logout, registerWithPassword, resetPasswordWithSecret } from "@/lib/api";
+import { isNativeGoogleAuthPlatform, signInWithNativeGoogle } from "@/lib/nativeGoogleAuth";
 import { STANDARD_SECRET_QUESTION } from "@/lib/auth-constants";
 import { LotusIcon } from "@/components/LotusIcon";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import DashboardPage from "@/pages/DashboardPage";
 import SessionsPage from "@/pages/SessionsPage";
 import InsightsPage from "@/pages/InsightsPage";
+import StrategyDashboard from "@/pages/StrategyDashboard";
 import FriendsPage from "@/pages/FriendsPage";
 import DataPage from "@/pages/DataPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -38,6 +40,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
     Boolean(googleClientId) &&
     googleClientId !== "replace-with-google-client-id" &&
     !googleClientId.startsWith("YOUR_");
+  const useNativeGoogleAuth = isNativeGoogleAuthPlatform();
 
   const [view, setView] = useState<"login" | "register" | "reset">("login");
   const [fullName, setFullName] = useState("");
@@ -53,6 +56,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
   const [showConfirmNew, setShowConfirmNew] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [nativeGoogleBusy, setNativeGoogleBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -66,7 +70,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
   }, []);
 
   useEffect(() => {
-    if (!googleConfigured) return;
+    if (!googleConfigured || useNativeGoogleAuth) return;
     if (view === "reset") return;
     const mount = document.getElementById("google-signin-button");
     if (!mount) return;
@@ -133,7 +137,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
       if (resizeTimer) window.clearTimeout(resizeTimer);
       window.removeEventListener("resize", handleResize);
     };
-  }, [view, onAuthSuccess, googleClientId, googleConfigured]);
+  }, [view, onAuthSuccess, googleClientId, googleConfigured, useNativeGoogleAuth]);
 
   const persistRememberEmail = (cleanEmail: string) => {
     if (rememberMe && cleanEmail) {
@@ -511,13 +515,45 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">or</span>
                 <div className="h-px flex-1 bg-border" />
               </div>
-              <div id="google-signin-button" className="w-full" />
+              {googleConfigured && useNativeGoogleAuth && (
+                <button
+                  type="button"
+                  disabled={nativeGoogleBusy}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-input bg-background py-3 text-sm font-semibold text-foreground shadow-sm transition hover:bg-accent disabled:opacity-60"
+                  onClick={async () => {
+                    setError("");
+                    setNativeGoogleBusy(true);
+                    try {
+                      const idToken = await signInWithNativeGoogle(googleClientId);
+                      await loginWithGoogle(idToken);
+                      onAuthSuccess();
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : "";
+                      const lower = message.toLowerCase();
+                      const canceled =
+                        lower.includes("cancel") ||
+                        lower.includes("canceled") ||
+                        lower.includes("cancelled") ||
+                        message.includes("12501");
+                      if (!canceled) {
+                        setError(message || "Google sign-in failed.");
+                      }
+                    } finally {
+                      setNativeGoogleBusy(false);
+                    }
+                  }}
+                >
+                  {nativeGoogleBusy ? "Connecting…" : "Continue with Google"}
+                </button>
+              )}
+              {googleConfigured && !useNativeGoogleAuth && <div id="google-signin-button" className="w-full" />}
               {!googleConfigured && (
                   <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
                     Google sign-in is disabled until you set a real{" "}
                     <span className="font-mono text-foreground">VITE_GOOGLE_CLIENT_ID</span> in{" "}
                     <span className="font-mono text-foreground">.env</span> (then restart{" "}
-                    <span className="font-mono text-foreground">npm run dev</span>).
+                    <span className="font-mono text-foreground">npm run dev</span> or rebuild the app with{" "}
+                    <span className="font-mono text-foreground">npm run android:build:sync</span>).
                   </div>
               )}
             </>
@@ -662,6 +698,8 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/sessions" element={<SessionsPage />} />
                 <Route path="/insights" element={<InsightsPage />} />
+                <Route path="/strategy-dashboard" element={<StrategyDashboard />} />
+                <Route path="/strategy" element={<Navigate to="/strategy-dashboard" replace />} />
                 <Route path="/friends" element={<FriendsPage />} />
                 <Route path="/library" element={<DataPage />} />
                 <Route path="/data" element={<DataPage />} />

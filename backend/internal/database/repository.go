@@ -78,6 +78,8 @@ type FriendRepository interface {
 	AcceptRequest(ctx context.Context, requestID, userID string) error
 	RejectRequest(ctx context.Context, requestID, userID string) error
 	ListFriends(ctx context.Context, userID string) ([]domain.User, error)
+	// ListFriendshipsCreatedAsc returns friendship edge created_at for the given user_id row, oldest first.
+	ListFriendshipsCreatedAsc(ctx context.Context, userID string) ([]time.Time, error)
 	ListUsersWithStatus(ctx context.Context, userID string) ([]domain.FriendUser, error)
 	ListWeeklyLeaderboard(ctx context.Context, userID string, from, to time.Time) ([]domain.FriendLeaderboardEntry, error)
 }

@@ -4,6 +4,7 @@ import type {
   FriendUser,
   Goal,
   LeaderboardEntry,
+  PublicProfileDetails,
   PublicProfileView,
   Session,
   Subject,
@@ -29,6 +30,7 @@ type BackendUserPublicProfile = UserPublicProfile;
 type BackendUserPreferences = UserPreferences;
 type BackendUserPrivacy = UserPrivacySettings;
 type BackendPublicProfileView = PublicProfileView;
+type BackendPublicProfileDetails = PublicProfileDetails;
 type TimerStatePayload = Record<string, unknown>;
 const authKey = 'karma_auth';
 
@@ -202,6 +204,50 @@ export async function fetchMyPublicProfile(): Promise<UserPublicProfile> {
   return (await res.json()) as BackendUserPublicProfile;
 }
 
+export type UserAchievementKey =
+  | 'seven_day_streak'
+  | 'fourteen_day_warrior'
+  | 'century_club'
+  | 'first_session'
+  | 'deep_work'
+  | 'social_studier'
+  | 'subject_master'
+  | 'goal_crusher'
+  | 'early_bird'
+  | 'mock_master';
+
+export interface UserAchievement {
+  key: UserAchievementKey;
+  earned: boolean;
+  earnedAt?: string;
+}
+
+export async function fetchMyAchievements(): Promise<UserAchievement[]> {
+  const res = await request('/users/me/achievements');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch achievements'));
+  const data = (await res.json()) as { achievements: UserAchievement[] };
+  return data.achievements;
+}
+
+/** Server-aggregated session stats (all-time + current week in `timezoneUsed`). */
+export interface StudyStatsSummary {
+  totalMinutes: number;
+  totalSessions: number;
+  avgSessionMinutes: number;
+  longestSessionMinutes: number;
+  avgMood: number;
+  activeDistinctDays: number;
+  weekMinutesCurrent: number;
+  timezoneUsed: string;
+}
+
+export async function fetchMyStudyStats(tz?: string): Promise<StudyStatsSummary> {
+  const q = tz ? `?tz=${encodeURIComponent(tz)}` : '';
+  const res = await request(`/users/me/study-stats${q}`);
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch study stats'));
+  return (await res.json()) as StudyStatsSummary;
+}
+
 export async function patchMyPublicProfile(payload: {
   bio: string;
   location: string;
@@ -215,16 +261,40 @@ export async function patchMyPublicProfile(payload: {
   return (await res.json()) as BackendUserPublicProfile;
 }
 
+/** Normalize GET/PATCH preferences JSON (handles snake_case fallbacks and loose types). */
+function normalizePreferences(raw: unknown): UserPreferences {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const n = (v: unknown, fallback: number) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : fallback;
+  };
+  const b = (v: unknown) => v === true || v === "true" || v === 1;
+  return {
+    userId: String(o.userId ?? ""),
+    preferredStudyTime: String(o.preferredStudyTime ?? ""),
+    defaultSessionMinutes: n(o.defaultSessionMinutes, 50),
+    breakMinutes: n(o.breakMinutes, 10),
+    pomodoroCycles: n(o.pomodoroCycles, 4),
+    studyLevel: String(o.studyLevel ?? ""),
+    weeklyGoalHours: n(o.weeklyGoalHours, 20),
+    emailNotifications: b(o.emailNotifications),
+    pushNotifications: b(o.pushNotifications),
+    reminderNotifications: b(o.reminderNotifications),
+    marketingNotifications: b(o.marketingNotifications),
+    showStrategyPage: b(o.showStrategyPage ?? o.show_strategy_page),
+  };
+}
+
 export async function fetchMyPreferences(): Promise<UserPreferences> {
   const res = await request('/users/me/preferences');
-  if (!res.ok) throw new Error('Unable to fetch preferences');
-  return (await res.json()) as BackendUserPreferences;
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch preferences'));
+  return normalizePreferences(await res.json());
 }
 
 export async function patchMyPreferences(payload: Omit<UserPreferences, 'userId'>): Promise<UserPreferences> {
   const res = await request('/users/me/preferences', { method: 'PATCH', body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('Unable to save preferences');
-  return (await res.json()) as BackendUserPreferences;
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to save preferences'));
+  return normalizePreferences(await res.json());
 }
 
 export async function fetchMyPrivacy(): Promise<UserPrivacySettings> {
@@ -243,6 +313,40 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
   const res = await request(`/users/${encodeURIComponent(username)}/public-profile`);
   if (!res.ok) throw new Error('Unable to fetch public profile');
   return (await res.json()) as BackendPublicProfileView;
+}
+
+export async function fetchPublicProfileDetails(usernameOrId: string): Promise<PublicProfileDetails> {
+  const res = await request(`/users/${encodeURIComponent(usernameOrId)}/public-profile/details`);
+  if (res.ok) {
+    return (await res.json()) as BackendPublicProfileDetails;
+  }
+  // Backward compatibility: some deployed APIs may not yet expose `/public-profile/details`.
+  if (res.status === 404) {
+    const legacy = await fetchPublicProfile(usernameOrId);
+    return {
+      user: legacy.user,
+      profile: legacy.profile,
+      privacy: legacy.privacy,
+      canViewDetails: Boolean(legacy.stats),
+      overview: legacy.stats
+        ? {
+            totalMinutes: legacy.stats.totalMinutes,
+            totalSessions: legacy.stats.totalSessions,
+            activeDays: legacy.stats.activeDays,
+            avgSessionMinutes: legacy.stats.avgSessionMinutes,
+            longestSession: legacy.stats.longestSession,
+            thisWeekMinutes: legacy.stats.thisWeekMinutes,
+            friendCount: legacy.stats.friendCount,
+            currentStreakDays: 0,
+            maxStreakDays: 0,
+          }
+        : undefined,
+      sessions: [],
+      insights: undefined,
+      heatmap: {},
+    };
+  }
+  throw new Error(await readErrorMessage(res, 'Unable to fetch public profile details'));
 }
 
 export async function updateMe(payload: { fullName: string; username: string; phone: string; avatarUrl?: string }): Promise<UserProfile> {

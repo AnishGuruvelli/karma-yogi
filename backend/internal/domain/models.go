@@ -79,6 +79,7 @@ type UserPreferences struct {
 	PushNotifications      bool      `json:"pushNotifications"`
 	ReminderNotifications  bool      `json:"reminderNotifications"`
 	MarketingNotifications bool      `json:"marketingNotifications"`
+	ShowStrategyPage       bool      `json:"showStrategyPage"`
 	CreatedAt              time.Time `json:"createdAt"`
 	UpdatedAt              time.Time `json:"updatedAt"`
 }
@@ -109,11 +110,86 @@ type PublicProfileView struct {
 	Stats   *PublicProfileStats `json:"stats,omitempty"`
 }
 
+type PublicProfileOverview struct {
+	TotalMinutes      int `json:"totalMinutes"`
+	TotalSessions     int `json:"totalSessions"`
+	ActiveDays        int `json:"activeDays"`
+	AvgSessionMinutes int `json:"avgSessionMinutes"`
+	LongestSession    int `json:"longestSession"`
+	ThisWeekMinutes   int `json:"thisWeekMinutes"`
+	FriendCount       int `json:"friendCount"`
+	CurrentStreakDays int `json:"currentStreakDays"`
+	MaxStreakDays     int `json:"maxStreakDays"`
+}
+
+type PublicProfileSession struct {
+	ID          string    `json:"id"`
+	SubjectID   string    `json:"subjectId"`
+	SubjectName string    `json:"subjectName"`
+	Topic       string    `json:"topic"`
+	DurationMin int       `json:"durationMin"`
+	Mood        string    `json:"mood"`
+	StartedAt   time.Time `json:"startedAt"`
+}
+
+type PublicProfileInsightsDaily struct {
+	DateKey string `json:"dateKey"`
+	Minutes int    `json:"minutes"`
+}
+
+type PublicProfileInsightsSubject struct {
+	SubjectID   string `json:"subjectId"`
+	SubjectName string `json:"subjectName"`
+	Minutes     int    `json:"minutes"`
+}
+
+type PublicProfileInsights struct {
+	DailyMinutes       []PublicProfileInsightsDaily   `json:"dailyMinutes"`
+	WeeklyMinutes      []PublicProfileInsightsDaily   `json:"weeklyMinutes"`
+	SubjectBreakdown   []PublicProfileInsightsSubject `json:"subjectBreakdown"`
+	PeakHourLocal      int                            `json:"peakHourLocal"`
+	PeakHourMinutes    int                            `json:"peakHourMinutes"`
+	BestDayDateKey     string                         `json:"bestDayDateKey"`
+	BestDayMinutes     int                            `json:"bestDayMinutes"`
+	MostStudiedSubject string                         `json:"mostStudiedSubject"`
+}
+
+type PublicProfileDetails struct {
+	User           User                   `json:"user"`
+	Profile        UserPublicProfile      `json:"profile"`
+	Privacy        UserPrivacySettings    `json:"privacy"`
+	CanViewDetails bool                   `json:"canViewDetails"`
+	Overview       *PublicProfileOverview `json:"overview,omitempty"`
+	Sessions       []PublicProfileSession `json:"sessions,omitempty"`
+	Insights       *PublicProfileInsights `json:"insights,omitempty"`
+	Heatmap        map[string]int         `json:"heatmap,omitempty"`
+}
+
 type Insights struct {
 	TotalMinutes   int `json:"totalMinutes"`
 	SessionCount   int `json:"sessionCount"`
 	WeeklyMinutes  int `json:"weeklyMinutes"`
 	GoalCompletion int `json:"goalCompletion"`
+}
+
+// StudyStatsSummary is aggregated from stored sessions (all-time + current calendar week in timezoneUsed).
+type StudyStatsSummary struct {
+	TotalMinutes          int     `json:"totalMinutes"`
+	TotalSessions         int     `json:"totalSessions"`
+	AvgSessionMinutes     int     `json:"avgSessionMinutes"`
+	LongestSessionMinutes int     `json:"longestSessionMinutes"`
+	AvgMood               float64 `json:"avgMood"`
+	ActiveDistinctDays    int     `json:"activeDistinctDays"`
+	WeekMinutesCurrent    int     `json:"weekMinutesCurrent"`
+	TimezoneUsed          string  `json:"timezoneUsed"`
+}
+
+// UserAchievement is derived from sessions and friends (no separate persistence).
+// Day-based rules use the UTC calendar date of session started_at; streak "today" uses UTC.
+type UserAchievement struct {
+	Key      string     `json:"key"`
+	Earned   bool       `json:"earned"`
+	EarnedAt *time.Time `json:"earnedAt,omitempty"`
 }
 
 type RefreshToken struct {

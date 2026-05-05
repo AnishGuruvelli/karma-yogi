@@ -62,6 +62,8 @@ export interface UserPreferences {
   pushNotifications: boolean;
   reminderNotifications: boolean;
   marketingNotifications: boolean;
+  /** When true, StrategyDashboard nav and `/strategy-dashboard` are enabled for this account (API: `showStrategyPage`). */
+  showStrategyPage: boolean;
 }
 
 export interface UserPrivacySettings {
@@ -92,6 +94,67 @@ export interface PublicProfileView {
   profile: UserPublicProfile;
   privacy: UserPrivacySettings;
   stats?: PublicProfileStats;
+}
+
+export interface PublicProfileOverview {
+  totalMinutes: number;
+  totalSessions: number;
+  activeDays: number;
+  avgSessionMinutes: number;
+  longestSession: number;
+  thisWeekMinutes: number;
+  friendCount: number;
+  currentStreakDays: number;
+  maxStreakDays: number;
+}
+
+export interface PublicProfileSessionEntry {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  topic: string;
+  durationMin: number;
+  mood: string;
+  startedAt: string;
+}
+
+export interface PublicProfileInsightBucket {
+  dateKey: string;
+  minutes: number;
+}
+
+export interface PublicProfileInsightSubject {
+  subjectId: string;
+  subjectName: string;
+  minutes: number;
+}
+
+export interface PublicProfileInsightsPayload {
+  dailyMinutes: PublicProfileInsightBucket[];
+  weeklyMinutes: PublicProfileInsightBucket[];
+  subjectBreakdown: PublicProfileInsightSubject[];
+  peakHourLocal: number;
+  peakHourMinutes: number;
+  bestDayDateKey: string;
+  bestDayMinutes: number;
+  mostStudiedSubject: string;
+}
+
+export interface PublicProfileDetails {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    username: string;
+    avatarUrl?: string;
+  };
+  profile: UserPublicProfile;
+  privacy: UserPrivacySettings;
+  canViewDetails: boolean;
+  overview?: PublicProfileOverview;
+  sessions?: PublicProfileSessionEntry[];
+  insights?: PublicProfileInsightsPayload;
+  heatmap?: Record<string, number>;
 }
 
 export interface FriendUser {

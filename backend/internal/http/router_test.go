@@ -30,4 +30,3 @@ func TestCORSPreflightAllowsPut(t *testing.T) {
 		t.Fatalf("expected Access-Control-Allow-Methods to include PUT, got %q", allowMethods)
 	}
 }
-

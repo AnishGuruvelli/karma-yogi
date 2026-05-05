@@ -38,6 +38,7 @@ All current UI screenshots:
 ## Android (Play Store) build path
 
 - This repo now supports Capacitor Android packaging from `frontend/`.
+- Detailed run/install troubleshooting guide: `docs/ANDROID_APP_RUNBOOK.md`
 - Initial setup commands:
 
   ```bash

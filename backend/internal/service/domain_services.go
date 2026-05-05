@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -218,6 +220,7 @@ type ProfileService struct {
 	privacyRepo database.UserPrivacyRepository
 	friendRepo  database.FriendRepository
 	sessionRepo database.SessionRepository
+	subjectRepo database.SubjectRepository
 }
 
 type FriendSessionPlanEntry struct {
@@ -237,9 +240,10 @@ func NewProfileService(
 	privacyRepo database.UserPrivacyRepository,
 	friendRepo database.FriendRepository,
 	sessionRepo database.SessionRepository,
+	subjectRepo database.SubjectRepository,
 ) *ProfileService {
 	return &ProfileService{
-		users: users, publicRepo: publicRepo, prefRepo: prefRepo, privacyRepo: privacyRepo, friendRepo: friendRepo, sessionRepo: sessionRepo,
+		users: users, publicRepo: publicRepo, prefRepo: prefRepo, privacyRepo: privacyRepo, friendRepo: friendRepo, sessionRepo: sessionRepo, subjectRepo: subjectRepo,
 	}
 }
 
@@ -291,7 +295,7 @@ func (s *ProfileService) UpsertMyPrivacy(ctx context.Context, userID string, pri
 }
 
 func (s *ProfileService) GetPublicProfile(ctx context.Context, requesterID, username string) (domain.PublicProfileView, error) {
-	target, err := s.users.GetByUsername(ctx, username)
+	target, err := s.resolveTargetUser(ctx, username)
 	if err != nil {
 		return domain.PublicProfileView{}, err
 	}
@@ -306,18 +310,7 @@ func (s *ProfileService) GetPublicProfile(ctx context.Context, requesterID, user
 	view := domain.PublicProfileView{
 		User: target, Profile: profile, Privacy: privacy,
 	}
-	canViewAll := requesterID == target.ID || privacy.ProfilePublic
-	if !canViewAll && !privacy.ProfilePublic {
-		friends, ferr := s.friendRepo.ListFriends(ctx, target.ID)
-		if ferr == nil {
-			for _, f := range friends {
-				if f.ID == requesterID {
-					canViewAll = true
-					break
-				}
-			}
-		}
-	}
+	canViewAll := s.canViewPublicProfile(ctx, requesterID, target.ID, privacy)
 	if !canViewAll {
 		view.Profile.Bio = ""
 		view.Profile.Location = ""
@@ -334,6 +327,263 @@ func (s *ProfileService) GetPublicProfile(ctx context.Context, requesterID, user
 		}
 	}
 	return view, nil
+}
+
+func (s *ProfileService) GetPublicProfileDetails(ctx context.Context, requesterID, usernameOrID string) (domain.PublicProfileDetails, error) {
+	target, err := s.resolveTargetUser(ctx, usernameOrID)
+	if err != nil {
+		return domain.PublicProfileDetails{}, err
+	}
+	profile, err := s.publicRepo.GetByUser(ctx, target.ID)
+	if err != nil {
+		return domain.PublicProfileDetails{}, err
+	}
+	privacy, err := s.privacyRepo.GetByUser(ctx, target.ID)
+	if err != nil {
+		return domain.PublicProfileDetails{}, err
+	}
+	view := domain.PublicProfileDetails{
+		User:           target,
+		Profile:        profile,
+		Privacy:        privacy,
+		CanViewDetails: s.canViewDetailedProfile(ctx, requesterID, target.ID),
+	}
+	if !view.CanViewDetails {
+		return view, nil
+	}
+	stats, err := s.computeStats(ctx, target.ID)
+	if err != nil {
+		return domain.PublicProfileDetails{}, err
+	}
+	sessions, err := s.sessionRepo.ListByUser(ctx, target.ID, nil, nil)
+	if err != nil {
+		return domain.PublicProfileDetails{}, err
+	}
+	subjects, err := s.subjectRepo.ListByUser(ctx, target.ID)
+	if err != nil {
+		return domain.PublicProfileDetails{}, err
+	}
+	overview, sessionViews, insights, heatmap := buildPublicProfileDetails(stats, sessions, subjects)
+	view.Overview = &overview
+	view.Sessions = sessionViews
+	view.Insights = &insights
+	view.Heatmap = heatmap
+	return view, nil
+}
+
+func (s *ProfileService) canViewPublicProfile(ctx context.Context, requesterID, targetID string, privacy domain.UserPrivacySettings) bool {
+	if requesterID == targetID {
+		return true
+	}
+	if privacy.ProfilePublic {
+		return true
+	}
+	return s.canViewDetailedProfile(ctx, requesterID, targetID)
+}
+
+func (s *ProfileService) canViewDetailedProfile(ctx context.Context, requesterID, targetID string) bool {
+	if requesterID == targetID {
+		return true
+	}
+	friends, ferr := s.friendRepo.ListFriends(ctx, targetID)
+	if ferr != nil {
+		return false
+	}
+	for _, f := range friends {
+		if f.ID == requesterID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *ProfileService) resolveTargetUser(ctx context.Context, usernameOrID string) (domain.User, error) {
+	trimmed := strings.TrimSpace(usernameOrID)
+	if trimmed == "" {
+		return domain.User{}, errors.New("user is required")
+	}
+	target, err := s.users.GetByUsername(ctx, trimmed)
+	if err == nil {
+		return target, nil
+	}
+	return s.users.GetByID(ctx, trimmed)
+}
+
+func buildPublicProfileDetails(
+	stats domain.PublicProfileStats,
+	sessions []domain.Session,
+	subjects []domain.Subject,
+) (domain.PublicProfileOverview, []domain.PublicProfileSession, domain.PublicProfileInsights, map[string]int) {
+	subjectByID := make(map[string]string, len(subjects))
+	for _, sub := range subjects {
+		subjectByID[sub.ID] = sub.Name
+	}
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+	})
+	dayMinutes := map[string]int{}
+	weekMinutes := map[string]int{}
+	subjectMinutes := map[string]int{}
+	subjectNameByID := map[string]string{}
+	hourMinutes := map[int]int{}
+	bestDayDate := ""
+	bestDayMinutes := 0
+	daySet := map[string]bool{}
+	for _, sess := range sessions {
+		dateKey := sess.StartedAt.Format("2006-01-02")
+		daySet[dateKey] = true
+		dayMinutes[dateKey] += sess.DurationMin
+		if dayMinutes[dateKey] > bestDayMinutes {
+			bestDayMinutes = dayMinutes[dateKey]
+			bestDayDate = dateKey
+		}
+		year, week := sess.StartedAt.ISOWeek()
+		weekKey := fmt.Sprintf("%04d-W%02d", year, week)
+		weekMinutes[weekKey] += sess.DurationMin
+		hourMinutes[sess.StartedAt.Hour()] += sess.DurationMin
+		subjectMinutes[sess.SubjectID] += sess.DurationMin
+		if subjectNameByID[sess.SubjectID] == "" {
+			if name := subjectByID[sess.SubjectID]; name != "" {
+				subjectNameByID[sess.SubjectID] = name
+			} else {
+				subjectNameByID[sess.SubjectID] = "Unknown"
+			}
+		}
+	}
+	current, maxStreak := streakStats(sessions)
+	overview := domain.PublicProfileOverview{
+		TotalMinutes:      stats.TotalMinutes,
+		TotalSessions:     stats.TotalSessions,
+		ActiveDays:        len(daySet),
+		AvgSessionMinutes: stats.AvgSessionMinutes,
+		LongestSession:    stats.LongestSession,
+		ThisWeekMinutes:   stats.ThisWeekMinutes,
+		FriendCount:       stats.FriendCount,
+		CurrentStreakDays: current,
+		MaxStreakDays:     maxStreak,
+	}
+	sessionViews := make([]domain.PublicProfileSession, 0, len(sessions))
+	for _, sess := range sessions {
+		name := subjectByID[sess.SubjectID]
+		if name == "" {
+			name = "Unknown"
+		}
+		sessionViews = append(sessionViews, domain.PublicProfileSession{
+			ID:          sess.ID,
+			SubjectID:   sess.SubjectID,
+			SubjectName: name,
+			Topic:       sess.Topic,
+			DurationMin: sess.DurationMin,
+			Mood:        sess.Mood,
+			StartedAt:   sess.StartedAt,
+		})
+	}
+	dailyKeys := make([]string, 0, len(dayMinutes))
+	for k := range dayMinutes {
+		dailyKeys = append(dailyKeys, k)
+	}
+	sort.Strings(dailyKeys)
+	daily := make([]domain.PublicProfileInsightsDaily, 0, len(dailyKeys))
+	for _, key := range dailyKeys {
+		daily = append(daily, domain.PublicProfileInsightsDaily{DateKey: key, Minutes: dayMinutes[key]})
+	}
+	weekKeys := make([]string, 0, len(weekMinutes))
+	for k := range weekMinutes {
+		weekKeys = append(weekKeys, k)
+	}
+	sort.Strings(weekKeys)
+	weekly := make([]domain.PublicProfileInsightsDaily, 0, len(weekKeys))
+	for _, key := range weekKeys {
+		weekly = append(weekly, domain.PublicProfileInsightsDaily{DateKey: key, Minutes: weekMinutes[key]})
+	}
+	subjectIDs := make([]string, 0, len(subjectMinutes))
+	for id := range subjectMinutes {
+		subjectIDs = append(subjectIDs, id)
+	}
+	sort.Slice(subjectIDs, func(i, j int) bool {
+		return subjectMinutes[subjectIDs[i]] > subjectMinutes[subjectIDs[j]]
+	})
+	subjectBreakdown := make([]domain.PublicProfileInsightsSubject, 0, len(subjectIDs))
+	mostSubject := ""
+	for idx, subjectID := range subjectIDs {
+		entry := domain.PublicProfileInsightsSubject{
+			SubjectID:   subjectID,
+			SubjectName: subjectNameByID[subjectID],
+			Minutes:     subjectMinutes[subjectID],
+		}
+		subjectBreakdown = append(subjectBreakdown, entry)
+		if idx == 0 {
+			mostSubject = entry.SubjectName
+		}
+	}
+	peakHour := 0
+	peakHourMinutes := 0
+	for hour, minutes := range hourMinutes {
+		if minutes > peakHourMinutes {
+			peakHour = hour
+			peakHourMinutes = minutes
+		}
+	}
+	insights := domain.PublicProfileInsights{
+		DailyMinutes:       daily,
+		WeeklyMinutes:      weekly,
+		SubjectBreakdown:   subjectBreakdown,
+		PeakHourLocal:      peakHour,
+		PeakHourMinutes:    peakHourMinutes,
+		BestDayDateKey:     bestDayDate,
+		BestDayMinutes:     bestDayMinutes,
+		MostStudiedSubject: mostSubject,
+	}
+	return overview, sessionViews, insights, dayMinutes
+}
+
+func streakStats(sessions []domain.Session) (int, int) {
+	if len(sessions) == 0 {
+		return 0, 0
+	}
+	days := make([]time.Time, 0, len(sessions))
+	seen := map[string]bool{}
+	for _, sess := range sessions {
+		d := time.Date(sess.StartedAt.Year(), sess.StartedAt.Month(), sess.StartedAt.Day(), 0, 0, 0, 0, time.UTC)
+		key := d.Format("2006-01-02")
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		days = append(days, d)
+	}
+	sort.Slice(days, func(i, j int) bool { return days[i].Before(days[j]) })
+	maxStreak := 1
+	cur := 1
+	for i := 1; i < len(days); i++ {
+		if int(days[i].Sub(days[i-1]).Hours()/24) == 1 {
+			cur++
+		} else {
+			if cur > maxStreak {
+				maxStreak = cur
+			}
+			cur = 1
+		}
+	}
+	if cur > maxStreak {
+		maxStreak = cur
+	}
+	last := days[len(days)-1]
+	today := time.Now().UTC()
+	todayDay := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	yesterday := todayDay.AddDate(0, 0, -1)
+	if !last.Equal(todayDay) && !last.Equal(yesterday) {
+		return 0, maxStreak
+	}
+	current := 1
+	for i := len(days) - 1; i >= 1; i-- {
+		if int(days[i].Sub(days[i-1]).Hours()/24) == 1 {
+			current++
+		} else {
+			break
+		}
+	}
+	return current, maxStreak
 }
 
 func (s *ProfileService) computeStats(ctx context.Context, userID string) (domain.PublicProfileStats, error) {

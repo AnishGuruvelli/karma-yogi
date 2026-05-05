@@ -16,30 +16,34 @@ import (
 )
 
 type Handlers struct {
-	Auth      *AuthHandler
-	Users     *UserHandler
-	Profile   *ProfileHandler
-	Subjects  *SubjectHandler
-	Sessions  *SessionHandler
-	Goals     *GoalHandler
-	ExamGoals *ExamGoalHandler
-	Insights  *InsightsHandler
-	Timer     *TimerStateHandler
-	Friends   *FriendHandler
+	Auth         *AuthHandler
+	Users        *UserHandler
+	Profile      *ProfileHandler
+	Subjects     *SubjectHandler
+	Sessions     *SessionHandler
+	Goals        *GoalHandler
+	ExamGoals    *ExamGoalHandler
+	Insights     *InsightsHandler
+	Timer        *TimerStateHandler
+	Friends      *FriendHandler
+	Achievements *AchievementHandler
+	StudyStats   *StudyStatsHandler
 }
 
-func NewHandlers(a *service.AuthService, u *service.UserService, p *service.ProfileService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, eg *service.ExamGoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService) Handlers {
+func NewHandlers(a *service.AuthService, u *service.UserService, p *service.ProfileService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, eg *service.ExamGoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService, ach *service.AchievementService, study *service.StudyStatsService) Handlers {
 	return Handlers{
-		Auth:      &AuthHandler{svc: a},
-		Users:     &UserHandler{svc: u},
-		Profile:   &ProfileHandler{svc: p},
-		Subjects:  &SubjectHandler{svc: sub},
-		Sessions:  &SessionHandler{svc: s},
-		Goals:     &GoalHandler{svc: g},
-		ExamGoals: &ExamGoalHandler{svc: eg},
-		Insights:  &InsightsHandler{svc: i},
-		Timer:     &TimerStateHandler{svc: t},
-		Friends:   &FriendHandler{svc: f},
+		Auth:         &AuthHandler{svc: a},
+		Users:        &UserHandler{svc: u},
+		Profile:      &ProfileHandler{svc: p},
+		Subjects:     &SubjectHandler{svc: sub},
+		Sessions:     &SessionHandler{svc: s},
+		Goals:        &GoalHandler{svc: g},
+		ExamGoals:    &ExamGoalHandler{svc: eg},
+		Insights:     &InsightsHandler{svc: i},
+		Timer:        &TimerStateHandler{svc: t},
+		Friends:      &FriendHandler{svc: f},
+		Achievements: &AchievementHandler{svc: ach},
+		StudyStats:   &StudyStatsHandler{svc: study},
 	}
 }
 
@@ -252,6 +256,7 @@ func (h *ProfileHandler) PatchMyPreferences(w http.ResponseWriter, r *http.Reque
 		PushNotifications      bool   `json:"pushNotifications"`
 		ReminderNotifications  bool   `json:"reminderNotifications"`
 		MarketingNotifications bool   `json:"marketingNotifications"`
+		ShowStrategyPage       bool   `json:"showStrategyPage"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -261,6 +266,7 @@ func (h *ProfileHandler) PatchMyPreferences(w http.ResponseWriter, r *http.Reque
 		PreferredStudyTime: req.PreferredStudyTime, DefaultSessionMinutes: req.DefaultSessionMinutes, BreakMinutes: req.BreakMinutes,
 		PomodoroCycles: req.PomodoroCycles, StudyLevel: req.StudyLevel, WeeklyGoalHours: req.WeeklyGoalHours,
 		EmailNotifications: req.EmailNotifications, PushNotifications: req.PushNotifications, ReminderNotifications: req.ReminderNotifications, MarketingNotifications: req.MarketingNotifications,
+		ShowStrategyPage: req.ShowStrategyPage,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -304,6 +310,21 @@ func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	username := chi.URLParam(r, "username")
 	out, err := h.svc.GetPublicProfile(r.Context(), claims.UserID, username)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *ProfileHandler) GetPublicProfileDetails(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	username := chi.URLParam(r, "username")
+	out, err := h.svc.GetPublicProfileDetails(r.Context(), claims.UserID, username)
 	if err != nil {
 		if errors.Is(err, database.ErrUserNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)

@@ -47,6 +47,16 @@ function initials(name: string): string {
     .join("");
 }
 
+function matchesUserSearch(user: Pick<FriendUser, "fullName" | "username" | "email">, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    user.fullName.toLowerCase().includes(q) ||
+    user.username.toLowerCase().includes(q) ||
+    user.email.toLowerCase().includes(q)
+  );
+}
+
 function getWeekRange(weekOffset = 0, now = new Date()): { start: Date; endExclusive: Date; label: string } {
   const day = now.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
@@ -105,19 +115,10 @@ export default function FriendsPage() {
   const outgoingCount = outgoingRequests.length;
 
   const discoverUsers = useMemo(
-    () =>
-      users.filter((u) => {
-        if (u.friendshipStatus !== "none") return false;
-        const q = search.trim().toLowerCase();
-        if (!q) return true;
-        return (
-          u.fullName.toLowerCase().includes(q) ||
-          u.username.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
-        );
-      }),
+    () => users.filter((u) => u.friendshipStatus === "none" && matchesUserSearch(u, search)),
     [search, users],
   );
+  const topSearchResults = useMemo(() => users.filter((u) => matchesUserSearch(u, search)).slice(0, 8), [search, users]);
 
   useEffect(() => {
     if (!liveStartedAtMs) return;
@@ -435,6 +436,37 @@ export default function FriendsPage() {
       </div>
 
       <div className="mt-5 space-y-3 rounded-2xl border border-border/60 bg-muted/25 p-2 dark:border-slate-800 dark:bg-slate-900/40">
+        <div className="rounded-2xl border border-border bg-background p-3 dark:border-slate-800 dark:bg-[#081126]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search friends or people by name, handle, email..."
+              className="w-full rounded-xl border border-border bg-background py-2.5 pl-9 pr-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+            />
+          </div>
+          {search.trim().length > 0 && (
+            <div className="mt-2 space-y-2">
+              {topSearchResults.map((u) => (
+                <Link
+                  key={u.id}
+                  to={`/profile/${u.username || u.id}`}
+                  className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-sm transition-colors hover:bg-muted/50 dark:border-slate-700 dark:bg-slate-900/70"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold text-foreground">{u.fullName || u.email}</span>
+                    <span className="block truncate text-xs text-muted-foreground">@{u.username || "user"}</span>
+                  </span>
+                  <span className="ml-2 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                    {u.friendshipStatus}
+                  </span>
+                </Link>
+              ))}
+              {topSearchResults.length === 0 && <p className="text-xs text-muted-foreground">No users found.</p>}
+            </div>
+          )}
+        </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             type="button"
@@ -624,15 +656,6 @@ export default function FriendsPage() {
 
       {activeTab === "discover" && (
         <section className="mt-6">
-          <div className="relative mb-4 max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or handle..."
-              className="w-full rounded-2xl border border-border bg-background py-2.5 pl-9 pr-3 text-sm dark:border-slate-800 dark:bg-[#081126] dark:text-slate-200"
-            />
-          </div>
           <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
             {discoverUsers.map((u) => (
               <article key={u.id} className="rounded-2xl border border-border bg-background p-4 dark:border-slate-800 dark:bg-[#081126]">

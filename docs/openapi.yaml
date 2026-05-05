@@ -41,17 +41,32 @@ paths:
       description: Update current user's public profile metadata fields.
   /users/me/preferences:
     get:
-      description: Retrieve current user's study and notification preferences.
+      description: Retrieve current user's study, notification, and feature preferences (including whether StrategyDashboard is enabled).
     patch:
-      description: Update current user's study and notification preferences.
+      description: Update current user's study, notification, and feature preferences (including StrategyDashboard visibility).
   /users/me/privacy:
     get:
       description: Retrieve current user's privacy and visibility settings.
     patch:
       description: Update current user's privacy and visibility settings.
+  /users/me/achievements:
+    get:
+      description: |
+        List derived profile achievements with earned flags and optional earnedAt timestamps.
+        Streak rules use UTC calendar dates from session started_at; "today" is UTC (may differ from the app client's local streak by one day at zone boundaries).
+  /users/me/study-stats:
+    get:
+      description: |
+        Server-aggregated study statistics from all stored sessions (all-time totals and current-week minutes).
+        Optional query `tz` is an IANA timezone name (e.g. `Asia/Kolkata`) used for distinct-day counts and the Monday–Sunday week window for `weekMinutesCurrent`; invalid values fall back to UTC.
   /users/{username}/public-profile:
     get:
       description: Retrieve privacy-aware public profile information for a user.
+  /users/{username}/public-profile/details:
+    get:
+      description: |
+        Retrieve full public profile details (overview, sessions, insights, heatmap).
+        Access is restricted to the profile owner or confirmed friends; non-friends receive metadata with `canViewDetails=false`.
   /subjects:
     get:
       description: List all subjects for the current authenticated user.
