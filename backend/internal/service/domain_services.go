@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -263,7 +264,14 @@ func (s *ProfileService) UpsertMyPublicProfile(ctx context.Context, userID strin
 }
 
 func (s *ProfileService) GetMyPreferences(ctx context.Context, userID string) (domain.UserPreferences, error) {
-	return s.prefRepo.GetByUser(ctx, userID)
+	prefs, err := s.prefRepo.GetByUser(ctx, userID)
+	if err != nil {
+		return prefs, err
+	}
+	if prefs.WeeklyGoalHours <= 0 {
+		prefs.WeeklyGoalHours = 20
+	}
+	return prefs, nil
 }
 
 func (s *ProfileService) UpsertMyPreferences(ctx context.Context, userID string, prefs domain.UserPreferences) (domain.UserPreferences, error) {
@@ -329,7 +337,7 @@ func (s *ProfileService) GetPublicProfile(ctx context.Context, requesterID, user
 	return view, nil
 }
 
-func (s *ProfileService) GetPublicProfileDetails(ctx context.Context, requesterID, usernameOrID string) (domain.PublicProfileDetails, error) {
+func (s *ProfileService) GetPublicProfileDetails(ctx context.Context, requesterID, usernameOrID string, page, limit int) (domain.PublicProfileDetails, error) {
 	target, err := s.resolveTargetUser(ctx, usernameOrID)
 	if err != nil {
 		return domain.PublicProfileDetails{}, err
@@ -363,9 +371,30 @@ func (s *ProfileService) GetPublicProfileDetails(ctx context.Context, requesterI
 	if err != nil {
 		return domain.PublicProfileDetails{}, err
 	}
-	overview, sessionViews, insights, heatmap := buildPublicProfileDetails(stats, sessions, subjects)
+	prefs, err := s.prefRepo.GetByUser(ctx, target.ID)
+	if err != nil {
+		prefs = domain.UserPreferences{WeeklyGoalHours: 20}
+	}
+	overview, sessionViews, insights, heatmap := buildPublicProfileDetails(stats, sessions, subjects, prefs.WeeklyGoalHours)
+	total := len(sessionViews)
+	if limit <= 0 {
+		limit = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+	if offset >= total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
 	view.Overview = &overview
-	view.Sessions = sessionViews
+	view.Sessions = sessionViews[offset:end]
+	view.SessionsTotal = total
+	view.SessionsHasMore = end < total
 	view.Insights = &insights
 	view.Heatmap = heatmap
 	return view, nil
@@ -413,6 +442,7 @@ func buildPublicProfileDetails(
 	stats domain.PublicProfileStats,
 	sessions []domain.Session,
 	subjects []domain.Subject,
+	weeklyGoalHours int,
 ) (domain.PublicProfileOverview, []domain.PublicProfileSession, domain.PublicProfileInsights, map[string]int) {
 	subjectByID := make(map[string]string, len(subjects))
 	for _, sub := range subjects {
@@ -429,6 +459,8 @@ func buildPublicProfileDetails(
 	bestDayDate := ""
 	bestDayMinutes := 0
 	daySet := map[string]bool{}
+	var moodSum float64
+	var moodCount int
 	for _, sess := range sessions {
 		dateKey := sess.StartedAt.Format("2006-01-02")
 		daySet[dateKey] = true
@@ -449,6 +481,17 @@ func buildPublicProfileDetails(
 				subjectNameByID[sess.SubjectID] = "Unknown"
 			}
 		}
+		if mood, err := strconv.ParseFloat(sess.Mood, 64); err == nil && mood > 0 {
+			moodSum += mood
+			moodCount++
+		}
+	}
+	var avgMood float64
+	if moodCount > 0 {
+		avgMood = moodSum / float64(moodCount)
+	}
+	if weeklyGoalHours <= 0 {
+		weeklyGoalHours = 20
 	}
 	current, maxStreak := streakStats(sessions)
 	overview := domain.PublicProfileOverview{
@@ -461,6 +504,8 @@ func buildPublicProfileDetails(
 		FriendCount:       stats.FriendCount,
 		CurrentStreakDays: current,
 		MaxStreakDays:     maxStreak,
+		WeeklyGoalHours:   weeklyGoalHours,
+		AvgMood:           avgMood,
 	}
 	sessionViews := make([]domain.PublicProfileSession, 0, len(sessions))
 	for _, sess := range sessions {

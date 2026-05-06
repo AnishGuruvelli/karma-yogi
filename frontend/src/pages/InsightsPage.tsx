@@ -213,7 +213,7 @@ export default function InsightsPage() {
     ratedSessions.length > 0
       ? (ratedSessions.reduce((sum, s) => sum + s.moodRating, 0) / ratedSessions.length).toFixed(1)
       : "—";
-  const moodLabel = Number(avgMood) >= 4 ? "Great" : Number(avgMood) >= 3 ? "Good" : Number(avgMood) >= 2 ? "Fair" : "Low";
+  const moodLabel = ratedSessions.length === 0 ? "—" : Number(avgMood) >= 4 ? "Great" : Number(avgMood) >= 3 ? "Good" : Number(avgMood) >= 2 ? "Fair" : "Low";
 
   const heatmapData = useMemo(() => {
     const dailyTotals = new Map<string, number>();
@@ -270,10 +270,12 @@ export default function InsightsPage() {
   filteredSessions.forEach((s) => {
     hourBuckets[parseInt(s.startTime.split(":")[0], 10)] += s.duration;
   });
-  const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
+  const maxHourBucket = Math.max(...hourBuckets);
+  const peakHour = maxHourBucket > 0 ? hourBuckets.indexOf(maxHourBucket) : -1;
   const peakLabel =
-    peakHour >= 21 || peakHour < 5 ? "🌙 Night Owl" : peakHour >= 5 && peakHour < 12 ? "☀️ Early Bird" : "🌤️ Afternoon Warrior";
+    peakHour < 0 ? null : peakHour >= 21 || peakHour < 5 ? "🌙 Night Owl" : peakHour >= 5 && peakHour < 12 ? "☀️ Early Bird" : "🌤️ Afternoon Warrior";
 
+  const hasData = filteredSessions.length > 0;
   const canGoForward = offset < 0;
 
   const handleModeChange = (newMode: PeriodMode) => {
@@ -339,82 +341,92 @@ export default function InsightsPage() {
           </button>
         </div>
 
-        <div className="mb-4 grid grid-cols-1 gap-2 sm:mb-5 sm:grid-cols-3 sm:gap-3">
-          <div className="rounded-xl bg-muted/50 p-3 text-center">
-            <Clock className="mx-auto mb-1 h-4 w-4 text-neon-cyan" />
-            <div className="text-base font-bold text-foreground sm:text-lg">{formatDuration(totalMinutes)}</div>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</div>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-3 text-center">
-            <BarChart3 className="mx-auto mb-1 h-4 w-4 text-neon-green" />
-            <div className="text-base font-bold text-foreground sm:text-lg">{formatDuration(dailyAvg)}</div>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily Avg</div>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-3 text-center">
-            <div className="mx-auto mb-1 text-sm">📅</div>
-            <div className="text-base font-bold text-foreground sm:text-lg">
-              {uniqueDays}
-              {mode === "week" ? "/7" : ""}
+        {hasData ? (
+          <>
+            <div className="mb-4 grid grid-cols-1 gap-2 sm:mb-5 sm:grid-cols-3 sm:gap-3">
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <Clock className="mx-auto mb-1 h-4 w-4 text-neon-cyan" />
+                <div className="text-base font-bold text-foreground sm:text-lg">{formatDuration(totalMinutes)}</div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</div>
+              </div>
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <BarChart3 className="mx-auto mb-1 h-4 w-4 text-neon-green" />
+                <div className="text-base font-bold text-foreground sm:text-lg">{formatDuration(dailyAvg)}</div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Daily Avg</div>
+              </div>
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <div className="mx-auto mb-1 text-sm">📅</div>
+                <div className="text-base font-bold text-foreground sm:text-lg">
+                  {uniqueDays}
+                  {mode === "week" ? "/7" : ""}
+                </div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Days Active</div>
+              </div>
             </div>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Days Active</div>
-          </div>
-        </div>
 
-        <h3 className="mb-3 font-semibold text-foreground">Study Hours</h3>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={barData} barCategoryGap={mode === "month" ? "10%" : "20%"}>
-            <XAxis
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-              interval={mode === "month" ? 6 : 0}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
-              domain={[0, Math.ceil(maxHours)]}
-              tickFormatter={(v: number) => `${v}h`}
-            />
-            <Tooltip
-              cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
-              content={({ active, payload }) => {
-                if (!active || !payload?.[0]) return null;
-                const d = payload[0].payload;
-                return (
-                  <div className="rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" style={{ boxShadow: "var(--shadow-md)" }}>
-                    {(d.tooltipLabel as string) || d.name}: {formatDuration(d.minutes)}
-                  </div>
-                );
-              }}
-            />
-            {avgLineHours > 0 && (
-              <ReferenceLine
-                y={avgLineHours}
-                stroke="var(--color-neon-green)"
-                strokeDasharray="4 4"
-                ifOverflow="extendDomain"
-              />
-            )}
-            <Bar dataKey="hours" radius={[mode === "month" ? 2 : 6, mode === "month" ? 2 : 6, 0, 0]}>
-              {barData.map((entry, index) => (
-                <Cell
-                  key={index}
-                  fill={
-                    entry.isToday ? "var(--color-primary)" : entry.hours > 0 ? "var(--color-neon-purple)" : "var(--color-muted)"
-                  }
+            <h3 className="mb-3 font-semibold text-foreground">Study Hours</h3>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={barData} barCategoryGap={mode === "month" ? "10%" : "20%"}>
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
+                  interval={mode === "month" ? 6 : 0}
                 />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {mode === "all" ? "Monthly avg line" : "Daily avg line"}: {avgLineHours.toFixed(1)}h
-        </p>
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
+                  domain={[0, Math.ceil(maxHours)]}
+                  tickFormatter={(v: number) => `${v}h`}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.[0]) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" style={{ boxShadow: "var(--shadow-md)" }}>
+                        {(d.tooltipLabel as string) || d.name}: {formatDuration(d.minutes)}
+                      </div>
+                    );
+                  }}
+                />
+                {avgLineHours > 0 && (
+                  <ReferenceLine
+                    y={avgLineHours}
+                    stroke="var(--color-neon-green)"
+                    strokeDasharray="4 4"
+                    ifOverflow="extendDomain"
+                  />
+                )}
+                <Bar dataKey="hours" radius={[mode === "month" ? 2 : 6, mode === "month" ? 2 : 6, 0, 0]}>
+                  {barData.map((entry, index) => (
+                    <Cell
+                      key={index}
+                      fill={
+                        entry.isToday ? "var(--color-primary)" : entry.hours > 0 ? "var(--color-neon-purple)" : "var(--color-muted)"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {mode === "all" ? "Monthly avg line" : "Daily avg line"}: {avgLineHours.toFixed(1)}h
+            </p>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="mb-3 text-4xl">📭</div>
+            <p className="text-sm font-semibold text-foreground">No sessions {mode === "week" ? "this week" : mode === "month" ? "this month" : "this year"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Log a study session to see your insights here.</p>
+          </div>
+        )}
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+      {hasData && <div className="mb-6 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
         {(
           [
             { icon: Clock, value: formatDuration(totalMinutes), label: "Total", color: "text-neon-cyan", bg: "bg-neon-cyan/10" },
@@ -482,9 +494,9 @@ export default function InsightsPage() {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {hasData && <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {pieData.length > 0 && (
           <div className="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2">
             <h2 className="mb-4 font-semibold text-foreground">By Subject</h2>
@@ -570,7 +582,7 @@ export default function InsightsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       <div className="glass-card rounded-2xl p-4 sm:p-5">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -623,26 +635,25 @@ export default function InsightsPage() {
                       }
 
                       const ratio = day.minutes / heatmapData.maxMinutes;
+                      const emptyBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.93 0 0)";
                       const scale = isDark
                         ? [
-                            "oklch(0.23 0.03 160)",
-                            "oklch(0.42 0.09 172)",
-                            "oklch(0.55 0.13 174)",
-                            "oklch(0.66 0.16 176)",
+                            "oklch(0.35 0.06 165)",
+                            "oklch(0.48 0.11 172)",
+                            "oklch(0.60 0.15 174)",
                             "oklch(0.74 0.2 178)",
                           ]
                         : [
-                            "oklch(0.95 0.01 255)",
                             "oklch(0.88 0.08 170)",
                             "oklch(0.78 0.12 165)",
                             "oklch(0.68 0.16 160)",
                             "oklch(0.58 0.19 155)",
                           ];
-                      let bg = scale[0];
-                      if (day.minutes > 0 && ratio <= 0.25) bg = scale[1];
-                      else if (ratio > 0.25 && ratio <= 0.5) bg = scale[2];
-                      else if (ratio > 0.5 && ratio <= 0.75) bg = scale[3];
-                      else if (ratio > 0.75) bg = scale[4];
+                      let bg = emptyBg;
+                      if (day.minutes > 0 && ratio <= 0.25) bg = scale[0];
+                      else if (ratio > 0.25 && ratio <= 0.5) bg = scale[1];
+                      else if (ratio > 0.5 && ratio <= 0.75) bg = scale[2];
+                      else if (ratio > 0.75) bg = scale[3];
 
                       return (
                         <div key={day.date} className="group relative aspect-square w-full">
@@ -670,13 +681,13 @@ export default function InsightsPage() {
               <span>Less</span>
               {(isDark
                 ? [
-                    "oklch(0.23 0.03 160)",
-                    "oklch(0.42 0.09 172)",
-                    "oklch(0.55 0.13 174)",
-                    "oklch(0.66 0.16 176)",
+                    "oklch(0.22 0 0)",
+                    "oklch(0.35 0.06 165)",
+                    "oklch(0.48 0.11 172)",
+                    "oklch(0.60 0.15 174)",
                     "oklch(0.74 0.2 178)",
                   ]
-                : ["oklch(0.95 0.01 255)", "oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"]
+                : ["oklch(0.93 0 0)", "oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"]
               ).map(
                 (c) => (
                   <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />

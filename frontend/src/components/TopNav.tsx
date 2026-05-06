@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { LayoutDashboard, Timer, BarChart3, Database, Moon, Sun, LogOut, Users, User, Palette, Target } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { LotusIcon } from "@/components/LotusIcon";
+import { YogiIcon } from "@/components/YogiIcon";
 import { ThemePicker } from "@/components/ThemePicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -42,7 +42,7 @@ export function TopNav({ onLogout }: { onLogout: () => void }) {
               className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card"
               style={{ boxShadow: "var(--shadow-sm)" }}
             >
-              <LotusIcon size={22} className="text-primary" />
+              <YogiIcon size={22} className="text-primary" />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="font-display text-[1.05rem] font-semibold tracking-tight text-foreground">Karma Yogi</span>
@@ -111,7 +111,7 @@ export function TopNav({ onLogout }: { onLogout: () => void }) {
         <div className="flex h-14 items-center justify-between px-4">
           <Link to="/" className="group flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-card" style={{ boxShadow: "var(--shadow-sm)" }}>
-              <LotusIcon size={18} className="text-primary" />
+              <YogiIcon size={18} className="text-primary" />
             </div>
             <span className="font-display text-base font-semibold tracking-tight text-foreground">Karma Yogi</span>
           </Link>

@@ -106,6 +106,8 @@ export interface PublicProfileOverview {
   friendCount: number;
   currentStreakDays: number;
   maxStreakDays: number;
+  weeklyGoalHours: number;
+  avgMood: number;
 }
 
 export interface PublicProfileSessionEntry {
@@ -153,6 +155,8 @@ export interface PublicProfileDetails {
   canViewDetails: boolean;
   overview?: PublicProfileOverview;
   sessions?: PublicProfileSessionEntry[];
+  sessionsTotal: number;
+  sessionsHasMore: boolean;
   insights?: PublicProfileInsightsPayload;
   heatmap?: Record<string, number>;
 }

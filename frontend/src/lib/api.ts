@@ -276,7 +276,7 @@ function normalizePreferences(raw: unknown): UserPreferences {
     breakMinutes: n(o.breakMinutes, 10),
     pomodoroCycles: n(o.pomodoroCycles, 4),
     studyLevel: String(o.studyLevel ?? ""),
-    weeklyGoalHours: n(o.weeklyGoalHours, 20),
+    weeklyGoalHours: n(o.weeklyGoalHours, 20) || 20,
     emailNotifications: b(o.emailNotifications),
     pushNotifications: b(o.pushNotifications),
     reminderNotifications: b(o.reminderNotifications),
@@ -315,38 +315,10 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
   return (await res.json()) as BackendPublicProfileView;
 }
 
-export async function fetchPublicProfileDetails(usernameOrId: string): Promise<PublicProfileDetails> {
-  const res = await request(`/users/${encodeURIComponent(usernameOrId)}/public-profile/details`);
-  if (res.ok) {
-    return (await res.json()) as BackendPublicProfileDetails;
-  }
-  // Backward compatibility: some deployed APIs may not yet expose `/public-profile/details`.
-  if (res.status === 404) {
-    const legacy = await fetchPublicProfile(usernameOrId);
-    return {
-      user: legacy.user,
-      profile: legacy.profile,
-      privacy: legacy.privacy,
-      canViewDetails: Boolean(legacy.stats),
-      overview: legacy.stats
-        ? {
-            totalMinutes: legacy.stats.totalMinutes,
-            totalSessions: legacy.stats.totalSessions,
-            activeDays: legacy.stats.activeDays,
-            avgSessionMinutes: legacy.stats.avgSessionMinutes,
-            longestSession: legacy.stats.longestSession,
-            thisWeekMinutes: legacy.stats.thisWeekMinutes,
-            friendCount: legacy.stats.friendCount,
-            currentStreakDays: 0,
-            maxStreakDays: 0,
-          }
-        : undefined,
-      sessions: [],
-      insights: undefined,
-      heatmap: {},
-    };
-  }
-  throw new Error(await readErrorMessage(res, 'Unable to fetch public profile details'));
+export async function fetchPublicProfileDetails(usernameOrId: string, page = 1, limit = 20): Promise<PublicProfileDetails> {
+  const res = await request('/users/public-profile/details', { method: 'POST', body: JSON.stringify({ username: usernameOrId, page, limit }) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch public profile details'));
+  return (await res.json()) as BackendPublicProfileDetails;
 }
 
 export async function updateMe(payload: { fullName: string; username: string; phone: string; avatarUrl?: string }): Promise<UserProfile> {

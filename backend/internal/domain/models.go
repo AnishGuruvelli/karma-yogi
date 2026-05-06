@@ -111,15 +111,17 @@ type PublicProfileView struct {
 }
 
 type PublicProfileOverview struct {
-	TotalMinutes      int `json:"totalMinutes"`
-	TotalSessions     int `json:"totalSessions"`
-	ActiveDays        int `json:"activeDays"`
-	AvgSessionMinutes int `json:"avgSessionMinutes"`
-	LongestSession    int `json:"longestSession"`
-	ThisWeekMinutes   int `json:"thisWeekMinutes"`
-	FriendCount       int `json:"friendCount"`
-	CurrentStreakDays int `json:"currentStreakDays"`
-	MaxStreakDays     int `json:"maxStreakDays"`
+	TotalMinutes      int     `json:"totalMinutes"`
+	TotalSessions     int     `json:"totalSessions"`
+	ActiveDays        int     `json:"activeDays"`
+	AvgSessionMinutes int     `json:"avgSessionMinutes"`
+	LongestSession    int     `json:"longestSession"`
+	ThisWeekMinutes   int     `json:"thisWeekMinutes"`
+	FriendCount       int     `json:"friendCount"`
+	CurrentStreakDays int     `json:"currentStreakDays"`
+	MaxStreakDays     int     `json:"maxStreakDays"`
+	WeeklyGoalHours   int     `json:"weeklyGoalHours"`
+	AvgMood           float64 `json:"avgMood"`
 }
 
 type PublicProfileSession struct {
@@ -155,14 +157,16 @@ type PublicProfileInsights struct {
 }
 
 type PublicProfileDetails struct {
-	User           User                   `json:"user"`
-	Profile        UserPublicProfile      `json:"profile"`
-	Privacy        UserPrivacySettings    `json:"privacy"`
-	CanViewDetails bool                   `json:"canViewDetails"`
-	Overview       *PublicProfileOverview `json:"overview,omitempty"`
-	Sessions       []PublicProfileSession `json:"sessions,omitempty"`
-	Insights       *PublicProfileInsights `json:"insights,omitempty"`
-	Heatmap        map[string]int         `json:"heatmap,omitempty"`
+	User            User                   `json:"user"`
+	Profile         UserPublicProfile      `json:"profile"`
+	Privacy         UserPrivacySettings    `json:"privacy"`
+	CanViewDetails  bool                   `json:"canViewDetails"`
+	Overview        *PublicProfileOverview `json:"overview,omitempty"`
+	Sessions        []PublicProfileSession `json:"sessions,omitempty"`
+	SessionsTotal   int                    `json:"sessionsTotal"`
+	SessionsHasMore bool                   `json:"sessionsHasMore"`
+	Insights        *PublicProfileInsights `json:"insights,omitempty"`
+	Heatmap         map[string]int         `json:"heatmap,omitempty"`
 }
 
 type Insights struct {

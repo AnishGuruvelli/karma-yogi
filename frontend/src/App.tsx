@@ -6,7 +6,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { getAuthState, loginWithGoogle, loginWithPassword, logout, registerWithPassword, resetPasswordWithSecret } from "@/lib/api";
 import { isNativeGoogleAuthPlatform, signInWithNativeGoogle } from "@/lib/nativeGoogleAuth";
 import { STANDARD_SECRET_QUESTION } from "@/lib/auth-constants";
-import { LotusIcon } from "@/components/LotusIcon";
+import { YogiIcon } from "@/components/YogiIcon";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import DashboardPage from "@/pages/DashboardPage";
 import SessionsPage from "@/pages/SessionsPage";
@@ -265,7 +265,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
       <div className="mx-auto flex w-full max-w-md flex-col items-center">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-md">
-            <LotusIcon size={26} className="text-primary-foreground" />
+            <YogiIcon size={26} className="text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">{heading}</h1>

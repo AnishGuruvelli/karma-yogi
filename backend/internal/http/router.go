@@ -49,7 +49,7 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 			p.Get("/users/me/achievements", h.Achievements.ListMine)
 			p.Get("/users/me/study-stats", h.StudyStats.GetMine)
 			p.Get("/users/{username}/public-profile", h.Profile.GetPublicProfile)
-			p.Get("/users/{username}/public-profile/details", h.Profile.GetPublicProfileDetails)
+			p.Post("/users/public-profile/details", h.Profile.GetPublicProfileDetails)
 			p.Post("/subjects", h.Subjects.Create)
 			p.Get("/subjects", h.Subjects.List)
 			p.Patch("/subjects/{id}", h.Subjects.UpdateColor)

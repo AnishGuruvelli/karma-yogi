@@ -184,7 +184,8 @@ export default function ProfilePage() {
     studyLevel: prefDraft.studyLevel || "-",
     preferredTime: prefDraft.preferredStudyTime || "-",
   };
-  const goalPct = Math.min(100, Math.round((weekHours / goal.targetHours) * 100));
+  const effectiveGoalHours = goal.targetHours || 20;
+  const goalPct = Math.min(100, Math.round((weekHours / effectiveGoalHours) * 100));
 
   const save = async () => {
     await Promise.all([
@@ -350,7 +351,7 @@ export default function ProfilePage() {
           <div className="space-y-6 lg:col-span-2">
             <Panel title="Performance Snapshot" icon={TrendingUp} eyebrow="All time">
               <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <CompactStat label="Total focus" value={`${totalHours.toFixed(1)}h`} sub={`${snapSessions} sessions · goal ${goal.targetHours}h/wk`} />
+                <CompactStat label="Total focus" value={`${totalHours.toFixed(1)}h`} sub={`${snapSessions} sessions · goal ${effectiveGoalHours}h/wk`} />
                 <CompactStat label="Avg session" value={formatMinutesAsDuration(snapAvgSession)} sub="duration" />
                 <CompactStat label="Longest" value={formatMinutesAsDuration(snapLongest)} sub="single sit" />
                 <CompactStat label="Avg mood" value={`${snapAvgMoodStr}`} sub="out of 5" />
@@ -383,7 +384,7 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <Panel title="Weekly Goal" icon={Target}>
               <div className="flex flex-col items-center pt-2 text-center">
-                <RingProgress pct={goalPct} value={`${weekHours.toFixed(1)}h`} sub={`of ${goal.targetHours}h`} />
+                <RingProgress pct={goalPct} value={`${weekHours.toFixed(1)}h`} sub={`of ${effectiveGoalHours}h`} />
                 <p className="mt-3 text-sm font-medium text-foreground">{goalPct}% complete</p>
               </div>
             </Panel>

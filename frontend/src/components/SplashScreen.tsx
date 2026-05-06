@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LotusIcon } from '@/components/LotusIcon';
+import { YogiIcon } from '@/components/YogiIcon';
 
 export function SplashScreen({ onFinish }: { onFinish: () => void }) {
   const [visible, setVisible] = useState(true);
@@ -49,7 +49,7 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
                 boxShadow: '0 8px 32px oklch(0.40 0.20 270 / 30%), inset 0 1px 0 oklch(1 0 0 / 10%)',
               }}
             >
-              <LotusIcon size={56} className="text-white" />
+              <YogiIcon size={56} className="text-white" />
             </div>
 
             {/* Title */}

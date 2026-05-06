@@ -41,10 +41,10 @@ export default function DataPage() {
   const formatDuration = (m: number) => {
     if (m >= 60) {
       const h = Math.floor(m / 60);
-      const mins = m % 60;
+      const mins = Math.round(m % 60);
       return mins > 0 ? `${h}h ${mins}m` : `${h}h`;
     }
-    return `${m}m`;
+    return `${Math.round(m)}m`;
   };
 
   const handleAddSubject = async () => {

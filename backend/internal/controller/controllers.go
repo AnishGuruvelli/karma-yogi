@@ -323,8 +323,16 @@ func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request
 
 func (h *ProfileHandler) GetPublicProfileDetails(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
-	username := chi.URLParam(r, "username")
-	out, err := h.svc.GetPublicProfileDetails(r.Context(), claims.UserID, username)
+	var body struct {
+		Username string `json:"username"`
+		Page     int    `json:"page"`
+		Limit    int    `json:"limit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Username == "" {
+		http.Error(w, "username is required", http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.GetPublicProfileDetails(r.Context(), claims.UserID, body.Username, body.Page, body.Limit)
 	if err != nil {
 		if errors.Is(err, database.ErrUserNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)

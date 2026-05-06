@@ -89,7 +89,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const initialDuration = initialSession?.duration ?? 30;
   const [hours, setHours] = useState<number | null>(Math.floor(initialDuration / 60));
   const [minutes, setMinutes] = useState<number | null>(initialDuration % 60);
-  const [mood, setMood] = useState(initialSession?.moodRating || 3);
+  const [mood, setMood] = useState<number | null>(initialSession?.moodRating ?? null);
   const toLocalDateString = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const [sessionDate, setSessionDate] = useState(initialSession?.date || toLocalDateString(new Date()));
   const [endHour, setEndHour] = useState(() => {
@@ -144,7 +144,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       const d = initialSession.duration;
       setHours(Math.floor(d / 60));
       setMinutes(d % 60);
-      setMood(initialSession.moodRating);
+      setMood(initialSession.moodRating ?? null);
       setSessionDate(initialSession.date);
       {
         const p = parseTimeHHMM(endTimeFromInitial(initialSession));
@@ -163,7 +163,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     setTopic("");
     setHours(0);
     setMinutes(30);
-    setMood(3);
+    setMood(null);
     setSessionDate(toLocalDateString(new Date()));
     {
       const d = defaultEndHM();
@@ -216,7 +216,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     const safeHours = hours ?? 0;
     const safeMinutes = minutes ?? 0;
     const trimmedTopic = topic.trim();
-    if (!subjectId || (!safeHours && !safeMinutes) || !trimmedTopic) return;
+    if (!subjectId || (!safeHours && !safeMinutes) || !trimmedTopic || !mood) return;
     const duration = safeHours * 60 + safeMinutes;
     const hourValue = Number(endHour);
     const minuteValue = Number(endMinute);
@@ -236,7 +236,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       startTime: `${pad2(startDate.getHours())}:${pad2(startDate.getMinutes())}`,
       endTime: `${pad2(endDateTime.getHours())}:${pad2(endDateTime.getMinutes())}`,
       date: sessionDate,
-      moodRating: mood,
+      moodRating: mood!,
       isManualLog: true,
     };
     if (initialSession && onSave) {
@@ -391,9 +391,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 </div>
 
                 <div>
-                  <label className={labelClass}>
-                    Topic <span className="text-destructive">*</span>
-                  </label>
+                  <label className={labelClass}>Topic</label>
                   <input
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
@@ -618,22 +616,22 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                     <button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0))}
+                      disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0)) || !mood}
                       className="rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
                       style={{ boxShadow: "var(--shadow-md)" }}
                     >
-                      {subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : "Save Session"}
+                      {subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : !mood ? "Mood is required" : "Save Session"}
                     </button>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0))}
+                    disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0)) || !mood}
                     className="w-full rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ boxShadow: "var(--shadow-md)" }}
                   >
-                    {subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : "Save Session"}
+                    {subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : !mood ? "Mood is required" : "Save Session"}
                   </button>
                 )}
               </div>
