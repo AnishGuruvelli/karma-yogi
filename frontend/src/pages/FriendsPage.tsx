@@ -3,7 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Play, Search, Square, 
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { AnimatePresence, motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   acceptFriendRequest,
   clearTimerState,
@@ -82,6 +82,7 @@ const SHEET_CLOSE_DRAG_Y = 120;
 const SHEET_CLOSE_VELOCITY_Y = 700;
 
 export default function FriendsPage() {
+  const navigate = useNavigate();
   const { subjects, reloadStoreData } = useStore();
   const [activeTab, setActiveTab] = useState<TabKey>("leaderboard");
   const [users, setUsers] = useState<FriendUser[]>([]);
@@ -546,12 +547,24 @@ export default function FriendsPage() {
           <div className="rounded-3xl border border-border bg-background p-4 sm:p-6 dark:border-slate-800 dark:bg-[#071027]">
             <div className="flex gap-3 overflow-x-auto md:grid md:grid-cols-3 md:gap-4 md:overflow-visible">
               {topThree.map((entry, idx) => {
+                const isMe = entry.userId === me?.id;
                 const bg =
                   idx === 0 ? "from-orange-100 to-orange-50" : idx === 1 ? "from-slate-100 to-slate-50" : "from-pink-100 to-pink-50";
                 const darkBg =
                   idx === 0 ? "dark:from-amber-900/35 dark:to-slate-900" : idx === 1 ? "dark:from-slate-800 dark:to-slate-950" : "dark:from-fuchsia-900/25 dark:to-slate-900";
                 return (
-                  <article key={entry.userId} className={`min-w-[240px] rounded-2xl bg-gradient-to-b ${bg} ${darkBg} p-5 text-center md:min-w-0`}>
+                  <button
+                    key={entry.userId}
+                    type="button"
+                    onClick={() => {
+                      if (isMe) {
+                        toast.info("This is your profile");
+                        return;
+                      }
+                      navigate(`/profile/${entry.username || entry.userId}`);
+                    }}
+                    className={`min-w-[240px] rounded-2xl bg-gradient-to-b ${bg} ${darkBg} p-5 text-center transition hover:opacity-95 md:min-w-0 ${isMe ? "cursor-default" : "cursor-pointer"}`}
+                  >
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-white text-base font-bold text-foreground shadow-sm dark:border-slate-500 dark:bg-[#10213d] dark:text-slate-100">
                       {initials(entry.fullName || entry.username || "F")}
                     </div>
@@ -560,7 +573,7 @@ export default function FriendsPage() {
                     <div className={`mt-3 rounded-xl py-6 ${idx === 0 ? "bg-orange-100/80" : idx === 1 ? "bg-slate-100/90" : "bg-pink-100/80"} dark:bg-slate-800/80`}>
                       <p className="text-5xl font-extrabold text-foreground dark:text-white">#{entry.rank}</p>
                     </div>
-                  </article>
+                  </button>
                 );
               })}
             </div>
@@ -577,7 +590,18 @@ export default function FriendsPage() {
                 const widthPct = Math.max(10, Math.round((row.weeklyMinutes / max) * 100));
                 const isMe = row.userId === me?.id;
                 return (
-                  <div key={row.userId} className={`rounded-2xl p-3 ${isMe ? "bg-primary/5 dark:bg-cyan-400/10" : "bg-muted/30 dark:bg-slate-900/70"}`}>
+                  <button
+                    key={row.userId}
+                    type="button"
+                    onClick={() => {
+                      if (isMe) {
+                        toast.info("This is your profile");
+                        return;
+                      }
+                      navigate(`/profile/${row.username || row.userId}`);
+                    }}
+                    className={`block w-full rounded-2xl p-3 text-left transition hover:opacity-95 ${isMe ? "cursor-default bg-primary/5 dark:bg-cyan-400/10" : "cursor-pointer bg-muted/30 dark:bg-slate-900/70"}`}
+                  >
                     <div className="flex items-center gap-2 sm:gap-3">
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-background text-sm font-bold dark:bg-slate-800 dark:text-slate-100">
                         {row.rank}
@@ -604,7 +628,7 @@ export default function FriendsPage() {
                         {formatDuration(row.weeklyMinutes)}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
               {!leaderboardWithRank.length && !loadingLeaderboard && <p className="text-sm text-muted-foreground">No ranking data yet.</p>}

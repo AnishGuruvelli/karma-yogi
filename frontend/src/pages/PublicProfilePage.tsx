@@ -65,6 +65,7 @@ export default function PublicProfilePage() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [heatmapYear, setHeatmapYear] = useState(2026);
   const [data, setData] = useState<PublicProfileDetails | null>(null);
+  const [allSessions, setAllSessions] = useState<PublicProfileSessionEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [sessionsPage, setSessionsPage] = useState(1);
@@ -74,9 +75,11 @@ export default function PublicProfilePage() {
     if (!userId) return;
     setLoading(true);
     setSessionsPage(1);
+    setAllSessions([]);
     void fetchPublicProfileDetails(userId, 1, 20)
       .then((res) => {
         setData(res);
+        setAllSessions(res.sessions ?? []);
         setError("");
       })
       .catch((e) => {
@@ -85,6 +88,26 @@ export default function PublicProfilePage() {
       })
       .finally(() => setLoading(false));
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !data?.sessionsHasMore) return;
+    let cancelled = false;
+    const loadRemainingSessions = async () => {
+      let page = 2;
+      let hasMore = true;
+      while (!cancelled && hasMore) {
+        const next = await fetchPublicProfileDetails(userId, page, 100);
+        if (cancelled) return;
+        setAllSessions((prev) => mergeUniqueSessions(prev, next.sessions ?? []));
+        hasMore = next.sessionsHasMore;
+        page += 1;
+      }
+    };
+    void loadRemainingSessions().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, data?.sessionsHasMore]);
 
   const handleLoadMoreSessions = () => {
     if (!data || loadingMore) return;
@@ -97,6 +120,7 @@ export default function PublicProfilePage() {
           sessions: [...(prev.sessions ?? []), ...(res.sessions ?? [])],
           sessionsHasMore: res.sessionsHasMore,
         } : res);
+        setAllSessions((prev) => mergeUniqueSessions(prev, res.sessions ?? []));
         setSessionsPage(nextPage);
       })
       .finally(() => setLoadingMore(false));
@@ -105,7 +129,7 @@ export default function PublicProfilePage() {
   const grouped = useMemo(() => groupSessions(data?.sessions ?? []), [data?.sessions]);
   const normalizedSessions = useMemo<Session[]>(
     () =>
-      (data?.sessions ?? []).map((s) => {
+      allSessions.map((s) => {
         const started = new Date(s.startedAt);
         const end = new Date(started.getTime() + s.durationMin * 60 * 1000);
         const moodNumber = Number(s.mood);
@@ -121,7 +145,7 @@ export default function PublicProfilePage() {
           isManualLog: true,
         };
       }),
-    [data?.sessions],
+    [allSessions],
   );
   const now = useMemo(() => new Date(), []);
   const { start, end, periodLabel } = useMemo(() => {
@@ -210,7 +234,7 @@ export default function PublicProfilePage() {
   }, [mode, totalMinutes, dailyAvg, weekBars]);
   const publicSubjectStats = useMemo(() => {
     const map = new Map<string, { id: string; name: string; mins: number; count: number }>();
-    for (const s of data?.sessions ?? []) {
+    for (const s of allSessions) {
       const existing = map.get(s.subjectId) ?? { id: s.subjectId, name: s.subjectName, mins: 0, count: 0 };
       existing.mins += s.durationMin;
       existing.count += 1;
@@ -220,7 +244,7 @@ export default function PublicProfilePage() {
     return [...map.values()]
       .sort((a, b) => b.mins - a.mins)
       .map((v) => ({ ...v, pct: totalMins ? (v.mins / totalMins) * 100 : 0, color: subjectToneFromId(v.id) as AccentKey }));
-  }, [data?.sessions]);
+  }, [allSessions]);
   const ratedSessions = useMemo(() => filteredSessions.filter((s) => s.moodRating > 0), [filteredSessions]);
   const avgMood = ratedSessions.length > 0 ? (ratedSessions.reduce((sum, s) => sum + s.moodRating, 0) / ratedSessions.length).toFixed(1) : "—";
   const moodLabel = Number(avgMood) >= 4 ? "Great" : Number(avgMood) >= 3 ? "Good" : Number(avgMood) >= 2 ? "Fair" : "Low";
@@ -234,9 +258,9 @@ export default function PublicProfilePage() {
 
   const subjectNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const s of data?.sessions ?? []) map.set(s.subjectId, s.subjectName);
+    for (const s of allSessions) map.set(s.subjectId, s.subjectName);
     return map;
-  }, [data?.sessions]);
+  }, [allSessions]);
   const bestSubjectByTime = useMemo(() => {
     const byId = new Map<string, number>();
     for (const s of filteredSessions) byId.set(s.subjectId, (byId.get(s.subjectId) || 0) + s.duration);
@@ -812,6 +836,21 @@ function groupSessions(sessions: PublicProfileSessionEntry[]) {
     else groups[2].items.push(session);
   });
   return groups.filter((g) => g.items.length > 0);
+}
+
+function mergeUniqueSessions(
+  base: PublicProfileSessionEntry[],
+  incoming: PublicProfileSessionEntry[],
+): PublicProfileSessionEntry[] {
+  if (!incoming.length) return base;
+  const seen = new Set(base.map((s) => s.id));
+  const merged = [...base];
+  for (const session of incoming) {
+    if (seen.has(session.id)) continue;
+    seen.add(session.id);
+    merged.push(session);
+  }
+  return merged;
 }
 
 

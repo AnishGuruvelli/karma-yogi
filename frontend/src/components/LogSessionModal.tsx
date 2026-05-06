@@ -45,22 +45,18 @@ function normalizeTimePart(raw: string, max: number): string {
   return String(clamped);
 }
 
-function defaultEndHM(): { h: number; m: number } {
+function defaultStartHM(): { h: number; m: number } {
   const n = new Date();
   return { h: n.getHours(), m: n.getMinutes() };
 }
 
-function endTimeFromInitial(s: { startTime: string; duration: number; endTime?: string }): string {
-  const fromEnd = s.endTime ? parseTimeHHMM(s.endTime) : null;
-  if (fromEnd) return `${pad2(fromEnd.h)}:${pad2(fromEnd.m)}`;
+function startTimeFromInitial(s: { startTime: string; duration: number; endTime?: string }): string {
   const st = parseTimeHHMM(s.startTime);
   if (!st) {
-    const d = defaultEndHM();
+    const d = defaultStartHM();
     return `${pad2(d.h)}:${pad2(d.m)}`;
   }
-  let total = st.h * 60 + st.m + s.duration;
-  total = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
-  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
+  return `${pad2(st.h)}:${pad2(st.m)}`;
 }
 
 interface LogSessionModalProps {
@@ -93,11 +89,11 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const toLocalDateString = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const [sessionDate, setSessionDate] = useState(initialSession?.date || toLocalDateString(new Date()));
   const [endHour, setEndHour] = useState(() => {
-    const d = defaultEndHM();
+    const d = defaultStartHM();
     return String(d.h);
   });
   const [endMinute, setEndMinute] = useState(() => {
-    const d = defaultEndHM();
+    const d = defaultStartHM();
     return String(d.m);
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -147,12 +143,12 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       setMood(initialSession.moodRating ?? null);
       setSessionDate(initialSession.date);
       {
-        const p = parseTimeHHMM(endTimeFromInitial(initialSession));
+        const p = parseTimeHHMM(startTimeFromInitial(initialSession));
         if (p) {
           setEndHour(String(p.h));
           setEndMinute(String(p.m));
         } else {
-          const d = defaultEndHM();
+          const d = defaultStartHM();
           setEndHour(String(d.h));
           setEndMinute(String(d.m));
         }
@@ -166,7 +162,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     setMood(null);
     setSessionDate(toLocalDateString(new Date()));
     {
-      const d = defaultEndHM();
+      const d = defaultStartHM();
       setEndHour(String(d.h));
       setEndMinute(String(d.m));
     }
@@ -221,19 +217,19 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     const hourValue = Number(endHour);
     const minuteValue = Number(endMinute);
     if (!Number.isFinite(hourValue) || !Number.isFinite(minuteValue) || hourValue < 0 || hourValue > 23 || minuteValue < 0 || minuteValue > 59) {
-      toast.error("Enter a valid end time.");
+      toast.error("Enter a valid start time.");
       return;
     }
-    const endDateTime = new Date(`${sessionDate}T${pad2(hourValue)}:${pad2(minuteValue)}:00`);
-    if (Number.isNaN(endDateTime.getTime())) {
+    const startDateTime = new Date(`${sessionDate}T${pad2(hourValue)}:${pad2(minuteValue)}:00`);
+    if (Number.isNaN(startDateTime.getTime())) {
       toast.error("Invalid date or time.");
       return;
     }
-    const startDate = new Date(endDateTime.getTime() - duration * 60000);
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
     const payload = {
       topic: trimmedTopic,
       duration,
-      startTime: `${pad2(startDate.getHours())}:${pad2(startDate.getMinutes())}`,
+      startTime: `${pad2(startDateTime.getHours())}:${pad2(startDateTime.getMinutes())}`,
       endTime: `${pad2(endDateTime.getHours())}:${pad2(endDateTime.getMinutes())}`,
       date: sessionDate,
       moodRating: mood!,
@@ -432,7 +428,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                   </div>
 
                   <div>
-                    <label className={labelClass}>Ended at</label>
+                    <label className={labelClass}>Started at</label>
                     <div className="input-field flex h-12 w-full items-center gap-1 rounded-xl px-3 sm:h-[3.25rem]">
                       <input
                         type="number"

@@ -22,6 +22,7 @@ interface TimerModalProps {
 const POMODORO_FOCUS = 25 * 60;
 const POMODORO_BREAK = 5 * 60;
 const labelClass = "mb-1.5 block text-sm font-medium text-muted-foreground";
+const MOOD_EMOJIS = ['😞', '😐', '🙂', '😄', '🤩'] as const;
 
 export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const { subjects, sessions, addSession, addSubject } = useStore();
@@ -48,6 +49,10 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const [pausedAccumMs, setPausedAccumMs] = useState(0);
   const [tickNowMs, setTickNowMs] = useState(Date.now());
   const [restoredOnce, setRestoredOnce] = useState(false);
+  const [showMoodStep, setShowMoodStep] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<number | null>(null);
+  const [pendingDuration, setPendingDuration] = useState(0);
+  const [pendingEndTime, setPendingEndTime] = useState<Date | null>(null);
 
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(POMODORO_FOCUS);
@@ -273,18 +278,46 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
         : totalStudied + (pomodoroPhase === 'focus' ? focusDuration * 60 - pomodoroRemaining : 0);
     const duration = Math.round(totalSeconds / 60);
     if (duration >= 1 && startTimeRef.current) {
-      const now = new Date();
-      addSession({
-        subjectId,
-        topic: topic || 'General study',
-        duration,
-        startTime: `${startTimeRef.current.getHours().toString().padStart(2, '0')}:${startTimeRef.current.getMinutes().toString().padStart(2, '0')}`,
-        endTime: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
-        date: toLocalDateKey(now),
-        moodRating: 3,
-        isManualLog: false,
-      });
+      setPendingDuration(duration);
+      setPendingEndTime(new Date());
+      setSelectedMood(null);
+      setShowMoodStep(true);
+      setIsRunning(false);
+      setIsPaused(false);
+      setTickNowMs(Date.now());
+      void clearTimerState().catch(() => {});
+      return;
     }
+    void clearTimerState().catch(() => {});
+    resetAll();
+    onClose();
+  };
+
+  const handleSaveStoppedSession = () => {
+    if (!startTimeRef.current || !pendingEndTime || !selectedMood || pendingDuration < 1) return;
+    addSession({
+      subjectId,
+      topic: topic || 'General study',
+      duration: pendingDuration,
+      startTime: `${startTimeRef.current.getHours().toString().padStart(2, '0')}:${startTimeRef.current.getMinutes().toString().padStart(2, '0')}`,
+      endTime: `${pendingEndTime.getHours().toString().padStart(2, '0')}:${pendingEndTime.getMinutes().toString().padStart(2, '0')}`,
+      date: toLocalDateKey(pendingEndTime),
+      moodRating: selectedMood,
+      isManualLog: false,
+    });
+    setShowMoodStep(false);
+    setSelectedMood(null);
+    setPendingDuration(0);
+    setPendingEndTime(null);
+    resetAll();
+    onClose();
+  };
+
+  const handleDiscardStoppedSession = () => {
+    setShowMoodStep(false);
+    setSelectedMood(null);
+    setPendingDuration(0);
+    setPendingEndTime(null);
     void clearTimerState().catch(() => {});
     resetAll();
     onClose();
@@ -566,6 +599,53 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 </Tooltip>
               </TooltipProvider>
             </>
+          ) : showMoodStep ? (
+            <div className="space-y-5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+              <div className="rounded-2xl border border-border bg-card/60 p-4">
+                <h3 className="text-base font-semibold text-foreground">How was this session?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Select your mood to save this {pendingDuration} min session.
+                </p>
+                <div className="mt-4 grid grid-cols-5 gap-2">
+                  {MOOD_EMOJIS.map((emoji, idx) => {
+                    const mood = idx + 1;
+                    const active = selectedMood === mood;
+                    return (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setSelectedMood(mood)}
+                        aria-label={`Mood ${mood}`}
+                        className={`flex h-12 items-center justify-center rounded-xl border text-2xl transition-all ${
+                          active
+                            ? 'border-primary bg-primary/10 ring-2 ring-primary/25'
+                            : 'border-border bg-card hover:border-primary/40'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleDiscardStoppedSession}
+                  className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveStoppedSession}
+                  disabled={!selectedMood}
+                  className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {!selectedMood ? 'Select mood to save' : 'Save session'}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">
             {/* Timer Display */}
