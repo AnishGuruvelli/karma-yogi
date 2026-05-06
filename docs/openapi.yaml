@@ -1,146 +1,1854 @@
 openapi: 3.0.3
 info:
   title: Karma Yogi API
-  version: 1.0.0
+  version: 2.0.0
+  description: |
+    REST API for Karma Yogi — a study-tracking platform.
+
+    ## Auth model
+    - Short-lived JWT **access tokens** (default 15 min, env `JWT_ACCESS_TTL_MINUTES`).
+    - Long-lived rotating **refresh tokens** (default 720 h / 30 days, env `JWT_REFRESH_TTL_HOURS`).
+    - All authenticated routes require `Authorization: Bearer <accessToken>`.
+    - On 401 the client should call `POST /auth/refresh`. The server rotates the refresh token on every
+      call (issues a new `refreshId` + `refreshToken` and revokes the old one).
+    - **Concurrent 401 handling:** the frontend uses a single shared in-flight promise so parallel
+      expired-token requests trigger only one refresh, preventing rotation races.
+
+    ## Rate limiting
+    180 requests / minute per IP (sliding window, applied globally).
+
+    ## Client headers
+    | Header | Description |
+    |--------|-------------|
+    | `X-Client-Platform` | `web` / `android` / `ios` |
+    | `X-App-Version` | optional semver string |
+
 servers:
   - url: /api/v1
+    description: All API routes. Note — `GET /healthz` lives at the **server root**, not under `/api/v1`.
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Profile
+  - name: Preferences
+  - name: Privacy
+  - name: Achievements
+  - name: Subjects
+  - name: Sessions
+  - name: Goals
+  - name: Exam Goal
+  - name: Insights
+  - name: Timer
+  - name: Friends
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    AuthResult:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+        refreshId:
+          type: string
+          format: uuid
+        refreshToken:
+          type: string
+      required: [user, accessToken, refreshId, refreshToken]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        username:
+          type: string
+        phone:
+          type: string
+        avatarUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, email, fullName, username]
+
+    Subject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          enum: [cyan, green, orange, pink, purple]
+        icon:
+          type: string
+          description: Emoji or icon identifier, may be empty
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, color, createdAt]
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        durationMin:
+          type: integer
+          minimum: 1
+        mood:
+          type: string
+          description: Mood rating as a string "1"–"5"
+        startedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, subjectId, durationMin, startedAt]
+
+    Goal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        targetMinutes:
+          type: integer
+          minimum: 1
+        deadline:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, targetMinutes, deadline]
+
+    ExamGoalWrapper:
+      type: object
+      properties:
+        examGoal:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ExamGoal'
+      required: [examGoal]
+
+    ExamGoal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        examDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, examDate]
+
+    UserPublicProfile:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        bio:
+          type: string
+        location:
+          type: string
+        education:
+          type: string
+        occupation:
+          type: string
+        targetExam:
+          type: string
+        targetCollege:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [userId]
+
+    UserPreferences:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        preferredStudyTime:
+          type: string
+          description: e.g. "Morning", "Evening"
+        defaultSessionMinutes:
+          type: integer
+          default: 50
+        breakMinutes:
+          type: integer
+          default: 10
+        pomodoroCycles:
+          type: integer
+          default: 4
+        studyLevel:
+          type: string
+          description: e.g. "Beginner", "Intermediate", "Advanced"
+        weeklyGoalHours:
+          type: integer
+          default: 20
+        emailNotifications:
+          type: boolean
+        pushNotifications:
+          type: boolean
+        reminderNotifications:
+          type: boolean
+        marketingNotifications:
+          type: boolean
+        showStrategyPage:
+          type: boolean
+          description: When true, the Strategy Dashboard feature is enabled for this account
+      required: [userId]
+
+    UserPrivacySettings:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        profilePublic:
+          type: boolean
+        showStats:
+          type: boolean
+        showLeaderboard:
+          type: boolean
+      required: [userId, profilePublic, showStats, showLeaderboard]
+
+    Achievement:
+      type: object
+      properties:
+        key:
+          type: string
+          enum:
+            - seven_day_streak
+            - fourteen_day_warrior
+            - century_club
+            - first_session
+            - deep_work
+            - social_studier
+            - subject_master
+            - goal_crusher
+            - early_bird
+            - mock_master
+        earned:
+          type: boolean
+        earnedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [key, earned]
+
+    AchievementsResponse:
+      type: object
+      properties:
+        achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Achievement'
+      required: [achievements]
+
+    StudyStatsSummary:
+      type: object
+      properties:
+        totalMinutes:
+          type: integer
+        totalSessions:
+          type: integer
+        avgSessionMinutes:
+          type: integer
+        longestSessionMinutes:
+          type: integer
+        avgMood:
+          type: number
+          format: float
+        activeDistinctDays:
+          type: integer
+        weekMinutesCurrent:
+          type: integer
+          description: Minutes studied in the current Monday–Sunday week (in timezoneUsed)
+        timezoneUsed:
+          type: string
+          description: IANA timezone used for week/day calculations
+      required: [totalMinutes, totalSessions, avgSessionMinutes, longestSessionMinutes, avgMood, activeDistinctDays, weekMinutesCurrent, timezoneUsed]
+
+    Insights:
+      type: object
+      properties:
+        totalMinutes:
+          type: integer
+        sessionCount:
+          type: integer
+        weeklyMinutes:
+          type: integer
+        goalCompletion:
+          type: integer
+          description: Percentage 0–100
+
+    PublicProfileStats:
+      type: object
+      properties:
+        totalMinutes:
+          type: integer
+        totalSessions:
+          type: integer
+        activeDays:
+          type: integer
+        avgSessionMinutes:
+          type: integer
+        longestSession:
+          type: integer
+        thisWeekMinutes:
+          type: integer
+        friendCount:
+          type: integer
+
+    PublicProfileView:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        profile:
+          $ref: '#/components/schemas/UserPublicProfile'
+        privacy:
+          $ref: '#/components/schemas/UserPrivacySettings'
+        stats:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PublicProfileStats'
+          description: Only present when showStats is true and profilePublic is true
+      required: [user, profile, privacy]
+
+    PublicProfileOverview:
+      type: object
+      properties:
+        totalMinutes:
+          type: integer
+        totalSessions:
+          type: integer
+        activeDays:
+          type: integer
+        avgSessionMinutes:
+          type: integer
+        longestSession:
+          type: integer
+        thisWeekMinutes:
+          type: integer
+        friendCount:
+          type: integer
+        currentStreakDays:
+          type: integer
+        maxStreakDays:
+          type: integer
+        weeklyGoalHours:
+          type: integer
+        avgMood:
+          type: number
+          format: float
+
+    PublicProfileSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subjectId:
+          type: string
+          format: uuid
+        subjectName:
+          type: string
+        topic:
+          type: string
+        durationMin:
+          type: integer
+        mood:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+
+    PublicProfileInsightsBucket:
+      type: object
+      properties:
+        dateKey:
+          type: string
+          description: "YYYY-MM-DD"
+        minutes:
+          type: integer
+
+    PublicProfileInsightsSubject:
+      type: object
+      properties:
+        subjectId:
+          type: string
+          format: uuid
+        subjectName:
+          type: string
+        minutes:
+          type: integer
+
+    PublicProfileInsights:
+      type: object
+      properties:
+        dailyMinutes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProfileInsightsBucket'
+        weeklyMinutes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProfileInsightsBucket'
+        subjectBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProfileInsightsSubject'
+        peakHourLocal:
+          type: integer
+          description: Hour of day (0–23) with the most study minutes
+        peakHourMinutes:
+          type: integer
+        bestDayDateKey:
+          type: string
+        bestDayMinutes:
+          type: integer
+        mostStudiedSubject:
+          type: string
+
+    PublicProfileDetails:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        profile:
+          $ref: '#/components/schemas/UserPublicProfile'
+        privacy:
+          $ref: '#/components/schemas/UserPrivacySettings'
+        canViewDetails:
+          type: boolean
+          description: True for the profile owner or confirmed friends; false otherwise
+        overview:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PublicProfileOverview'
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProfileSession'
+          nullable: true
+        sessionsTotal:
+          type: integer
+        sessionsHasMore:
+          type: boolean
+        insights:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PublicProfileInsights'
+        heatmap:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "Map of YYYY-MM-DD → minutes studied"
+          nullable: true
+      required: [user, profile, privacy, canViewDetails, sessionsTotal, sessionsHasMore]
+
+    FriendUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: string
+        username:
+          type: string
+        friendshipStatus:
+          type: string
+          enum: [none, incoming, outgoing, friends]
+      required: [id, fullName, username, friendshipStatus]
+
+    FriendRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        senderId:
+          type: string
+          format: uuid
+        receiverId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+        createdAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, senderId, receiverId, status, createdAt]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        username:
+          type: string
+        weeklyMinutes:
+          type: integer
+      required: [userId, fullName, username, weeklyMinutes]
+
+    TimerState:
+      type: object
+      description: |
+        Free-form JSON blob persisted per user. Common fields used by the frontend:
+        - `mode`: "stopwatch" | "pomodoro"
+        - `timerType`: "solo" | "friend"
+        - `subjectId`: UUID
+        - `topic`: string
+        - `isRunning`: boolean
+        - `isPaused`: boolean
+        - `hasStarted`: boolean
+        - `friendIds`: string[] (for friend sessions)
+        - `sessionMode`: "live" | "plan"
+      additionalProperties: true
+
+    TimerStateResponse:
+      type: object
+      properties:
+        state:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/TimerState'
+      required: [state]
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid access token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Invalid request body or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+security: []
+
 paths:
   /healthz:
     get:
-      description: Service-level health endpoint exposed at server root (not under `/api/v1`).
-  /auth/google:
-    post:
-      description: Exchange a Google ID token for an application session.
-  /auth/dev-login:
-    post:
-      description: Development-only login helper that creates or reuses a user.
+      tags: [Health]
+      summary: Health check
+      description: |
+        Service liveness probe. Exposed at the **server root** (`GET /healthz`),
+        not under `/api/v1`. Returns `{"status":"ok"}` when the API is up.
+
+        > Via default Nginx config `http://localhost/api/healthz` returns 404 — use the direct API URL `http://localhost:8080/healthz`.
+      servers:
+        - url: /
+          description: Server root (not under /api/v1)
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
   /auth/register:
     post:
-      description: Create an account using email, password, and secret answer.
+      tags: [Auth]
+      summary: Register with email + password
+      description: |
+        Creates a new account. The `secretAnswer` is used for password reset; the client displays
+        a single standard security question (see `frontend/src/lib/auth-constants.ts`).
+        The answer is stored as a bcrypt hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                fullName:
+                  type: string
+                  minLength: 2
+                password:
+                  type: string
+                  minLength: 8
+                secretAnswer:
+                  type: string
+                  minLength: 2
+              required: [email, fullName, password, secretAnswer]
+      responses:
+        '200':
+          description: Account created; tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already registered
+
   /auth/login:
     post:
-      description: Authenticate using email and password.
+      tags: [Auth]
+      summary: Login with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          description: Invalid email or password
+
   /auth/password-reset:
     post:
-      description: Reset password by verifying email and secret answer.
+      tags: [Auth]
+      summary: Reset password via security answer
+      description: |
+        Does not require an authenticated session. Verifies the account's secret answer
+        (bcrypt compare) then updates the password hash.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                secretAnswer:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+              required: [email, secretAnswer, newPassword]
+      responses:
+        '200':
+          description: Password updated
+        '401':
+          description: Email or secret answer incorrect
+
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Login or register via Google ID token
+      description: |
+        Exchange a Google Identity Services ID token for an application session.
+        The backend verifies the token signature against Google's public keys using the
+        configured `GOOGLE_CLIENT_ID`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Google ID token from GIS `credential` callback
+              required: [token]
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          description: Token verification failed
+
+  /auth/dev-login:
+    post:
+      tags: [Auth]
+      summary: Development-only login helper
+      description: |
+        Creates or reuses a user with the given email (defaults to `dev@karmayogi.local`).
+        **Intended for local development only** — disable or block in production.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Dev session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+
   /auth/refresh:
     post:
-      description: Rotate and issue a fresh access token from refresh credentials.
+      tags: [Auth]
+      summary: Rotate refresh token and issue new access token
+      description: |
+        Validates `refreshToken` against the stored bcrypt hash for `refreshId`, revokes the
+        existing refresh token, and issues a new access token + fresh refresh token pair.
+        **One-shot:** using a revoked token returns 401.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshId:
+                  type: string
+                  format: uuid
+                refreshToken:
+                  type: string
+              required: [refreshId, refreshToken]
+      responses:
+        '200':
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          description: Refresh token expired, revoked, or hash mismatch
+
   /auth/logout:
     post:
-      description: Revoke refresh session and end current authenticated session.
+      tags: [Auth]
+      summary: Logout and revoke refresh session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshId:
+                  type: string
+                  format: uuid
+              required: [refreshId]
+      responses:
+        '200':
+          description: Session revoked
+
   /users/me:
     get:
-      description: Retrieve current authenticated user profile.
+      tags: [Users]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated user object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     patch:
-      description: Update editable profile fields for current authenticated user.
+      tags: [Users]
+      summary: Update current user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                username:
+                  type: string
+                phone:
+                  type: string
+                avatarUrl:
+                  type: string
+      responses:
+        '200':
+          description: Updated user object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/me/public-profile:
     get:
-      description: Retrieve current user's public profile metadata fields.
+      tags: [Profile]
+      summary: Get my public profile metadata
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     patch:
-      description: Update current user's public profile metadata fields.
+      tags: [Profile]
+      summary: Update my public profile metadata
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bio:
+                  type: string
+                location:
+                  type: string
+                education:
+                  type: string
+                occupation:
+                  type: string
+                targetExam:
+                  type: string
+                targetCollege:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/me/preferences:
     get:
-      description: Retrieve current user's study, notification, and feature preferences (including whether StrategyDashboard is enabled).
+      tags: [Preferences]
+      summary: Get my study and notification preferences
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     patch:
-      description: Update current user's study, notification, and feature preferences (including StrategyDashboard visibility).
+      tags: [Preferences]
+      summary: Update my preferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preferredStudyTime:
+                  type: string
+                defaultSessionMinutes:
+                  type: integer
+                breakMinutes:
+                  type: integer
+                pomodoroCycles:
+                  type: integer
+                studyLevel:
+                  type: string
+                weeklyGoalHours:
+                  type: integer
+                emailNotifications:
+                  type: boolean
+                pushNotifications:
+                  type: boolean
+                reminderNotifications:
+                  type: boolean
+                marketingNotifications:
+                  type: boolean
+                showStrategyPage:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/me/privacy:
     get:
-      description: Retrieve current user's privacy and visibility settings.
+      tags: [Privacy]
+      summary: Get my privacy and visibility settings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPrivacySettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     patch:
-      description: Update current user's privacy and visibility settings.
+      tags: [Privacy]
+      summary: Update my privacy settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profilePublic:
+                  type: boolean
+                showStats:
+                  type: boolean
+                showLeaderboard:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPrivacySettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/me/achievements:
     get:
+      tags: [Achievements]
+      summary: List profile achievements with earned status
       description: |
-        List derived profile achievements with earned flags and optional earnedAt timestamps.
-        Streak rules use UTC calendar dates from session started_at; "today" is UTC (may differ from the app client's local streak by one day at zone boundaries).
+        Returns all achievement keys with `earned: true/false` and optional `earnedAt` timestamp.
+        Achievements are derived from sessions and friend data — not stored separately.
+
+        **Streak rules:** day boundaries use UTC calendar dates from `session.startedAt`.
+
+        | Key | Condition |
+        |-----|-----------|
+        | `first_session` | At least 1 session logged |
+        | `seven_day_streak` | 7-day consecutive study streak |
+        | `fourteen_day_warrior` | 14-day consecutive study streak |
+        | `century_club` | 100+ sessions logged |
+        | `deep_work` | Any single session ≥ 120 minutes |
+        | `social_studier` | At least 1 confirmed friend |
+        | `subject_master` | Sessions across 5+ distinct subjects |
+        | `goal_crusher` | Weekly goal reached at least once |
+        | `early_bird` | Session starting before 07:00 local time |
+        | `mock_master` | Session with "mock" in the topic |
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/me/study-stats:
     get:
+      tags: [Users]
+      summary: Get aggregated study statistics
       description: |
-        Server-aggregated study statistics from all stored sessions (all-time totals and current-week minutes).
-        Optional query `tz` is an IANA timezone name (e.g. `Asia/Kolkata`) used for distinct-day counts and the Monday–Sunday week window for `weekMinutesCurrent`; invalid values fall back to UTC.
+        Server-side aggregation of all stored sessions. Returns all-time totals and the
+        current Monday–Sunday week in the requested timezone.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tz
+          in: query
+          description: IANA timezone (e.g. `Asia/Kolkata`). Falls back to UTC if invalid or omitted.
+          schema:
+            type: string
+            example: Asia/Kolkata
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyStatsSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /users/{username}/public-profile:
     get:
-      description: Retrieve privacy-aware public profile information for a user.
-  /users/{username}/public-profile/details:
-    get:
+      tags: [Profile]
+      summary: Get public profile by username (privacy-aware)
       description: |
-        Retrieve full public profile details (overview, sessions, insights, heatmap).
-        Access is restricted to the profile owner or confirmed friends; non-friends receive metadata with `canViewDetails=false`.
+        Returns public profile data subject to the user's privacy settings.
+        - `stats` is omitted when `privacy.showStats = false`
+        - Non-public profiles still return the user object (for display) but omit stats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfileView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /friends/friend-profile:
+    post:
+      tags: [Friends]
+      summary: Get full friend profile details (overview, sessions, insights, heatmap)
+      description: |
+        Returns rich profile details including overview stats, paginated sessions,
+        subject insights, and a daily heatmap.
+
+        Access rules:
+        - The response always includes `user`, `profile`, `privacy`, `canViewDetails`.
+        - `overview`, `sessions`, `insights`, `heatmap` are only populated when
+          `canViewDetails = true` (caller is the profile owner or a confirmed friend).
+        - Privacy settings further gate `stats` visibility.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: Username or user ID of the profile to fetch
+                page:
+                  type: integer
+                  default: 1
+                limit:
+                  type: integer
+                  default: 20
+              required: [username]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfileDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /subjects:
     get:
-      description: List all subjects for the current authenticated user.
+      tags: [Subjects]
+      summary: List all subjects
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
-      description: Create a new subject for the current authenticated user.
+      tags: [Subjects]
+      summary: Create a subject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                  enum: [cyan, green, orange, pink, purple]
+              required: [name, color]
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subject'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /subjects/{id}:
     patch:
-      description: Update color metadata for a subject owned by current user.
+      tags: [Subjects]
+      summary: Update subject color
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                color:
+                  type: string
+                  enum: [cyan, green, orange, pink, purple]
+              required: [color]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
-      description: Delete a subject and any dependent user-owned records.
+      tags: [Subjects]
+      summary: Delete a subject
+      description: Cascades to delete all sessions belonging to this subject.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /sessions:
     get:
-      description: List all study sessions for current authenticated user.
+      tags: [Sessions]
+      summary: List all sessions
+      description: Returns sessions ordered by `startedAt` descending.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
-      description: Create a new study session for current authenticated user.
+      tags: [Sessions]
+      summary: Create a session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subjectId:
+                  type: string
+                  format: uuid
+                topic:
+                  type: string
+                durationMin:
+                  type: integer
+                  minimum: 1
+                mood:
+                  type: string
+                  description: "\"1\" – \"5\""
+                startedAt:
+                  type: string
+                  format: date-time
+              required: [subjectId, durationMin, mood, startedAt]
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /sessions/{id}:
     patch:
-      description: Update an existing study session owned by current user.
+      tags: [Sessions]
+      summary: Update a session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subjectId:
+                  type: string
+                  format: uuid
+                topic:
+                  type: string
+                durationMin:
+                  type: integer
+                mood:
+                  type: string
+                startedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
-      description: Delete a study session owned by current user.
+      tags: [Sessions]
+      summary: Delete a session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /goals:
     get:
-      description: List goals configured for current authenticated user.
+      tags: [Goals]
+      summary: List goals
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Goal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
-      description: Create a new study goal for current authenticated user.
+      tags: [Goals]
+      summary: Create a goal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                targetMinutes:
+                  type: integer
+                  minimum: 1
+                deadline:
+                  type: string
+                  format: date-time
+              required: [title, targetMinutes, deadline]
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /goals/{id}:
     patch:
-      description: Update a goal owned by current authenticated user.
+      tags: [Goals]
+      summary: Update a goal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                targetMinutes:
+                  type: integer
+                deadline:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
-      description: Delete a goal owned by current authenticated user.
+      tags: [Goals]
+      summary: Delete a goal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /exam-goal:
     get:
-      description: Retrieve current authenticated user's exam goal.
+      tags: [Exam Goal]
+      summary: Get exam goal
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExamGoalWrapper'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     put:
-      description: Create or update current authenticated user's exam goal.
+      tags: [Exam Goal]
+      summary: Create or update exam goal (upsert)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Exam name e.g. "CAT", "UPSC"
+                examDate:
+                  type: string
+                  format: date-time
+              required: [name, examDate]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExamGoalWrapper'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     delete:
-      description: Delete current authenticated user's exam goal.
+      tags: [Exam Goal]
+      summary: Delete exam goal
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /insights:
     get:
-      description: Retrieve aggregated insights for current authenticated user.
+      tags: [Insights]
+      summary: Get aggregated insights
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Insights'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /timer-state:
     get:
-      description: Fetch persisted timer state for current authenticated user.
+      tags: [Timer]
+      summary: Get persisted timer state
+      description: Returns the last-saved timer state blob, or `{"state": null}` if none exists.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimerStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     put:
-      description: Create or update persisted timer state for current user.
+      tags: [Timer]
+      summary: Create or update timer state
+      description: |
+        Upserts a free-form JSON blob for the current user's active timer.
+        Used to persist timer state across tab switches, refreshes, and app restores.
+        Also supports friend live-session payloads (`timerType: "friend"`).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                state:
+                  $ref: '#/components/schemas/TimerState'
+              required: [state]
+      responses:
+        '200':
+          description: State saved
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     delete:
-      description: Clear persisted timer state for current authenticated user.
+      tags: [Timer]
+      summary: Clear timer state
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Cleared
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /timer-state/start:
     post:
-      description: Returns server-authoritative timer start timestamp.
+      tags: [Timer]
+      summary: Get server-authoritative timer start timestamp
+      description: |
+        Returns a server-side `startedAtMs` (Unix milliseconds). Used when the client needs
+        a trusted start time (e.g. preventing client clock manipulation in leaderboards).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startedAtMs:
+                    type: integer
+                    description: Unix epoch milliseconds
+                required: [startedAtMs]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends/users:
     get:
-      description: List discoverable users with friendship relation status.
+      tags: [Friends]
+      summary: Discover users
+      description: Returns all users with their friendship status relative to the caller.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends:
     get:
-      description: List confirmed friends for current authenticated user.
+      tags: [Friends]
+      summary: List confirmed friends
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends/requests/incoming:
     get:
-      description: List pending incoming friend requests.
+      tags: [Friends]
+      summary: List pending incoming friend requests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends/requests/outgoing:
     get:
-      description: List pending outgoing friend requests.
+      tags: [Friends]
+      summary: List pending outgoing friend requests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends/requests:
     post:
-      description: Send a friend request to another user.
+      tags: [Friends]
+      summary: Send a friend request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receiverId:
+                  type: string
+                  format: uuid
+              required: [receiverId]
+      responses:
+        '201':
+          description: Request sent
+        '400':
+          description: Already friends or request already exists
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends/requests/{id}/accept:
     post:
-      description: Accept an incoming friend request by request id.
+      tags: [Friends]
+      summary: Accept an incoming friend request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Request accepted; both users are now friends
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /friends/requests/{id}/reject:
     post:
-      description: Reject an incoming friend request by request id.
+      tags: [Friends]
+      summary: Reject an incoming friend request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Request rejected
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /friends/leaderboard:
     get:
-      description: Get weekly leaderboard among current user and confirmed friends.
+      tags: [Friends]
+      summary: Get weekly study leaderboard
+      description: |
+        Returns the caller and all confirmed friends ranked by minutes studied in the
+        specified calendar week (Monday–Sunday UTC).
+
+        Week selection (mutually exclusive; weekOffset takes precedence):
+        - `weekOffset=0` (default) — current week
+        - `weekOffset=-1` — previous week
+        - `from` + `to` — explicit ISO date range
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekOffset
+          in: query
+          description: Integer offset from current week (0 = this week, -1 = last week, etc.)
+          schema:
+            type: integer
+            default: 0
+        - name: from
+          in: query
+          description: Start of range (ISO date-time, UTC)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End of range (ISO date-time, UTC)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaderboardEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /friends/sessions:
     post:
-      description: Create shared friend sessions for current user and selected friends.
+      tags: [Friends]
+      summary: Create a shared study session for current user and friends
+      description: |
+        Logs a session for the caller using `subjectName`/`topic`, and logs a session for each
+        friend in `friendIds`. Per-friend overrides (`perFriendPlans`) allow different subject/topic
+        per friend while sharing the same session duration, mood, and start time.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                friendIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                subjectName:
+                  type: string
+                  description: Subject name for the caller's session
+                topic:
+                  type: string
+                  description: Topic for the caller's session
+                perFriendPlans:
+                  type: array
+                  description: Optional per-friend subject/topic overrides
+                  items:
+                    type: object
+                    properties:
+                      friendId:
+                        type: string
+                        format: uuid
+                      subjectName:
+                        type: string
+                      topic:
+                        type: string
+                    required: [friendId, subjectName, topic]
+                durationMin:
+                  type: integer
+                  minimum: 1
+                mood:
+                  type: string
+                  description: "\"1\" – \"5\""
+                startedAt:
+                  type: string
+                  format: date-time
+              required: [friendIds, subjectName, topic, durationMin, mood, startedAt]
+      responses:
+        '201':
+          description: Sessions created for all participants
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'

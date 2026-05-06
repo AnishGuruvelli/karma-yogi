@@ -71,7 +71,7 @@ export function ExamGoalModal({ open, onClose }: Props) {
                   setStep(1);
                   setError(null);
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Back"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -79,7 +79,7 @@ export function ExamGoalModal({ open, onClose }: Props) {
             )}
             <h2 className="text-lg font-bold text-foreground">{examGoal ? "Edit Exam Goal" : "Set Exam Goal"}</h2>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close">
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>

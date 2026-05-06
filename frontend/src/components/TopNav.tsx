@@ -118,7 +118,7 @@ export function TopNav({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center gap-2">
             <Popover>
               <PopoverTrigger asChild>
-                <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground" aria-label="Choose theme palette">
+                <button className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground" aria-label="Choose theme palette">
                   <Palette className="h-4 w-4" />
                 </button>
               </PopoverTrigger>
@@ -129,10 +129,10 @@ export function TopNav({ onLogout }: { onLogout: () => void }) {
                 </div>
               </PopoverContent>
             </Popover>
-            <button onClick={toggleTheme} className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground" aria-label="Toggle theme">
+            <button onClick={toggleTheme} className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground" aria-label="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <button onClick={onLogout} className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground" aria-label="Log out">
+            <button onClick={onLogout} className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground" aria-label="Log out">
               <LogOut className="h-4 w-4" />
             </button>
           </div>

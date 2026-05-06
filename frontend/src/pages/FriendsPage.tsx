@@ -508,7 +508,7 @@ export default function FriendsPage() {
               <button
                 type="button"
                 onClick={() => setWeekOffset((prev) => prev - 1)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground dark:border-slate-700 dark:text-slate-500"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-muted-foreground dark:border-slate-700 dark:text-slate-500"
                 aria-label="Previous week"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -521,7 +521,7 @@ export default function FriendsPage() {
                 type="button"
                 onClick={() => setWeekOffset((prev) => Math.min(0, prev + 1))}
                 disabled={weekOffset === 0}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-500"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-500"
                 aria-label="Next week"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -550,7 +550,7 @@ export default function FriendsPage() {
           </div>
 
           <div className="rounded-3xl border border-border bg-background p-4 sm:p-6 dark:border-slate-800 dark:bg-[#071027]">
-            <div className="flex gap-3 overflow-x-auto md:grid md:grid-cols-3 md:gap-4 md:overflow-visible">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
               {topThree.map((entry, idx) => {
                 const isMe = entry.userId === me?.id;
                 const bg =
@@ -568,7 +568,7 @@ export default function FriendsPage() {
                       }
                       navigate(`/friends/${entry.username || entry.userId}`);
                     }}
-                    className={`min-w-[240px] rounded-2xl bg-gradient-to-b ${bg} ${darkBg} p-5 text-center transition hover:opacity-95 md:min-w-0 ${isMe ? "cursor-default" : "cursor-pointer"}`}
+                    className={`rounded-2xl bg-gradient-to-b ${bg} ${darkBg} p-5 text-center transition hover:opacity-95 ${isMe ? "cursor-default" : "cursor-pointer"}`}
                   >
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-white text-base font-bold text-foreground shadow-sm dark:border-slate-500 dark:bg-[#10213d] dark:text-slate-100">
                       {initials(entry.fullName || entry.username || "F")}
@@ -853,7 +853,7 @@ export default function FriendsPage() {
                   setShowSessionModal(false);
                   resetSessionForm();
                 }}
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted/70"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted/70"
               >
                 <X className="h-4 w-4" />
               </button>

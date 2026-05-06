@@ -66,7 +66,7 @@ export function WeeklyStats({ sessions }: WeeklyStatsProps) {
       <div className="mb-5 flex items-center justify-between">
         <button
           onClick={() => setWeekOffset(w => w - 1)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground transition-colors"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground transition-colors"
           style={{ boxShadow: 'var(--shadow-sm)' }}
         >
           <ChevronLeft className="h-4 w-4" />
@@ -75,7 +75,7 @@ export function WeeklyStats({ sessions }: WeeklyStatsProps) {
         <button
           onClick={() => setWeekOffset(w => Math.min(w + 1, 0))}
           disabled={weekOffset >= 0}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           style={{ boxShadow: 'var(--shadow-sm)' }}
         >
           <ChevronRight className="h-4 w-4" />

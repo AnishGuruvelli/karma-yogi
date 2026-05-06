@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { fetchFriends, fetchMyAchievements, fetchMyStudyStats, type UserAchievementKey, type StudyStatsSummary } from "@/lib/api";
+import { maxStreak as computeMaxStreak } from "@/lib/stats";
 import { useStore } from "@/lib/store";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Switch } from "@/components/ui/switch";
@@ -101,7 +102,7 @@ export default function ProfilePage() {
   const longestSession = sessions.reduce((max, item) => Math.max(max, item.duration), 0);
   const activeDays = new Set(sessions.map((item) => item.date)).size;
   const currentStreak = user.currentStreak;
-  const maxStreak = Math.max(user.currentStreak, 25);
+  const maxStreak = computeMaxStreak(sessions);
 
   const today = new Date();
   const startOfWeek = new Date(today);
@@ -328,8 +329,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="relative mt-8 grid grid-cols-1 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-4">
+          <div className="relative mt-8 grid grid-cols-2 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur sm:grid-cols-3 lg:grid-cols-5">
             <HeroMetric icon={Flame} color="orange" label="Current streak" value={currentStreak} unit="days" />
+            <HeroMetric icon={Zap} color="pink" label="Max streak" value={maxStreak} unit="days" />
             <HeroMetric icon={Clock} color="cyan" label="Total focus" value={totalHours.toFixed(1)} unit="hours" />
             <HeroMetric icon={Trophy} color="purple" label="Sessions" value={snapSessions} unit="logged" />
             <HeroMetric icon={Users} color="green" label="Friends" value={friendCount} unit="connected" />

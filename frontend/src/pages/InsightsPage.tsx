@@ -195,7 +195,7 @@ export default function InsightsPage() {
     return +(dailyAvg / 60).toFixed(2);
   }, [mode, totalMinutes, dailyAvg, barData]);
 
-  const piePalette = ["#f9a8d4", "#fde68a", "#93c5fd", "#fca5a5", "#fdba74", "#c4b5fd", "#fbcfe8", "#bfdbfe"];
+  const piePalette = ["#22d3ee", "#4ade80", "#fb923c", "#f472b6", "#a78bfa", "#facc15", "#34d399", "#f87171"];
   const pieData = subjects
     .map((sub, index) => {
       const mins = filteredSessions.filter((s) => s.subjectId === sub.id).reduce((sum, s) => sum + s.duration, 0);
@@ -274,7 +274,7 @@ export default function InsightsPage() {
           <button
             type="button"
             onClick={() => setOffset((o) => o - 1)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
             style={{ boxShadow: "var(--shadow-sm)" }}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -289,7 +289,7 @@ export default function InsightsPage() {
             type="button"
             onClick={() => setOffset((o) => Math.min(o + 1, 0))}
             disabled={!canGoForward}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
             style={{ boxShadow: "var(--shadow-sm)" }}
           >
             <ChevronRight className="h-4 w-4" />
@@ -320,7 +320,7 @@ export default function InsightsPage() {
             </div>
 
             <h3 className="mb-3 font-semibold text-foreground">Study Hours</h3>
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={barData} barCategoryGap={mode === "month" ? "10%" : "20%"}>
                 <XAxis
                   dataKey="name"
@@ -455,9 +455,9 @@ export default function InsightsPage() {
         {pieData.length > 0 && (
           <div className="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2">
             <h2 className="mb-4 font-semibold text-foreground">By Subject</h2>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={65} outerRadius={105} paddingAngle={3} dataKey="value">
                   {pieData.map((d) => (
                     <Cell key={d.name} fill={d.color} />
                   ))}

@@ -25,7 +25,7 @@ export function GoalEditModal({ open, onClose }: GoalEditModalProps) {
       <div className="glass-modal w-full max-w-sm rounded-2xl p-4 sm:p-6" onClick={e => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground">Edit Weekly Goal</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>

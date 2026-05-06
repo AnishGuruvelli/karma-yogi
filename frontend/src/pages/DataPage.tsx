@@ -160,7 +160,7 @@ export default function DataPage() {
                               }
                             }}
                             aria-pressed={(colorPickerSubjectId === sub.id ? newColor : sub.color) === key}
-                            className={`h-9 w-9 rounded-full transition-all ${
+                            className={`h-10 w-10 rounded-full transition-all ${
                               (colorPickerSubjectId === sub.id ? newColor : sub.color) === key
                                 ? "scale-105 border-2 border-background ring-2 ring-primary ring-offset-1 ring-offset-card"
                                 : "border border-transparent hover:scale-105"
@@ -183,7 +183,7 @@ export default function DataPage() {
                       e.stopPropagation();
                       requestDeleteSubject(sub.id, sub.name);
                     }}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -237,7 +237,7 @@ export default function DataPage() {
                   <button
                     type="button"
                     onClick={() => requestDeleteSession(session.id, session.topic)}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -259,7 +259,7 @@ export default function DataPage() {
               <button
                 type="button"
                 onClick={() => setAddOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>

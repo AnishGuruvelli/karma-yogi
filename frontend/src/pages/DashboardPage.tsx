@@ -243,13 +243,13 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setGoalOpen(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </div>
             <div className="flex items-center justify-center py-4 sm:py-6">
-              <svg width="170" height="170" viewBox="0 0 180 180" className="sm:h-[180px] sm:w-[180px]">
+              <svg width="150" height="150" viewBox="0 0 180 180" className="sm:h-[180px] sm:w-[180px]">
                 <circle cx="90" cy="90" r="70" fill="none" stroke="var(--color-muted)" strokeWidth="10" />
                 <circle
                   cx="90"

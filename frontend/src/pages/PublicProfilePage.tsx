@@ -20,6 +20,7 @@ import {
   Target,
   Flame,
   Users,
+  Zap,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine } from "recharts";
 import { fetchPublicProfileDetails } from "@/lib/api";
@@ -306,7 +307,7 @@ export default function PublicProfilePage() {
     const secondIdx = totals.findIndex((t) => t === target);
     return { bestDay: weekdayNames[bestIdx], bestDayMinutes: totals[bestIdx], secondBestDay: secondIdx >= 0 ? weekdayNames[secondIdx] : "—", secondBestDayMinutes: secondIdx >= 0 ? totals[secondIdx] : 0 };
   }, [dayTotalsByWeekday]);
-  const piePalette = ["#f9a8d4", "#fde68a", "#93c5fd", "#fca5a5", "#fdba74", "#c4b5fd", "#fbcfe8", "#bfdbfe"];
+  const piePalette = ["#22d3ee", "#4ade80", "#fb923c", "#f472b6", "#a78bfa", "#facc15", "#34d399", "#f87171"];
   const insightsPieData = useMemo(() => {
     const byId = new Map<string, { name: string; value: number }>();
     for (const s of filteredSessions) {
@@ -375,8 +376,9 @@ export default function PublicProfilePage() {
           </div>
         </div>
         {data.canViewDetails && data.overview && (
-          <div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur sm:grid-cols-3 lg:grid-cols-5">
             <HeroMetric icon={Flame} color="orange" label="Current streak" value={data.overview.currentStreakDays} unit="days" />
+            <HeroMetric icon={Zap} color="pink" label="Max streak" value={data.overview.maxStreakDays} unit="days" />
             <HeroMetric icon={Clock} color="cyan" label="Total focus" value={(data.overview.totalMinutes / 60).toFixed(1)} unit="hours" />
             <HeroMetric icon={Trophy} color="purple" label="Sessions" value={data.overview.totalSessions} unit="logged" />
             <HeroMetric icon={Users} color="green" label="Friends" value={data.overview.friendCount} unit="connected" />
@@ -489,7 +491,7 @@ export default function PublicProfilePage() {
               <div className="glass-card mb-6 rounded-2xl p-4 sm:p-5">
                 <div className="mb-4 flex items-center justify-between sm:mb-5">
                   <button type="button" onClick={() => setOffset((o) => o - 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
                     style={{ boxShadow: "var(--shadow-sm)" }}>
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -500,7 +502,7 @@ export default function PublicProfilePage() {
                     </p>
                   </div>
                   <button type="button" onClick={() => setOffset((o) => Math.min(o + 1, 0))} disabled={!canGoForward}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
                     style={{ boxShadow: "var(--shadow-sm)" }}>
                     <ChevronRight className="h-4 w-4" />
                   </button>

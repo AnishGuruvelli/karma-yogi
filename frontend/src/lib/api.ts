@@ -120,6 +120,16 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (res.status === 401 && auth) {
     try {
+      // Another concurrent request may have already refreshed the token and cleared
+      // refreshInFlight by the time this 401 handler runs. If the access token has
+      // changed, skip the refresh and just retry with the current token.
+      const currentAuth = getAuthState();
+      if (currentAuth && currentAuth.accessToken !== auth.accessToken) {
+        const retryHeaders = withClientHeaders(init.headers || {}) as Record<string, string>;
+        retryHeaders.Authorization = `Bearer ${currentAuth.accessToken}`;
+        return fetch(`${API_BASE}${path}`, { ...init, headers: retryHeaders });
+      }
+
       if (!refreshInFlight) {
         refreshInFlight = (async () => {
           try {

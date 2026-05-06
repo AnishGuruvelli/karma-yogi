@@ -416,7 +416,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 if (!hasStarted) onClose();
               }}
               disabled={hasStarted}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -509,7 +509,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                               }}
                               onClick={() => setNewSubjectColor(key)}
                               aria-pressed={newSubjectColor === key}
-                              className={`h-8 w-8 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card' : 'border border-transparent hover:scale-105'}`}
+                              className={`h-10 w-10 rounded-full transition-all ${newSubjectColor === key ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card' : 'border border-transparent hover:scale-105'}`}
                               style={{ backgroundColor: val }}
                             />
                           ))}
@@ -653,7 +653,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
               {mode === 'pomodoro' ? (
                 <>
                   <div className="relative mb-3">
-                    <svg width="180" height="180" viewBox="0 0 200 200" className="sm:h-[200px] sm:w-[200px]">
+                    <svg width="160" height="160" viewBox="0 0 200 200" className="sm:h-[200px] sm:w-[200px]">
                       <circle cx="100" cy="100" r="90" fill="none" stroke="var(--color-muted)" strokeWidth="8" />
                       <circle
                         cx="100" cy="100" r="90" fill="none"

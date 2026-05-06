@@ -284,7 +284,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                   type="button"
                   onClick={onClose}
                   aria-label="Close"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -353,7 +353,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                                 onClick={() => setNewSubjectColor(key)}
                                 aria-pressed={newSubjectColor === key}
                                 className={cn(
-                                  "h-8 w-8 rounded-full transition-all",
+                                  "h-10 w-10 rounded-full transition-all",
                                   newSubjectColor === key
                                     ? "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card"
                                     : "border border-transparent hover:scale-105",
@@ -486,7 +486,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                           type="button"
                           onClick={() => bumpHours(-1)}
                           disabled={(hours ?? 0) <= 0}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Decrease hours"
                         >
                           <Minus className="h-3.5 w-3.5" />
@@ -511,7 +511,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                         <button
                           type="button"
                           onClick={() => bumpHours(1)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Increase hours"
                         >
                           <Plus className="h-3.5 w-3.5" />
@@ -525,7 +525,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                           type="button"
                           onClick={() => bumpMinutes(-1)}
                           disabled={(hours ?? 0) * 60 + (minutes ?? 0) < 5}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Decrease minutes"
                         >
                           <Minus className="h-3.5 w-3.5" />
@@ -550,7 +550,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                         <button
                           type="button"
                           onClick={() => bumpMinutes(1)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Increase minutes"
                         >
                           <Plus className="h-3.5 w-3.5" />

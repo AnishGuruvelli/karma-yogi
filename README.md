@@ -10,12 +10,10 @@
 </p>
 
 <p align="center">
-  Production-ready split frontend (React + Vite) and backend (Go + Chi + Postgres).
+  Production-ready study-tracking platform — React + Vite frontend, Go + Chi + Postgres backend, Capacitor Android packaging.
 </p>
 
 ## Product gallery
-
-All current UI screenshots:
 
 | | |
 |---|---|
@@ -26,117 +24,218 @@ All current UI screenshots:
 
 ## Quick links
 
-- Official web app: [https://karma-yogi-web.onrender.com/](https://karma-yogi-web.onrender.com/)
-- Backend health: [https://karma-yogi-api.onrender.com/healthz](https://karma-yogi-api.onrender.com/healthz)
-- OpenAPI spec: `docs/openapi.yaml`
+| Resource | URL |
+|----------|-----|
+| Web app | https://karma-yogi-web.onrender.com/ |
+| API health | https://karma-yogi-api.onrender.com/healthz |
+| OpenAPI spec | `docs/openapi.yaml` |
+| Android runbook | `docs/ANDROID_APP_RUNBOOK.md` |
+| Production runbook | `docs/PRODUCTION_LOCAL_RUNBOOK.md` |
 
-## Official deployment
+## Repository structure
 
-- Frontend (official website): [https://karma-yogi-web.onrender.com/](https://karma-yogi-web.onrender.com/)
-- Backend health check: [https://karma-yogi-api.onrender.com/healthz](https://karma-yogi-api.onrender.com/healthz)
+```
+karma-yogi/
+├── frontend/                 React + Vite SPA (Capacitor-wrapped for Android)
+│   ├── src/
+│   │   ├── components/       Shared UI components (TimerModal, LogSessionModal, OverviewTab, StatsPanel, …)
+│   │   ├── pages/            Route-level pages (Dashboard, Insights, Friends, Profile, PublicProfile, …)
+│   │   ├── lib/              Store (Zustand), API client, types, utilities
+│   │   └── App.tsx           Auth shell + route layout
+│   ├── android/              Capacitor Android project (generated — do not edit manually)
+│   └── capacitor.config.ts
+├── backend/
+│   ├── cmd/api/main.go       Entrypoint
+│   └── internal/
+│       ├── auth/             JWT + refresh token utilities
+│       ├── config/           Env-driven config
+│       ├── controller/       HTTP handlers
+│       ├── database/         Postgres repositories
+│       ├── domain/           Domain models
+│       ├── http/router.go    Chi router (all routes declared here)
+│       ├── middleware/        Auth, rate-limit, CORS, logging, security headers
+│       └── service/          Business logic (AuthService, domain services)
+├── deploy/nginx/default.conf Nginx reverse proxy config
+├── docker-compose.yml        Postgres + API + Nginx
+├── .env.example              Shared env template
+├── docs/
+│   ├── openapi.yaml          Full OpenAPI 3.0 spec
+│   ├── PRODUCTION_LOCAL_RUNBOOK.md
+│   └── ANDROID_APP_RUNBOOK.md
+└── scripts/
+    └── e2e.sh                One-command API smoke test
+```
 
-## Android (Play Store) build path
+## Features
 
-- This repo now supports Capacitor Android packaging from `frontend/`.
-- Detailed run/install troubleshooting guide: `docs/ANDROID_APP_RUNBOOK.md`
-- Initial setup commands:
+### Frontend
+- **Dashboard** — daily study time, weekly goal ring, current streak, recent sessions with inline edit/delete
+- **Study Timer** — stopwatch and Pomodoro modes, pause/resume, server-synced start timestamp, persisted across tab/page refresh
+- **Friend Sessions** — invite friends to a shared session with per-friend subject/topic overrides
+- **Log Session** — manual session entry with subject, topic, duration, mood, and date
+- **Insights** — heatmap, subject breakdown, weekly/monthly charts, peak hour, best day
+- **Library** — manage subjects (color picker) and browse/delete sessions
+- **Friends** — discover users, send/accept/reject requests, weekly leaderboard with week-offset navigation, public profile view
+- **Profile** — edit name/username/phone, public profile metadata (bio, location, exam, college), preferences, privacy controls, achievement badges
+- **Strategy Dashboard** — gated feature, enabled per-account via `showStrategyPage` preference
+- **Auth** — email/password register + login, Google OAuth (Web + native Android), password reset via security question, "Remember me" (30-day refresh tokens)
 
-  ```bash
-  cd frontend
-  npm install
-  npm run android:build:sync
-  npm run cap:open:android
-  ```
-
-- If Gradle sync fails with `Unable to locate a Java Runtime`, install JDK 21 and Android Studio SDK tools, then reopen/sync in Android Studio.
-- Build release bundle from Android Studio or Gradle (`bundleRelease`) after signing is configured.
-
-## Structure
-
-- `frontend/` — React SPA with `react-router-dom`, Tailwind, Vite
-- `backend/` — Go API (`internal/controller`, `internal/service`, `internal/database`)
-- `docs/openapi.yaml` — HTTP API contract (keep in sync with `backend/internal/http/router.go`)
-- `scripts/e2e.sh` — API smoke test against Docker Compose
-- `deploy/nginx/default.conf` — sample reverse proxy (`/api/*` → API)
+### Backend
+- JWT access tokens (15 min default) + rotating refresh tokens (30 days default)
+- Concurrent 401 safe: frontend uses a shared in-flight promise so token rotation races are prevented
+- Rate limiting: 180 req/min per IP
+- Security headers middleware
+- Request logging with platform, version, user ID, route, status, latency
+- Cascade delete: deleting a subject removes all its sessions
+- Achievements derived from session + friend data (no separate table)
+- Server-side study stats with timezone-aware week calculation
 
 ## Local development
 
-1. Copy environment and adjust secrets:
+### Prerequisites
+- Docker Desktop
+- Node.js LTS + npm
+- `jq` (for e2e script)
 
-   ```bash
-   cp .env.example .env
-   ```
+### Setup
 
-2. Start Postgres + API (+ Nginx on port 80):
+```bash
+# 1. Copy and configure environment
+cp .env.example .env
+# Edit .env — at minimum set JWT_SECRET and CORS_ALLOWED_ORIGINS
 
-   ```bash
-   docker compose up --build
-   ```
+# 2. Start Postgres + API + Nginx
+docker compose up --build -d
 
-3. In another terminal, install and run the frontend:
-
-   ```bash
-   cd frontend && npm install && npm run dev
-   ```
+# 3. Start the frontend dev server (separate terminal)
+cd frontend && npm install && npm run dev
+```
 
 Default dev URLs:
 
-- **API:** `http://localhost:8080` (OpenAPI paths are under `/api/v1`, e.g. `POST /api/v1/auth/login`)
-- **Frontend:** `http://localhost:8081` (Vite is configured for port `8081`; if that port is busy, Vite may choose the next free port—then add that origin to `CORS_ALLOWED_ORIGINS` in `.env` and restart the API)
-- **Nginx (Compose):** `http://localhost` — proxies **`/api/*`** to the API; **`GET /healthz` is not under `/api`**, so use `http://localhost:8080/healthz` for health checks unless you add a dedicated Nginx route
+| Service | URL |
+|---------|-----|
+| Frontend (Vite) | `http://localhost:8081` |
+| API (direct) | `http://localhost:8080` |
+| Nginx proxy | `http://localhost` (proxies `/api/*` → API) |
+| Health check | `http://localhost:8080/healthz` |
+
+> **Note:** `GET /healthz` is on the server root, not under `/api/v1`. Do not use `http://localhost/api/healthz` — it will 404 through the default Nginx config.
 
 ## Authentication
 
-The API supports:
-
 | Flow | Endpoint | Notes |
-|------|----------|--------|
-| Register (email + password + security answer) | `POST /api/v1/auth/register` | Answer is for password reset without email; client shows a single standard question (see `frontend/src/lib/auth-constants.ts`) |
+|------|----------|-------|
+| Register (email + password + security answer) | `POST /api/v1/auth/register` | Security answer enables password reset without email; client shows a single standard question |
 | Login | `POST /api/v1/auth/login` | |
-| Password reset | `POST /api/v1/auth/password-reset` | Email + security answer + new password |
-| Google (ID token) | `POST /api/v1/auth/google` | Browser uses Google Identity Services; send the ID token in JSON |
-| Refresh | `POST /api/v1/auth/refresh` | Rotates refresh token |
-| Logout | `POST /api/v1/auth/logout` | Body: `refreshId` |
-| Dev login | `POST /api/v1/auth/dev-login` | Optional `{"email":"..."}`; intended for local convenience—creates or reuses a dev user |
-| Timer state sync | `GET/PUT/DELETE /api/v1/timer-state` | Persists active timer UI state per user so running timers can recover after tab switches or page refresh |
-| Profile settings | `GET/PATCH /api/v1/users/me/public-profile` | Public profile metadata (bio, location, education, target exam, etc.) |
-| Preferences | `GET/PATCH /api/v1/users/me/preferences` | Study defaults and notification toggles |
-| Privacy settings | `GET/PATCH /api/v1/users/me/privacy` | Public profile / stats / leaderboard visibility controls |
-| Public profile lookup | `GET /api/v1/users/{username}/public-profile` | Privacy-aware public profile payload for profile pages |
-| Friends | `/api/v1/friends/*` | Discover users, send/accept friend requests, create shared friend sessions (same subject/topic or per-friend subject/topic overrides), and view weekly friend leaderboard (`weekOffset` supported) |
+| Password reset | `POST /api/v1/auth/password-reset` | Email + security answer + new password; no email required |
+| Google (ID token) | `POST /api/v1/auth/google` | Browser: Google Identity Services; Android: native Capacitor Google Auth |
+| Refresh | `POST /api/v1/auth/refresh` | Rotates refresh token on every call (one-shot) |
+| Logout | `POST /api/v1/auth/logout` | Body: `{ refreshId }` |
+| Dev login | `POST /api/v1/auth/dev-login` | Local development only; creates or reuses a dev user |
 
-Frontend env (see `.env.example`):
+### Token model
+- **Access token:** short-lived JWT signed with HS256 (`JWT_ACCESS_TTL_MINUTES`, default 15 min). Sent as `Authorization: Bearer <token>`.
+- **Refresh token:** opaque UUID stored as a SHA-256 hash in Postgres (`JWT_REFRESH_TTL_HOURS`, default 720 h / 30 days). Rotation on every refresh call — using a revoked token returns 401.
+- **Concurrent 401 safety:** the API client (`src/lib/api.ts`) uses a single shared in-flight promise so multiple simultaneous expired-token requests only trigger one refresh, preventing rotation race conditions that would otherwise log the user out.
 
-- `VITE_API_BASE_URL` — e.g. `http://localhost:8080/api/v1`
-- `VITE_GOOGLE_CLIENT_ID` — Google OAuth Web client ID (must match backend Google config for token verification)
-- `VITE_DEV_AUTO_LOGIN` — `true`/`false`; when `true`, dev auto-login behavior in the SPA may apply (see `frontend/src/lib/api.ts`)
-- `VITE_CLIENT_PLATFORM` — request platform tag (`web`, `android`, `ios`), sent as `X-Client-Platform`
-- `VITE_APP_VERSION` — optional client version sent as `X-App-Version`
+## Environment variables
 
-Google OAuth: set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URL` for server-side verification; align the SPA origin and redirect URL with how you run the frontend.
+Copy `.env.example` to `.env`. Variables are shared between Docker Compose services and the Vite build (via `envDir: ".."` in `frontend/vite.config.ts`).
 
-## Environment
+### Backend
 
-- Shared template: **`.env.example`** → copy to **`.env`** for Compose and local tooling.
-- **CORS:** `CORS_ALLOWED_ORIGINS` must include the exact browser origin of the SPA (including scheme and port).
-- **Request logs:** backend now logs `platform` and `app_version` (plus route/status/latency/user_id when available) for each request.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_PORT` | `8080` | HTTP listen port |
+| `DATABASE_URL` | _(empty)_ | Full Postgres DSN (takes precedence over individual Postgres vars) |
+| `POSTGRES_HOST` | `postgres` | |
+| `POSTGRES_PORT` | `5432` | |
+| `POSTGRES_DB` | `karma_yogi` | |
+| `POSTGRES_USER` | `karma` | |
+| `POSTGRES_PASSWORD` | `karma` | |
+| `POSTGRES_SSLMODE` | `disable` | |
+| `JWT_SECRET` | _(required)_ | HMAC-SHA256 signing key |
+| `JWT_ACCESS_TTL_MINUTES` | `15` | Access token lifetime |
+| `JWT_REFRESH_TTL_HOURS` | `720` | Refresh token lifetime (30 days) |
+| `GOOGLE_CLIENT_ID` | | Server-side token verification |
+| `GOOGLE_CLIENT_SECRET` | | |
+| `GOOGLE_REDIRECT_URL` | | |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:8081,...` | Comma-separated exact origins (scheme + host + port) |
 
-## Production notes
+### Frontend (Vite)
 
-- Store JWT secret, Google credentials, and DB credentials in a managed secret store.
-- Run database migrations before or as part of deploying a new API image.
-- Terminate TLS at your load balancer or Nginx; restrict `CORS_ALLOWED_ORIGINS` to real app origins.
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_BASE_URL` | API base, e.g. `http://localhost:8080/api/v1` |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth Web client ID |
+| `VITE_DEV_AUTO_LOGIN` | `true` to auto-login with dev credentials in development |
+| `VITE_CLIENT_PLATFORM` | `web` / `android` / `ios` — sent as `X-Client-Platform` header |
+| `VITE_APP_VERSION` | Optional semver sent as `X-App-Version` header |
 
-## End-to-end API check
+## API documentation
 
-From the repo root (requires Docker and `jq`):
+Full OpenAPI 3.0 spec with schemas: **`docs/openapi.yaml`**
+
+All routes under `/api/v1`. Authenticated routes require `Authorization: Bearer <accessToken>`.
+
+| Category | Endpoints |
+|----------|-----------|
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/password-reset`, `/auth/google`, `/auth/dev-login`, `/auth/refresh`, `/auth/logout` |
+| Users | `GET/PATCH /users/me`, `GET /users/me/study-stats` |
+| Profile | `GET/PATCH /users/me/public-profile`, `GET /users/{username}/public-profile`, `POST /friends/friend-profile` |
+| Preferences | `GET/PATCH /users/me/preferences` |
+| Privacy | `GET/PATCH /users/me/privacy` |
+| Achievements | `GET /users/me/achievements` |
+| Subjects | `GET/POST /subjects`, `PATCH/DELETE /subjects/{id}` |
+| Sessions | `GET/POST /sessions`, `PATCH/DELETE /sessions/{id}` |
+| Goals | `GET/POST /goals`, `PATCH/DELETE /goals/{id}` |
+| Exam Goal | `GET/PUT/DELETE /exam-goal` |
+| Insights | `GET /insights` |
+| Timer | `GET/PUT/DELETE /timer-state`, `POST /timer-state/start` |
+| Friends | `GET /friends/users`, `GET /friends`, `GET/POST /friends/requests`, `POST /friends/requests/{id}/accept`, `POST /friends/requests/{id}/reject`, `GET /friends/requests/incoming`, `GET /friends/requests/outgoing`, `GET /friends/leaderboard`, `POST /friends/sessions` |
+
+## End-to-end API test
+
+From repo root (requires Docker + `jq` + `python3`):
 
 ```bash
 ./scripts/e2e.sh
 ```
 
-This exercises register, login, password reset, authenticated CRUD (subjects, sessions, goals), exam goal lifecycle, profile/preferences/privacy read-write flows, privacy-aware public profile retrieval, insights, friend requests + shared sessions + leaderboard week switching, timer-state persistence (including friend live timer payloads), refresh + logout, Nginx `/api/v1` proxying, and invalid Google token handling. Details: `docs/PRODUCTION_LOCAL_RUNBOOK.md`.
+Covers: register, login, password reset, dev-login, user profile update, subject CRUD + color update, session CRUD + cascade delete, individual session delete, achievements, study stats, goal CRUD, exam goal lifecycle, profile/preferences/privacy read-write, privacy-aware public profile, friend-profile details (access-gated), discover users, friend request send/accept/reject, outgoing requests, shared friend sessions with per-friend overrides, weekly leaderboard (current + previous week), timer-state persistence (solo + friend live payload), refresh token rotation + revoke assertion, logout, Nginx proxy, and Google invalid-token handling.
 
-## API documentation
+## Android (Play Store) build
 
-- OpenAPI 3: **`docs/openapi.yaml`**
+See **`docs/ANDROID_APP_RUNBOOK.md`** for the full step-by-step guide.
+
+Quick start:
+
+```bash
+cd frontend
+npm install
+npm run android:build:sync   # Vite build → cap sync android
+npm run cap:open:android     # Open in Android Studio
+```
+
+- App ID: `com.karmayogi.app`
+- Targets API 36; Gradle 8.14.3; JDK 21 recommended
+- Set `VITE_API_BASE_URL=http://10.0.2.2:8080/api/v1` for emulator, or LAN IP for physical device
+
+## Production notes
+
+- Store `JWT_SECRET`, Google credentials, and DB credentials in a managed secret store — never commit them.
+- Run database migrations before or as part of deploying a new API image.
+- Terminate TLS at your load balancer or Nginx; restrict `CORS_ALLOWED_ORIGINS` to real app origins.
+- The API rate-limits to 180 requests/minute per IP by default.
+- `GET /healthz` (server root) is the liveness probe — wire it to your platform's health check, not `/api/v1/healthz`.
+
+## Pre-deployment gate
+
+```bash
+docker compose up --build -d
+cd backend && go test ./... && go vet ./...
+cd frontend && npm run lint && npm run build
+./scripts/e2e.sh
+docker compose ps   # all services healthy
+```
