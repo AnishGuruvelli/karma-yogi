@@ -438,6 +438,148 @@ func (s *ProfileService) resolveTargetUser(ctx context.Context, usernameOrID str
 	return s.users.GetByID(ctx, trimmed)
 }
 
+type sessionAggregates struct {
+	dayMinutes      map[string]int
+	weekMinutes     map[string]int
+	subjectMinutes  map[string]int
+	subjectNameByID map[string]string
+	hourMinutes     map[int]int
+	bestDayDate     string
+	bestDayMinutes  int
+	daySet          map[string]bool
+	avgMood         float64
+}
+
+func aggregateSessions(sessions []domain.Session, subjectByID map[string]string) sessionAggregates {
+	agg := sessionAggregates{
+		dayMinutes:      map[string]int{},
+		weekMinutes:     map[string]int{},
+		subjectMinutes:  map[string]int{},
+		subjectNameByID: map[string]string{},
+		hourMinutes:     map[int]int{},
+		daySet:          map[string]bool{},
+	}
+	var moodSum float64
+	var moodCount int
+	for _, sess := range sessions {
+		dateKey := sess.StartedAt.Format("2006-01-02")
+		agg.daySet[dateKey] = true
+		agg.dayMinutes[dateKey] += sess.DurationMin
+		if agg.dayMinutes[dateKey] > agg.bestDayMinutes {
+			agg.bestDayMinutes = agg.dayMinutes[dateKey]
+			agg.bestDayDate = dateKey
+		}
+		year, week := sess.StartedAt.ISOWeek()
+		agg.weekMinutes[fmt.Sprintf("%04d-W%02d", year, week)] += sess.DurationMin
+		agg.hourMinutes[sess.StartedAt.Hour()] += sess.DurationMin
+		agg.subjectMinutes[sess.SubjectID] += sess.DurationMin
+		if agg.subjectNameByID[sess.SubjectID] == "" {
+			if name := subjectByID[sess.SubjectID]; name != "" {
+				agg.subjectNameByID[sess.SubjectID] = name
+			} else {
+				agg.subjectNameByID[sess.SubjectID] = "Unknown"
+			}
+		}
+		if mood, err := strconv.ParseFloat(sess.Mood, 64); err == nil && mood > 0 {
+			moodSum += mood
+			moodCount++
+		}
+	}
+	if moodCount > 0 {
+		agg.avgMood = moodSum / float64(moodCount)
+	}
+	return agg
+}
+
+func computeOverview(stats domain.PublicProfileStats, agg sessionAggregates, sessions []domain.Session, weeklyGoalHours int) domain.PublicProfileOverview {
+	if weeklyGoalHours <= 0 {
+		weeklyGoalHours = 20
+	}
+	current, maxStreak := streakStats(sessions)
+	return domain.PublicProfileOverview{
+		TotalMinutes:      stats.TotalMinutes,
+		TotalSessions:     stats.TotalSessions,
+		ActiveDays:        len(agg.daySet),
+		AvgSessionMinutes: stats.AvgSessionMinutes,
+		LongestSession:    stats.LongestSession,
+		ThisWeekMinutes:   stats.ThisWeekMinutes,
+		FriendCount:       stats.FriendCount,
+		CurrentStreakDays: current,
+		MaxStreakDays:     maxStreak,
+		WeeklyGoalHours:   weeklyGoalHours,
+		AvgMood:           agg.avgMood,
+	}
+}
+
+func computeSessionViews(sessions []domain.Session, subjectByID map[string]string) []domain.PublicProfileSession {
+	views := make([]domain.PublicProfileSession, 0, len(sessions))
+	for _, sess := range sessions {
+		name := subjectByID[sess.SubjectID]
+		if name == "" {
+			name = "Unknown"
+		}
+		views = append(views, domain.PublicProfileSession{
+			ID: sess.ID, SubjectID: sess.SubjectID, SubjectName: name,
+			Topic: sess.Topic, DurationMin: sess.DurationMin, Mood: sess.Mood, StartedAt: sess.StartedAt,
+		})
+	}
+	return views
+}
+
+func computeInsights(agg sessionAggregates) domain.PublicProfileInsights {
+	dailyKeys := make([]string, 0, len(agg.dayMinutes))
+	for k := range agg.dayMinutes {
+		dailyKeys = append(dailyKeys, k)
+	}
+	sort.Strings(dailyKeys)
+	daily := make([]domain.PublicProfileInsightsDaily, 0, len(dailyKeys))
+	for _, key := range dailyKeys {
+		daily = append(daily, domain.PublicProfileInsightsDaily{DateKey: key, Minutes: agg.dayMinutes[key]})
+	}
+
+	weekKeys := make([]string, 0, len(agg.weekMinutes))
+	for k := range agg.weekMinutes {
+		weekKeys = append(weekKeys, k)
+	}
+	sort.Strings(weekKeys)
+	weekly := make([]domain.PublicProfileInsightsDaily, 0, len(weekKeys))
+	for _, key := range weekKeys {
+		weekly = append(weekly, domain.PublicProfileInsightsDaily{DateKey: key, Minutes: agg.weekMinutes[key]})
+	}
+
+	subjectIDs := make([]string, 0, len(agg.subjectMinutes))
+	for id := range agg.subjectMinutes {
+		subjectIDs = append(subjectIDs, id)
+	}
+	sort.Slice(subjectIDs, func(i, j int) bool {
+		return agg.subjectMinutes[subjectIDs[i]] > agg.subjectMinutes[subjectIDs[j]]
+	})
+	subjectBreakdown := make([]domain.PublicProfileInsightsSubject, 0, len(subjectIDs))
+	mostSubject := ""
+	for idx, subjectID := range subjectIDs {
+		entry := domain.PublicProfileInsightsSubject{
+			SubjectID: subjectID, SubjectName: agg.subjectNameByID[subjectID], Minutes: agg.subjectMinutes[subjectID],
+		}
+		subjectBreakdown = append(subjectBreakdown, entry)
+		if idx == 0 {
+			mostSubject = entry.SubjectName
+		}
+	}
+
+	peakHour, peakHourMinutes := 0, 0
+	for hour, minutes := range agg.hourMinutes {
+		if minutes > peakHourMinutes {
+			peakHour = hour
+			peakHourMinutes = minutes
+		}
+	}
+	return domain.PublicProfileInsights{
+		DailyMinutes: daily, WeeklyMinutes: weekly, SubjectBreakdown: subjectBreakdown,
+		PeakHourLocal: peakHour, PeakHourMinutes: peakHourMinutes,
+		BestDayDateKey: agg.bestDayDate, BestDayMinutes: agg.bestDayMinutes, MostStudiedSubject: mostSubject,
+	}
+}
+
 func buildPublicProfileDetails(
 	stats domain.PublicProfileStats,
 	sessions []domain.Session,
@@ -451,135 +593,11 @@ func buildPublicProfileDetails(
 	sort.Slice(sessions, func(i, j int) bool {
 		return sessions[i].StartedAt.After(sessions[j].StartedAt)
 	})
-	dayMinutes := map[string]int{}
-	weekMinutes := map[string]int{}
-	subjectMinutes := map[string]int{}
-	subjectNameByID := map[string]string{}
-	hourMinutes := map[int]int{}
-	bestDayDate := ""
-	bestDayMinutes := 0
-	daySet := map[string]bool{}
-	var moodSum float64
-	var moodCount int
-	for _, sess := range sessions {
-		dateKey := sess.StartedAt.Format("2006-01-02")
-		daySet[dateKey] = true
-		dayMinutes[dateKey] += sess.DurationMin
-		if dayMinutes[dateKey] > bestDayMinutes {
-			bestDayMinutes = dayMinutes[dateKey]
-			bestDayDate = dateKey
-		}
-		year, week := sess.StartedAt.ISOWeek()
-		weekKey := fmt.Sprintf("%04d-W%02d", year, week)
-		weekMinutes[weekKey] += sess.DurationMin
-		hourMinutes[sess.StartedAt.Hour()] += sess.DurationMin
-		subjectMinutes[sess.SubjectID] += sess.DurationMin
-		if subjectNameByID[sess.SubjectID] == "" {
-			if name := subjectByID[sess.SubjectID]; name != "" {
-				subjectNameByID[sess.SubjectID] = name
-			} else {
-				subjectNameByID[sess.SubjectID] = "Unknown"
-			}
-		}
-		if mood, err := strconv.ParseFloat(sess.Mood, 64); err == nil && mood > 0 {
-			moodSum += mood
-			moodCount++
-		}
-	}
-	var avgMood float64
-	if moodCount > 0 {
-		avgMood = moodSum / float64(moodCount)
-	}
-	if weeklyGoalHours <= 0 {
-		weeklyGoalHours = 20
-	}
-	current, maxStreak := streakStats(sessions)
-	overview := domain.PublicProfileOverview{
-		TotalMinutes:      stats.TotalMinutes,
-		TotalSessions:     stats.TotalSessions,
-		ActiveDays:        len(daySet),
-		AvgSessionMinutes: stats.AvgSessionMinutes,
-		LongestSession:    stats.LongestSession,
-		ThisWeekMinutes:   stats.ThisWeekMinutes,
-		FriendCount:       stats.FriendCount,
-		CurrentStreakDays: current,
-		MaxStreakDays:     maxStreak,
-		WeeklyGoalHours:   weeklyGoalHours,
-		AvgMood:           avgMood,
-	}
-	sessionViews := make([]domain.PublicProfileSession, 0, len(sessions))
-	for _, sess := range sessions {
-		name := subjectByID[sess.SubjectID]
-		if name == "" {
-			name = "Unknown"
-		}
-		sessionViews = append(sessionViews, domain.PublicProfileSession{
-			ID:          sess.ID,
-			SubjectID:   sess.SubjectID,
-			SubjectName: name,
-			Topic:       sess.Topic,
-			DurationMin: sess.DurationMin,
-			Mood:        sess.Mood,
-			StartedAt:   sess.StartedAt,
-		})
-	}
-	dailyKeys := make([]string, 0, len(dayMinutes))
-	for k := range dayMinutes {
-		dailyKeys = append(dailyKeys, k)
-	}
-	sort.Strings(dailyKeys)
-	daily := make([]domain.PublicProfileInsightsDaily, 0, len(dailyKeys))
-	for _, key := range dailyKeys {
-		daily = append(daily, domain.PublicProfileInsightsDaily{DateKey: key, Minutes: dayMinutes[key]})
-	}
-	weekKeys := make([]string, 0, len(weekMinutes))
-	for k := range weekMinutes {
-		weekKeys = append(weekKeys, k)
-	}
-	sort.Strings(weekKeys)
-	weekly := make([]domain.PublicProfileInsightsDaily, 0, len(weekKeys))
-	for _, key := range weekKeys {
-		weekly = append(weekly, domain.PublicProfileInsightsDaily{DateKey: key, Minutes: weekMinutes[key]})
-	}
-	subjectIDs := make([]string, 0, len(subjectMinutes))
-	for id := range subjectMinutes {
-		subjectIDs = append(subjectIDs, id)
-	}
-	sort.Slice(subjectIDs, func(i, j int) bool {
-		return subjectMinutes[subjectIDs[i]] > subjectMinutes[subjectIDs[j]]
-	})
-	subjectBreakdown := make([]domain.PublicProfileInsightsSubject, 0, len(subjectIDs))
-	mostSubject := ""
-	for idx, subjectID := range subjectIDs {
-		entry := domain.PublicProfileInsightsSubject{
-			SubjectID:   subjectID,
-			SubjectName: subjectNameByID[subjectID],
-			Minutes:     subjectMinutes[subjectID],
-		}
-		subjectBreakdown = append(subjectBreakdown, entry)
-		if idx == 0 {
-			mostSubject = entry.SubjectName
-		}
-	}
-	peakHour := 0
-	peakHourMinutes := 0
-	for hour, minutes := range hourMinutes {
-		if minutes > peakHourMinutes {
-			peakHour = hour
-			peakHourMinutes = minutes
-		}
-	}
-	insights := domain.PublicProfileInsights{
-		DailyMinutes:       daily,
-		WeeklyMinutes:      weekly,
-		SubjectBreakdown:   subjectBreakdown,
-		PeakHourLocal:      peakHour,
-		PeakHourMinutes:    peakHourMinutes,
-		BestDayDateKey:     bestDayDate,
-		BestDayMinutes:     bestDayMinutes,
-		MostStudiedSubject: mostSubject,
-	}
-	return overview, sessionViews, insights, dayMinutes
+	agg := aggregateSessions(sessions, subjectByID)
+	overview := computeOverview(stats, agg, sessions, weeklyGoalHours)
+	sessionViews := computeSessionViews(sessions, subjectByID)
+	insights := computeInsights(agg)
+	return overview, sessionViews, insights, agg.dayMinutes
 }
 
 func streakStats(sessions []domain.Session) (int, int) {

@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { StoreProvider } from "@/lib/store";
 import { TopNav } from "@/components/TopNav";
 import { SplashScreen } from "@/components/SplashScreen";
+import { LoadingSplash } from "@/components/LoadingSplash";
 import { getAuthState, loginWithGoogle, loginWithPassword, logout, registerWithPassword, resetPasswordWithSecret } from "@/lib/api";
 import { isNativeGoogleAuthPlatform, signInWithNativeGoogle } from "@/lib/nativeGoogleAuth";
 import { STANDARD_SECRET_QUESTION } from "@/lib/auth-constants";
@@ -703,7 +704,7 @@ export default function App() {
         <StoreProvider>
           <TopNav onLogout={() => { void logout(); }} />
           <main className="min-h-[calc(100vh-4rem)] pb-24 sm:pb-0">
-            <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+            <Suspense fallback={<LoadingSplash open />}>
               <Routes>
                 <Route path="/" element={<AppErrorBoundary><DashboardPage /></AppErrorBoundary>} />
                 <Route path="/sessions" element={<AppErrorBoundary><SessionsPage /></AppErrorBoundary>} />

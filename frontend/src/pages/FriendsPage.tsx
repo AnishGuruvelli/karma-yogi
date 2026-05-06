@@ -529,7 +529,12 @@ export default function FriendsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+          {loadingLeaderboard && (
+            <div className="flex items-center justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          )}
+          <div className={`grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 transition-opacity ${loadingLeaderboard ? "pointer-events-none opacity-40" : ""}`}>
             <article className="rounded-3xl border border-border bg-background p-5 text-center dark:border-slate-800 dark:bg-[#081126]">
               <p className="text-sm text-muted-foreground dark:text-slate-400">Group Total</p>
               <p className="mt-1 text-4xl font-bold leading-none text-foreground dark:text-slate-100 sm:text-[38px]">{formatLongDuration(groupTotal)}</p>
@@ -639,6 +644,11 @@ export default function FriendsPage() {
 
       {activeTab === "friends" && (
         <section className="mt-6 grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
+          {loadingBase && (
+            <div className="col-span-full flex items-center justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          )}
           {friends.map((friend) => {
             const lb = leaderboardWithRank.find((r) => r.userId === friend.id);
             return (
@@ -663,13 +673,6 @@ export default function FriendsPage() {
                   >
                     Study Together
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Unfriend flow will be added later")}
-                    className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground"
-                  >
-                    Remove
-                  </button>
                 </div>
               </article>
             );
@@ -680,6 +683,11 @@ export default function FriendsPage() {
 
       {activeTab === "discover" && (
         <section className="mt-6">
+          {loadingBase && (
+            <div className="flex items-center justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
             {discoverUsers.map((u) => (
               <article key={u.id} className="rounded-2xl border border-border bg-background p-4 dark:border-slate-800 dark:bg-[#081126]">

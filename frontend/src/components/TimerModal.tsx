@@ -699,7 +699,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 Started at {formatStartedAt(startedAtMs)}
               </p>
               {isPaused && (
-                <span className="mt-2 rounded-full bg-neon-orange/10 border border-neon-orange/20 px-3 py-1 text-xs font-semibold text-neon-orange animate-pulse">
+                <span className="mt-2 rounded-full bg-neon-orange/10 border border-neon-orange/20 px-3 py-1 text-xs font-semibold text-neon-orange">
                   Paused
                 </span>
               )}

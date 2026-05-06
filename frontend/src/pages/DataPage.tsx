@@ -22,6 +22,7 @@ export default function DataPage() {
   const [colorPickerSubjectId, setColorPickerSubjectId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("cyan");
+  const [saving, setSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<{
     type: "subject" | "session";
@@ -55,14 +56,19 @@ export default function DataPage() {
       toast.error("Subject already exists.");
       return;
     }
-    const created = await addSubject(normalizedName, newColor);
-    if (!created) {
-      toast.error("Unable to create subject. Please try again.");
-      return;
+    setSaving(true);
+    try {
+      const created = await addSubject(normalizedName, newColor);
+      if (!created) {
+        toast.error("Unable to create subject. Please try again.");
+        return;
+      }
+      toast.success("Subject created.");
+      setNewName("");
+      setAddOpen(false);
+    } finally {
+      setSaving(false);
     }
-    toast.success("Subject created.");
-    setNewName("");
-    setAddOpen(false);
   };
 
   const requestDeleteSubject = (id: string, name: string) => {
@@ -147,7 +153,11 @@ export default function DataPage() {
                             onClick={async () => {
                               setNewColor(key);
                               const ok = await updateSubjectColor(sub.id, key);
-                              if (ok) setColorPickerSubjectId(null);
+                              if (ok) {
+                                setColorPickerSubjectId(null);
+                              } else {
+                                toast.error("Couldn't update color. Please try again.");
+                              }
                             }}
                             aria-pressed={(colorPickerSubjectId === sub.id ? newColor : sub.color) === key}
                             className={`h-9 w-9 rounded-full transition-all ${
@@ -198,6 +208,9 @@ export default function DataPage() {
             </span>
           </div>
           <div className="glass-card rounded-2xl sm:max-h-[70vh] sm:overflow-hidden sm:overflow-y-auto">
+            {sessions.length === 0 && (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">No sessions logged yet.</p>
+            )}
             {sessions.map((session) => {
               const subject = getSubject(session.subjectId);
               return (
@@ -283,10 +296,11 @@ export default function DataPage() {
               <button
                 type="button"
                 onClick={handleAddSubject}
-                className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90"
+                disabled={saving || !newName.trim()}
+                className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ boxShadow: "var(--shadow-md)" }}
               >
-                Add Subject
+                {saving ? "Adding…" : "Add Subject"}
               </button>
             </div>
           </div>

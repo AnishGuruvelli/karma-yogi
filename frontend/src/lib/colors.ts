@@ -33,3 +33,12 @@ export function medalColor(place: 1 | 2 | 3): string {
 export function medalColorSoft(place: 1 | 2 | 3, percent = 15): string {
   return `color-mix(in oklch, ${medalColorVar[place]} ${percent}%, transparent)`;
 }
+
+export const accent = {
+  cyan:   { fg: "var(--neon-cyan)",   tint: "color-mix(in oklch, var(--neon-cyan)   12%, transparent)", ring: "color-mix(in oklch, var(--neon-cyan)   30%, transparent)" },
+  green:  { fg: "var(--neon-green)",  tint: "color-mix(in oklch, var(--neon-green)  12%, transparent)", ring: "color-mix(in oklch, var(--neon-green)  30%, transparent)" },
+  orange: { fg: "var(--neon-orange)", tint: "color-mix(in oklch, var(--neon-orange) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-orange) 30%, transparent)" },
+  pink:   { fg: "var(--neon-pink)",   tint: "color-mix(in oklch, var(--neon-pink)   12%, transparent)", ring: "color-mix(in oklch, var(--neon-pink)   30%, transparent)" },
+  purple: { fg: "var(--neon-purple)", tint: "color-mix(in oklch, var(--neon-purple) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-purple) 30%, transparent)" },
+} as const;
+export type AccentKey = keyof typeof accent;

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Flame, Trophy, Clock, Target, BookOpen, Users, Calendar, TrendingUp, Award, Zap, Bell, Globe, Mail, Phone, MapPin,
@@ -10,26 +9,21 @@ import { fetchFriends, fetchMyAchievements, fetchMyStudyStats, type UserAchievem
 import { useStore } from "@/lib/store";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Switch } from "@/components/ui/switch";
-
-const accent = {
-  cyan: { fg: "var(--neon-cyan)", tint: "color-mix(in oklch, var(--neon-cyan) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-cyan) 30%, transparent)" },
-  green: { fg: "var(--neon-green)", tint: "color-mix(in oklch, var(--neon-green) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-green) 30%, transparent)" },
-  orange: { fg: "var(--neon-orange)", tint: "color-mix(in oklch, var(--neon-orange) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-orange) 30%, transparent)" },
-  pink: { fg: "var(--neon-pink)", tint: "color-mix(in oklch, var(--neon-pink) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-pink) 30%, transparent)" },
-  purple: { fg: "var(--neon-purple)", tint: "color-mix(in oklch, var(--neon-purple) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-purple) 30%, transparent)" },
-} as const;
-type AccentKey = keyof typeof accent;
+import { HeatmapCard } from "@/components/HeatmapCard";
+import { Panel, CompactStat, MutedHint, RingProgress, HeroMetric } from "@/components/StatsPanel";
+import { OverviewTab } from "@/components/OverviewTab";
+import { accent, type AccentKey } from "@/lib/colors";
 
 export default function ProfilePage() {
-  const { user, sessions, subjects, goal, updateUserProfile, profileMeta, preferences, privacy, saveProfileMeta, savePreferences, savePrivacy, reloadStoreData, dataLoading, wrapWithDataLoading, isDark } = useStore();
+  const { user, sessions, subjects, goal, updateUserProfile, profileMeta, preferences, privacy, saveProfileMeta, savePreferences, savePrivacy, reloadStoreData, dataLoading, wrapWithDataLoading } = useStore();
   const [tab, setTab] = useState<"overview" | "achievements" | "account" | "preferences">("overview");
-  const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
   const [studyPrefsEditing, setStudyPrefsEditing] = useState(false);
   const [friendCount, setFriendCount] = useState(0);
   const [achByKey, setAchByKey] = useState<Partial<Record<UserAchievementKey, { earned: boolean; earnedAt?: string }>>>({});
   const [studyStats, setStudyStats] = useState<StudyStatsSummary | null>(null);
   const browserTz = useMemo(() => (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC"), []);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState({ name: user.name, username: user.username, email: user.email, phone: user.phone });
   const [profileDraft, setProfileDraft] = useState({ bio: profileMeta.bio, location: profileMeta.location, education: profileMeta.education, occupation: profileMeta.occupation, targetExam: profileMeta.targetExam, targetCollege: profileMeta.targetCollege });
   const [prefDraft, setPrefDraft] = useState({
@@ -132,39 +126,11 @@ export default function ProfilePage() {
   );
   const topSubject = subjectStats[0];
 
-  const heatmapData = useMemo(() => {
-    const dailyTotals = new Map<string, number>();
-    sessions.forEach((s) => { dailyTotals.set(s.date, (dailyTotals.get(s.date) || 0) + s.duration); });
-    const startDate = new Date(heatmapYear, 0, 1);
-    const endDate = new Date(heatmapYear, 11, 31);
-    const days: { date: string; minutes: number; month: string; monthIndex: number; year: number; dayOfWeek: number }[] = [];
-    const cursor = new Date(startDate);
-    while (cursor <= endDate) {
-      const dateStr = toLocalDateKey(cursor);
-      days.push({ date: dateStr, minutes: dailyTotals.get(dateStr) || 0, month: cursor.toLocaleDateString("en-US", { month: "short" }), monthIndex: cursor.getMonth(), year: cursor.getFullYear(), dayOfWeek: (cursor.getDay() + 6) % 7 });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    const weekMap = new Map<string, (typeof days[number] | undefined)[]>();
-    const weekOrder: string[] = [];
-    days.forEach((day) => {
-      const dayDate = fromLocalDateKey(day.date);
-      const monday = new Date(dayDate);
-      monday.setDate(dayDate.getDate() - day.dayOfWeek);
-      const weekKey = toLocalDateKey(monday);
-      if (!weekMap.has(weekKey)) { weekMap.set(weekKey, Array(7).fill(undefined)); weekOrder.push(weekKey); }
-      weekMap.get(weekKey)![day.dayOfWeek] = day;
-    });
-    const weeks = weekOrder.map((wk) => weekMap.get(wk) || []);
-    const maxMinutes = Math.max(...days.map((d) => d.minutes), 1);
-    const monthLabels = weeks.map((week, idx) => {
-      const first = week.find((d) => d && d.year === heatmapYear);
-      const prev = idx > 0 ? weeks[idx - 1]?.find((d) => d && d.year === heatmapYear) : null;
-      if (!first) return "";
-      if (!prev || prev.monthIndex !== first.monthIndex) return first.month;
-      return "";
-    });
-    return { weeks, maxMinutes, monthLabels };
-  }, [sessions, heatmapYear]);
+  const heatmapDailyTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of sessions) map.set(s.date, (map.get(s.date) || 0) + s.duration);
+    return map;
+  }, [sessions]);
 
   const moodDist = sessions.reduce((acc, item) => {
     acc[item.moodRating] = (acc[item.moodRating] || 0) + 1;
@@ -225,11 +191,18 @@ export default function ProfilePage() {
   const goalPct = Math.min(100, Math.round((weekHours / effectiveGoalHours) * 100));
 
   const save = async () => {
-    await Promise.all([
-      updateUserProfile({ name: draft.name.trim(), username: draft.username.trim(), phone: draft.phone.trim() }),
-      saveProfileMeta(profileDraft),
-    ]);
-    setEditing(false);
+    setSaving(true);
+    try {
+      await Promise.all([
+        updateUserProfile({ name: draft.name.trim(), username: draft.username.trim(), phone: draft.phone.trim() }),
+        saveProfileMeta(profileDraft),
+      ]);
+      setEditing(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
   const persistStrategyDashboardVisibility = useCallback(
     async (enabled: boolean) => {
@@ -384,133 +357,20 @@ export default function ProfilePage() {
       </div>
 
       {tab === "overview" && (
-        <>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <Panel title="Performance Snapshot" icon={TrendingUp} eyebrow="All time">
-              <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <CompactStat label="Total focus" value={`${totalHours.toFixed(1)}h`} sub={`${snapSessions} sessions · goal ${effectiveGoalHours}h/wk`} />
-                <CompactStat label="Avg session" value={formatMinutesAsDuration(snapAvgSession)} sub="duration" />
-                <CompactStat label="Longest" value={formatMinutesAsDuration(snapLongest)} sub="single sit" />
-                <CompactStat label="Avg mood" value={`${snapAvgMoodStr}`} sub="out of 5" />
-              </div>
-            </Panel>
-            <Panel title="Subject Mix" icon={BookOpen} action={<MutedHint>{subjectStats.length} subjects</MutedHint>}>
-              <div className="mt-2 space-y-4">
-                {subjectStats.map((subject) => {
-                  const palette = accent[(subject.color as AccentKey) ?? "cyan"];
-                  return (
-                    <div key={subject.id}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <div className="min-w-0 flex items-center gap-2.5">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: palette.fg }} />
-                          <span className="truncate text-sm font-semibold text-foreground">{subject.name}</span>
-                          <span className="text-xs text-muted-foreground">· {subject.count} sessions</span>
-                        </div>
-                        <div className="flex items-baseline gap-1.5 font-mono text-xs">
-                          <span className="font-semibold text-foreground">{(subject.mins / 60).toFixed(1)}h</span>
-                          <span className="text-muted-foreground">· {subject.pct.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${subject.pct}%`, backgroundColor: palette.fg }} /></div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-          </div>
-          <div className="space-y-6">
-            <Panel title="Weekly Goal" icon={Target}>
-              <div className="flex flex-col items-center pt-2 text-center">
-                <RingProgress pct={goalPct} value={`${weekHours.toFixed(1)}h`} sub={`of ${effectiveGoalHours}h`} />
-                <p className="mt-3 text-sm font-medium text-foreground">{goalPct}% complete</p>
-              </div>
-            </Panel>
-            {topSubject && (
-              <Panel title="Top Subject" icon={Award}>
-                <div className="mt-1 flex items-center gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl" style={{ background: accent[(topSubject.color as AccentKey) ?? "cyan"].tint }}>
-                    <span className="text-xl font-bold" style={{ color: accent[(topSubject.color as AccentKey) ?? "cyan"].fg }}>
-                      {topSubject.name.charAt(0)}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-foreground">{topSubject.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{(topSubject.mins / 60).toFixed(1)}h · {topSubject.count} sessions</p>
-                  </div>
-                </div>
-              </Panel>
-            )}
-          </div>
-        </div>
-
-        {/* Focus Heatmap */}
-        <div className="glass-card mt-6 rounded-2xl p-4 sm:p-5">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
-            <div className="flex items-center rounded-xl bg-muted p-1">
-              {[2025, 2026].map((year) => (
-                <button key={year} type="button" onClick={() => setHeatmapYear(year)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${heatmapYear === year ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                  style={heatmapYear === year ? { boxShadow: "var(--shadow-sm)" } : undefined}>
-                  {year}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="w-full overflow-x-auto overflow-y-visible">
-            <div className="min-w-[680px] sm:min-w-0">
-              <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
-                <div />
-                <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px] text-[9px] text-muted-foreground">
-                  {heatmapData.monthLabels.map((label, i) => <span key={`${label}-${i}`} className="col-span-4">{label}</span>)}
-                </div>
-              </div>
-              <div className="grid grid-cols-[26px_1fr] gap-1">
-                <div className="flex flex-col justify-between py-[1px] text-[9px] text-muted-foreground">
-                  {["Mon","","Wed","","Fri","","Sun"].map((d, i) => <span key={i}>{d}</span>)}
-                </div>
-                <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px]">
-                  {heatmapData.weeks.map((week, weekIndex) => (
-                    <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-[2px]">
-                      {Array.from({ length: 7 }).map((_, dayIdx) => {
-                        const day = week[dayIdx];
-                        if (!day) return <div key={`empty-${weekIndex}-${dayIdx}`} className="aspect-square w-full" />;
-                        const ratio = day.minutes / heatmapData.maxMinutes;
-                        const emptyBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.93 0 0)";
-                        const scale = isDark
-                          ? ["oklch(0.35 0.06 165)","oklch(0.48 0.11 172)","oklch(0.60 0.15 174)","oklch(0.74 0.2 178)"]
-                          : ["oklch(0.88 0.08 170)","oklch(0.78 0.12 165)","oklch(0.68 0.16 160)","oklch(0.58 0.19 155)"];
-                        let bg = emptyBg;
-                        if (day.minutes > 0 && ratio <= 0.25) bg = scale[0];
-                        else if (ratio > 0.25 && ratio <= 0.5) bg = scale[1];
-                        else if (ratio > 0.5 && ratio <= 0.75) bg = scale[2];
-                        else if (ratio > 0.75) bg = scale[3];
-                        return (
-                          <div key={day.date} className="group relative aspect-square w-full">
-                            <div className="h-full w-full rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: bg }} />
-                            <div className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${weekIndex <= 2 ? "left-0" : weekIndex >= heatmapData.weeks.length - 3 ? "right-0" : "left-1/2 -translate-x-1/2"} bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}>
-                              {formatMinutesAsDuration(day.minutes)} studied on {fromLocalDateKey(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
-            <span>Less</span>
-            {(isDark ? ["oklch(0.22 0 0)","oklch(0.35 0.06 165)","oklch(0.48 0.11 172)","oklch(0.60 0.15 174)","oklch(0.74 0.2 178)"] : ["oklch(0.93 0 0)","oklch(0.88 0.08 170)","oklch(0.78 0.12 165)","oklch(0.68 0.16 160)","oklch(0.58 0.19 155)"]).map((c) => (
-              <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />
-            ))}
-            <span>More</span>
-          </div>
-          <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{heatmapYear} contribution-style activity</p>
-        </div>
-        </>
+        <OverviewTab
+          snapshot={{
+            totalHoursLabel: `${totalHours.toFixed(1)}h`,
+            totalSessions: snapSessions,
+            avgSessionLabel: formatMinutesAsDuration(snapAvgSession),
+            longestLabel: formatMinutesAsDuration(snapLongest),
+            avgMoodLabel: snapAvgMoodStr,
+            goalHours: effectiveGoalHours,
+            weekHoursLabel: `${weekHours.toFixed(1)}h`,
+            goalPct: goalPct,
+          }}
+          subjects={subjectStats}
+          dailyTotals={heatmapDailyTotals}
+        />
       )}
 
       {tab === "achievements" && (
@@ -610,8 +470,8 @@ export default function ProfilePage() {
                     >
                       <X className="h-3 w-3" /> Cancel
                     </button>
-                    <button type="button" onClick={() => void save()} className="flex items-center gap-1 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90">
-                      <Check className="h-3 w-3" /> Save
+                    <button type="button" onClick={() => void save()} disabled={saving} className="flex items-center gap-1 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90 disabled:opacity-60">
+                      <Check className="h-3 w-3" /> {saving ? "Saving…" : "Save"}
                     </button>
                   </div>
                 )
@@ -774,77 +634,6 @@ function Meta({ icon: Icon, value }: { icon: LucideIcon; value: string }) {
   return <span className="inline-flex items-center gap-1.5"><Icon className="h-3.5 w-3.5 opacity-70" />{value}</span>;
 }
 
-function HeroMetric({ icon: Icon, color, label, value, unit }: { icon: LucideIcon; color: AccentKey; label: string; value: string | number; unit: string }) {
-  const c = accent[color];
-  return (
-    <div className="flex h-full items-center gap-3 rounded-xl border border-border/60 bg-card/45 px-4 py-3 sm:px-4 sm:py-3.5">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: c.tint }}><Icon className="h-[18px] w-[18px]" style={{ color: c.fg }} /></div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-xl font-bold leading-tight text-foreground sm:text-2xl">
-          <span className="break-words">{value}</span>
-          <span className="ml-1 inline-block text-xs font-medium text-muted-foreground">{unit}</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function Panel({ title, icon: Icon, eyebrow, action, children }: { title: string; icon: LucideIcon; eyebrow?: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-5 sm:p-6" style={{ boxShadow: "var(--shadow-sm)" }}>
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <div className="min-w-0 flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted"><Icon className="h-3.5 w-3.5 text-foreground" /></div>
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold tracking-tight text-foreground">{title}</h2>
-            {eyebrow && <p className="-mt-0.5 text-[11px] text-muted-foreground">{eyebrow}</p>}
-          </div>
-        </div>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function MutedHint({ children }: { children: ReactNode }) {
-  return <span className="text-xs text-muted-foreground">{children}</span>;
-}
-
-function CompactStat({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-xl bg-muted/50 p-3.5 transition-colors hover:bg-muted/70">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1.5 text-2xl font-bold leading-none text-foreground">{value}</p>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
-
-function RingProgress({ pct, value, sub }: { pct: number; value: string; sub: string }) {
-  const r = 44;
-  const c = 2 * Math.PI * r;
-  const offset = c - (pct / 100) * c;
-  return (
-    <div className="relative h-36 w-36">
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <defs>
-          <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--neon-purple)" />
-            <stop offset="100%" stopColor="var(--neon-cyan)" />
-          </linearGradient>
-        </defs>
-        <circle cx="50" cy="50" r={r} stroke="var(--muted)" strokeWidth="8" fill="none" />
-        <circle cx="50" cy="50" r={r} fill="none" stroke="url(#ring-grad)" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)" }} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold tracking-tight text-foreground">{value}</span>
-        <span className="mt-0.5 text-[11px] text-muted-foreground">{sub}</span>
-      </div>
-    </div>
-  );
-}
 
 function Field({ label, icon: Icon, editing, value, onChange, prefix, type = "text", placeholder }: { label: string; icon: LucideIcon; editing: boolean; value: string; onChange: (v: string) => void; prefix?: string; type?: string; placeholder?: string }) {
   return (

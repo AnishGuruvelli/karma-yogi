@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { Subject, Session, Goal, UserProfile, ExamGoal, UserPreferences, UserPrivacySettings, UserPublicProfile } from '@/lib/types';
 import { LoadingSplash } from '@/components/LoadingSplash';
+import { toast } from 'sonner';
 import { createOrUpdateGoal, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor, upsertExamGoal } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
 import { toLocalDateKey } from '@/lib/date';
@@ -172,20 +173,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteSubject = useCallback((id: string) => {
-    void removeSubject(id).then(async () => {
-      // Optimistic UI: remove now so the Data page updates instantly.
-      setSubjects((prev) => prev.filter((s) => s.id !== id));
-      setSessions((prev) => prev.filter((s) => s.subjectId !== id));
-
-      // Authoritative UI: refetch sessions after cascade delete in the DB.
-      try {
-        const latest = await fetchSessions();
-        setSessions(latest);
-        setUser((prev) => ({ ...prev, currentStreak: currentStreakUntilToday(latest) }));
-      } catch {
-        // If refetch fails, the optimistic filter above still keeps the UI consistent.
-      }
-    });
+    // Optimistic: remove immediately for instant UI feedback.
+    setSubjects((prev) => prev.filter((s) => s.id !== id));
+    setSessions((prev) => prev.filter((s) => s.subjectId !== id));
+    void removeSubject(id)
+      .then(async () => {
+        // Authoritative sync: refetch sessions after cascade delete in DB.
+        try {
+          const latest = await fetchSessions();
+          setSessions(latest);
+          setUser((prev) => ({ ...prev, currentStreak: currentStreakUntilToday(latest) }));
+        } catch {
+          // Optimistic filter still keeps UI consistent if refetch fails.
+        }
+      })
+      .catch(() => {
+        // Rollback: restore subjects and sessions from server.
+        void Promise.all([fetchSubjects(), fetchSessions()])
+          .then(([subs, sess]) => {
+            setSubjects(subs);
+            setSessions(sess);
+          })
+          .catch(() => {});
+        toast.error("Couldn't delete subject. Please try again.");
+      });
   }, []);
 
   const updateSubjectColor = useCallback(async (id: string, color: string): Promise<boolean> => {
@@ -199,22 +210,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addSession = useCallback((session: Omit<Session, 'id'>) => {
-    void createSession(session).then((created) => {
-      setSessions((prev) => {
-        const next = [created, ...prev];
-        setUser((u) => ({ ...u, currentStreak: currentStreakUntilToday(next) }));
-        return next;
+    void createSession(session)
+      .then((created) => {
+        setSessions((prev) => {
+          const next = [created, ...prev];
+          setUser((u) => ({ ...u, currentStreak: currentStreakUntilToday(next) }));
+          return next;
+        });
+        setGoal((prev) => ({ ...prev, currentProgress: +(prev.currentProgress + session.duration / 60).toFixed(1) }));
+      })
+      .catch(() => {
+        toast.error("Session couldn't be saved. Please try again.");
       });
-      setGoal((prev) => ({ ...prev, currentProgress: +(prev.currentProgress + session.duration / 60).toFixed(1) }));
-    });
   }, []);
 
   const deleteSession = useCallback((id: string) => {
-    void removeSession(id).then(() => setSessions((prev) => {
+    // Optimistic: remove immediately so the UI updates without waiting.
+    setSessions((prev) => {
       const next = prev.filter((s) => s.id !== id);
       setUser((u) => ({ ...u, currentStreak: currentStreakUntilToday(next) }));
       return next;
-    }));
+    });
+    void removeSession(id).catch(() => {
+      // Rollback: restore from server.
+      void fetchSessions()
+        .then((latest) => {
+          setSessions(latest);
+          setUser((prev) => ({ ...prev, currentStreak: currentStreakUntilToday(latest) }));
+        })
+        .catch(() => {});
+      toast.error("Couldn't delete session. It has been restored.");
+    });
   }, []);
 
   const editSession = useCallback(async (id: string, changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }): Promise<boolean> => {
@@ -232,7 +258,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateGoal = useCallback((targetHours: number) => {
-    void createOrUpdateGoal(targetHours).then((updated) => setGoal((prev) => ({ ...prev, ...updated })));
+    void createOrUpdateGoal(targetHours)
+      .then((updated) => setGoal((prev) => ({ ...prev, ...updated })))
+      .catch(() => {
+        toast.error("Couldn't update goal. Please try again.");
+      });
   }, []);
 
   const startTimer = useCallback((subjectId: string, topic: string) => {

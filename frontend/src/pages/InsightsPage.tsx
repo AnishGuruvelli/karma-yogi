@@ -3,6 +3,7 @@ import { useStore } from "@/lib/store";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine } from "recharts";
 import { Clock, BarChart3, Crown, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
+import { HeatmapCard } from "@/components/HeatmapCard";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 import { getSafeSubjectIcon } from "@/lib/subject-icon";
 
@@ -11,11 +12,10 @@ type PeriodMode = "week" | "month" | "all";
 const MONTH_LABELS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
 export default function InsightsPage() {
-  const { sessions, subjects, isDark } = useStore();
+  const { sessions, subjects } = useStore();
   const [mode, setMode] = useState<PeriodMode>("week");
   const [offset, setOffset] = useState(0);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [heatmapYear, setHeatmapYear] = useState(2026);
 
   const now = useMemo(() => new Date(), []);
 
@@ -215,56 +215,11 @@ export default function InsightsPage() {
       : "—";
   const moodLabel = ratedSessions.length === 0 ? "—" : Number(avgMood) >= 4 ? "Great" : Number(avgMood) >= 3 ? "Good" : Number(avgMood) >= 2 ? "Fair" : "Low";
 
-  const heatmapData = useMemo(() => {
-    const dailyTotals = new Map<string, number>();
-    sessions.forEach((session) => {
-      dailyTotals.set(session.date, (dailyTotals.get(session.date) || 0) + session.duration);
-    });
-
-    const startDate = new Date(heatmapYear, 0, 1);
-    const endDate = new Date(heatmapYear, 11, 31);
-
-    const days: { date: string; minutes: number; month: string; monthIndex: number; year: number; dayOfWeek: number }[] = [];
-    const cursor = new Date(startDate);
-    while (cursor <= endDate) {
-      const dateStr = toLocalDateKey(cursor);
-      days.push({
-        date: dateStr,
-        minutes: dailyTotals.get(dateStr) || 0,
-        month: cursor.toLocaleDateString("en-US", { month: "short" }),
-        monthIndex: cursor.getMonth(),
-        year: cursor.getFullYear(),
-        dayOfWeek: (cursor.getDay() + 6) % 7,
-      });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-
-    const weekMap = new Map<string, (typeof days[number] | undefined)[]>();
-    const weekOrder: string[] = [];
-    days.forEach((day) => {
-      const dayDate = fromLocalDateKey(day.date);
-      const monday = new Date(dayDate);
-      monday.setDate(dayDate.getDate() - day.dayOfWeek);
-      const weekKey = toLocalDateKey(monday);
-      if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, Array(7).fill(undefined));
-        weekOrder.push(weekKey);
-      }
-      weekMap.get(weekKey)![day.dayOfWeek] = day;
-    });
-    const weeks = weekOrder.map((weekKey) => weekMap.get(weekKey) || []);
-
-    const maxMinutes = Math.max(...days.map((d) => d.minutes), 1);
-    const monthLabels = weeks.map((week, idx) => {
-      const firstInYear = week.find((day) => day && day.year === heatmapYear);
-      const prevInYear = idx > 0 ? weeks[idx - 1]?.find((day) => day && day.year === heatmapYear) : null;
-      if (!firstInYear) return "";
-      if (!prevInYear || prevInYear.monthIndex !== firstInYear.monthIndex) return firstInYear.month;
-      return "";
-    });
-
-    return { weeks, maxMinutes, monthLabels };
-  }, [sessions, heatmapYear]);
+  const heatmapDailyTotals = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of sessions) map.set(s.date, (map.get(s.date) || 0) + s.duration);
+    return map;
+  }, [sessions]);
 
   const hourBuckets = Array(24).fill(0);
   filteredSessions.forEach((s) => {
@@ -584,123 +539,7 @@ export default function InsightsPage() {
         </div>
       </div>}
 
-      <div className="glass-card rounded-2xl p-4 sm:p-5">
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
-          <div className="flex items-center rounded-xl bg-muted p-1">
-            {[2025, 2026].map((year) => (
-              <button
-                key={year}
-                type="button"
-                onClick={() => setHeatmapYear(year)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  heatmapYear === year ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-                style={heatmapYear === year ? { boxShadow: "var(--shadow-sm)" } : undefined}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="w-full overflow-x-auto overflow-y-visible">
-          <div className="min-w-[680px] sm:min-w-0">
-            <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
-              <div />
-              <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px] text-[9px] text-muted-foreground">
-                {heatmapData.monthLabels.map((label, i) => (
-                  <span key={`${label}-${i}`} className="col-span-4">
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-[26px_1fr] gap-1">
-              <div className="flex flex-col justify-between py-[1px] text-[9px] text-muted-foreground">
-                <span>Mon</span>
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
-                <span>Sat</span>
-                <span>Sun</span>
-              </div>
-              <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px]">
-                {heatmapData.weeks.map((week, weekIndex) => (
-                  <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-[2px]">
-                    {Array.from({ length: 7 }).map((_, dayIdx) => {
-                      const day = week[dayIdx];
-                      if (!day) {
-                        return <div key={`empty-${weekIndex}-${dayIdx}`} className="aspect-square w-full" />;
-                      }
-
-                      const ratio = day.minutes / heatmapData.maxMinutes;
-                      const emptyBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.93 0 0)";
-                      const scale = isDark
-                        ? [
-                            "oklch(0.35 0.06 165)",
-                            "oklch(0.48 0.11 172)",
-                            "oklch(0.60 0.15 174)",
-                            "oklch(0.74 0.2 178)",
-                          ]
-                        : [
-                            "oklch(0.88 0.08 170)",
-                            "oklch(0.78 0.12 165)",
-                            "oklch(0.68 0.16 160)",
-                            "oklch(0.58 0.19 155)",
-                          ];
-                      let bg = emptyBg;
-                      if (day.minutes > 0 && ratio <= 0.25) bg = scale[0];
-                      else if (ratio > 0.25 && ratio <= 0.5) bg = scale[1];
-                      else if (ratio > 0.5 && ratio <= 0.75) bg = scale[2];
-                      else if (ratio > 0.75) bg = scale[3];
-
-                      return (
-                        <div key={day.date} className="group relative aspect-square w-full">
-                          <div className="h-full w-full rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: bg }} />
-                          <div
-                            className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${
-                              weekIndex <= 2
-                                ? "left-0"
-                                : weekIndex >= heatmapData.weeks.length - 3
-                                  ? "right-0"
-                                  : "left-1/2 -translate-x-1/2"
-                            } bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}
-                          >
-                            {formatDuration(day.minutes)} studied on{" "}
-                            {fromLocalDateKey(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
-              <span>Less</span>
-              {(isDark
-                ? [
-                    "oklch(0.22 0 0)",
-                    "oklch(0.35 0.06 165)",
-                    "oklch(0.48 0.11 172)",
-                    "oklch(0.60 0.15 174)",
-                    "oklch(0.74 0.2 178)",
-                  ]
-                : ["oklch(0.93 0 0)", "oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"]
-              ).map(
-                (c) => (
-                  <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />
-                ),
-              )}
-              <span>More</span>
-            </div>
-          </div>
-        </div>
-        <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          {heatmapYear} contribution-style activity
-        </p>
-      </div>
+      <HeatmapCard dailyTotals={heatmapDailyTotals} />
 
       <CalendarModal open={calendarOpen} onClose={() => setCalendarOpen(false)} sessions={sessions} />
     </div>

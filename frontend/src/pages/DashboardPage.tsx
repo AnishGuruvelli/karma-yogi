@@ -199,6 +199,9 @@ export default function DashboardPage() {
 
           <div className="glass-card rounded-2xl p-4 sm:p-5">
             <h2 className="mb-4 font-semibold text-foreground">Recent Sessions</h2>
+            {recentSessions.length === 0 && (
+              <p className="py-4 text-center text-sm text-muted-foreground">No sessions yet — start a timer or log your first session.</p>
+            )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {recentSessions.map((session) => {
                 const subject = getSubject(session.subjectId);

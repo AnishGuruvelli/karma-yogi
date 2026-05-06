@@ -18,15 +18,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Target,
+  Flame,
+  Users,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine } from "recharts";
 import { fetchPublicProfileDetails } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
 import { CalendarModal } from "@/components/CalendarModal";
+import { HeatmapCard } from "@/components/HeatmapCard";
+import { Panel, CompactStat, MutedHint, RingProgress, HeroMetric } from "@/components/StatsPanel";
+import { OverviewTab } from "@/components/OverviewTab";
+import { LoadingSplash } from "@/components/LoadingSplash";
 import type { PublicProfileDetails, PublicProfileSessionEntry, Session } from "@/lib/types";
-import { subjectColor } from "@/lib/colors";
-import { useStore } from "@/lib/store";
+import { subjectColor, accent, type AccentKey } from "@/lib/colors";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 
 type TabKey = "overview" | "sessions" | "insights";
@@ -47,23 +51,12 @@ function subjectToneFromId(id: string): "cyan" | "green" | "orange" | "pink" | "
   return tones[hash % tones.length];
 }
 
-const accent = {
-  cyan: { fg: "var(--neon-cyan)", tint: "color-mix(in oklch, var(--neon-cyan) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-cyan) 30%, transparent)" },
-  green: { fg: "var(--neon-green)", tint: "color-mix(in oklch, var(--neon-green) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-green) 30%, transparent)" },
-  orange: { fg: "var(--neon-orange)", tint: "color-mix(in oklch, var(--neon-orange) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-orange) 30%, transparent)" },
-  pink: { fg: "var(--neon-pink)", tint: "color-mix(in oklch, var(--neon-pink) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-pink) 30%, transparent)" },
-  purple: { fg: "var(--neon-purple)", tint: "color-mix(in oklch, var(--neon-purple) 12%, transparent)", ring: "color-mix(in oklch, var(--neon-purple) 30%, transparent)" },
-} as const;
-type AccentKey = keyof typeof accent;
-
 export default function PublicProfilePage() {
   const { userId = "" } = useParams();
-  const { isDark } = useStore();
   const [tab, setTab] = useState<TabKey>("overview");
   const [mode, setMode] = useState<PeriodMode>("week");
   const [offset, setOffset] = useState(0);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [heatmapYear, setHeatmapYear] = useState(2026);
   const [data, setData] = useState<PublicProfileDetails | null>(null);
   const [allSessions, setAllSessions] = useState<PublicProfileSessionEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -325,42 +318,14 @@ export default function PublicProfilePage() {
     return [...byId.values()].filter((d) => d.value > 0).sort((a, b) => b.value - a.value).map((d, idx) => ({ ...d, color: piePalette[idx % piePalette.length] }));
   }, [filteredSessions, subjectNameMap]);
   const insightsPieTotal = insightsPieData.reduce((sum, d) => sum + d.value, 0);
-  const heatmapData = useMemo(() => {
-    // Use server-precomputed heatmap — always accurate from first load
-    const dailyTotals = new Map<string, number>(Object.entries(data?.heatmap ?? {}));
-    const startDate = new Date(heatmapYear, 0, 1);
-    const endDate = new Date(heatmapYear, 11, 31);
-    const days: { date: string; minutes: number; month: string; monthIndex: number; year: number; dayOfWeek: number }[] = [];
-    const cursor = new Date(startDate);
-    while (cursor <= endDate) {
-      const dateStr = toLocalDateKey(cursor);
-      days.push({ date: dateStr, minutes: dailyTotals.get(dateStr) || 0, month: cursor.toLocaleDateString("en-US", { month: "short" }), monthIndex: cursor.getMonth(), year: cursor.getFullYear(), dayOfWeek: (cursor.getDay() + 6) % 7 });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    const weekMap = new Map<string, (typeof days[number] | undefined)[]>();
-    const weekOrder: string[] = [];
-    days.forEach((day) => {
-      const dayDate = fromLocalDateKey(day.date);
-      const monday = new Date(dayDate);
-      monday.setDate(dayDate.getDate() - day.dayOfWeek);
-      const weekKey = toLocalDateKey(monday);
-      if (!weekMap.has(weekKey)) { weekMap.set(weekKey, Array(7).fill(undefined)); weekOrder.push(weekKey); }
-      weekMap.get(weekKey)![day.dayOfWeek] = day;
-    });
-    const weeks = weekOrder.map((k) => weekMap.get(k) || []);
-    const maxMinutes = Math.max(...days.map((d) => d.minutes), 1);
-    const monthLabels = weeks.map((week, idx) => {
-      const first = week.find((d) => d && d.year === heatmapYear);
-      const prev = idx > 0 ? weeks[idx - 1]?.find((d) => d && d.year === heatmapYear) : null;
-      if (!first) return "";
-      if (!prev || prev.monthIndex !== first.monthIndex) return first.month;
-      return "";
-    });
-    return { weeks, maxMinutes, monthLabels };
-  }, [data?.heatmap, heatmapYear]);
+  // Server-precomputed heatmap — always accurate from first load
+  const heatmapDailyTotals = useMemo(
+    () => new Map<string, number>(Object.entries(data?.heatmap ?? {})),
+    [data?.heatmap],
+  );
 
   if (loading) {
-    return <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-muted-foreground">Loading profile...</div>;
+    return <LoadingSplash open />;
   }
   if (error) {
     return <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-destructive">{error}</div>;
@@ -409,6 +374,14 @@ export default function PublicProfilePage() {
             </span>
           </div>
         </div>
+        {data.canViewDetails && data.overview && (
+          <div className="mt-5 grid grid-cols-1 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-4">
+            <HeroMetric icon={Flame} color="orange" label="Current streak" value={data.overview.currentStreakDays} unit="days" />
+            <HeroMetric icon={Clock} color="cyan" label="Total focus" value={(data.overview.totalMinutes / 60).toFixed(1)} unit="hours" />
+            <HeroMetric icon={Trophy} color="purple" label="Sessions" value={data.overview.totalSessions} unit="logged" />
+            <HeroMetric icon={Users} color="green" label="Friends" value={data.overview.friendCount} unit="connected" />
+          </div>
+        )}
       </div>
 
       {!data.canViewDetails ? (
@@ -433,146 +406,20 @@ export default function PublicProfilePage() {
           </div>
 
           {tab === "overview" && data.overview && (
-            <>
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-stretch">
-              <div className="flex flex-col gap-6 lg:col-span-2">
-                <Panel title="Performance Snapshot" icon={TrendingUp} eyebrow="All time">
-                  <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <CompactStat
-                      label="Total focus"
-                      value={`${(data.overview.totalMinutes / 60).toFixed(1)}h`}
-                      sub={`${data.overview.totalSessions} sessions · goal ${pubGoalHours}h/wk`}
-                    />
-                    <CompactStat label="Avg session" value={formatDuration(data.overview.avgSessionMinutes)} sub="duration" />
-                    <CompactStat label="Longest" value={formatDuration(data.overview.longestSession)} sub="single sit" />
-                    <CompactStat label="Avg mood" value={data.overview.avgMood > 0 ? data.overview.avgMood.toFixed(1) : "—"} sub="out of 5" />
-                  </div>
-                </Panel>
-                <Panel title="Subject Mix" icon={BookOpen} action={<MutedHint>{publicSubjectStats.length} subjects</MutedHint>} className="flex flex-1 flex-col min-h-0">
-                  <div className="mt-2 flex-1 min-h-[8rem] overflow-y-scroll space-y-4 pr-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
-                    {publicSubjectStats.map((subject) => {
-                      const palette = accent[subject.color];
-                      return (
-                        <div key={subject.id}>
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="min-w-0 flex items-center gap-2.5">
-                              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: palette.fg }} />
-                              <span className="truncate text-sm font-semibold text-foreground">{subject.name}</span>
-                              <span className="text-xs text-muted-foreground">· {subject.count} sessions</span>
-                            </div>
-                            <div className="flex items-baseline gap-1.5 font-mono text-xs">
-                              <span className="font-semibold text-foreground">{(subject.mins / 60).toFixed(1)}h</span>
-                              <span className="text-muted-foreground">· {subject.pct.toFixed(0)}%</span>
-                            </div>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${subject.pct}%`, backgroundColor: palette.fg }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {publicSubjectStats.length === 0 && <p className="text-sm text-muted-foreground">No subjects yet.</p>}
-                  </div>
-                </Panel>
-              </div>
-              <div className="flex flex-col gap-6">
-                <Panel title="Weekly Goal" icon={Target}>
-                  <div className="flex flex-col items-center pt-2 text-center">
-                    <RingProgress
-                      pct={Math.min(100, Math.round((data.overview.thisWeekMinutes / 60 / pubGoalHours) * 100))}
-                      value={`${(data.overview.thisWeekMinutes / 60).toFixed(1)}h`}
-                      sub={`of ${pubGoalHours}h`}
-                    />
-                    <p className="mt-3 text-sm font-medium text-foreground">
-                      {Math.min(100, Math.round((data.overview.thisWeekMinutes / 60 / pubGoalHours) * 100))}% complete
-                    </p>
-                  </div>
-                </Panel>
-                {publicSubjectStats[0] && (
-                  <Panel title="Top Subject" icon={Award}>
-                    <div className="mt-1 flex items-center gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl" style={{ background: accent[publicSubjectStats[0].color].tint }}>
-                        <span className="text-xl font-bold" style={{ color: accent[publicSubjectStats[0].color].fg }}>
-                          {publicSubjectStats[0].name.charAt(0)}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-foreground">{publicSubjectStats[0].name}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{(publicSubjectStats[0].mins / 60).toFixed(1)}h · {publicSubjectStats[0].count} sessions</p>
-                      </div>
-                    </div>
-                  </Panel>
-                )}
-              </div>
-            </div>
-
-            {/* Focus Heatmap */}
-            <div className="glass-card mt-6 rounded-2xl p-4 sm:p-5">
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
-                <div className="flex items-center rounded-xl bg-muted p-1">
-                  {[2025, 2026].map((year) => (
-                    <button key={year} type="button" onClick={() => setHeatmapYear(year)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${heatmapYear === year ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                      style={heatmapYear === year ? { boxShadow: "var(--shadow-sm)" } : undefined}>
-                      {year}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="w-full overflow-x-auto overflow-y-visible">
-                <div className="min-w-[680px] sm:min-w-0">
-                  <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
-                    <div />
-                    <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px] text-[9px] text-muted-foreground">
-                      {heatmapData.monthLabels.map((label, i) => <span key={`${label}-${i}`} className="col-span-4">{label}</span>)}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[26px_1fr] gap-1">
-                    <div className="flex flex-col justify-between py-[1px] text-[9px] text-muted-foreground">
-                      {["Mon","","Wed","","Fri","","Sun"].map((d, i) => <span key={i}>{d}</span>)}
-                    </div>
-                    <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px]">
-                      {heatmapData.weeks.map((week, weekIndex) => (
-                        <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-[2px]">
-                          {Array.from({ length: 7 }).map((_, dayIdx) => {
-                            const day = week[dayIdx];
-                            if (!day) return <div key={`empty-${weekIndex}-${dayIdx}`} className="aspect-square w-full" />;
-                            const ratio = day.minutes / heatmapData.maxMinutes;
-                            const emptyBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.93 0 0)";
-                            const scale = isDark
-                              ? ["oklch(0.35 0.06 165)","oklch(0.48 0.11 172)","oklch(0.60 0.15 174)","oklch(0.74 0.2 178)"]
-                              : ["oklch(0.88 0.08 170)","oklch(0.78 0.12 165)","oklch(0.68 0.16 160)","oklch(0.58 0.19 155)"];
-                            let bg = emptyBg;
-                            if (day.minutes > 0 && ratio <= 0.25) bg = scale[0];
-                            else if (ratio > 0.25 && ratio <= 0.5) bg = scale[1];
-                            else if (ratio > 0.5 && ratio <= 0.75) bg = scale[2];
-                            else if (ratio > 0.75) bg = scale[3];
-                            return (
-                              <div key={day.date} className="group relative aspect-square w-full">
-                                <div className="h-full w-full rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: bg }} />
-                                <div className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${weekIndex <= 2 ? "left-0" : weekIndex >= heatmapData.weeks.length - 3 ? "right-0" : "left-1/2 -translate-x-1/2"} bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}>
-                                  {formatDuration(day.minutes)} studied on {fromLocalDateKey(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
-                <span>Less</span>
-                {(isDark ? ["oklch(0.22 0 0)","oklch(0.35 0.06 165)","oklch(0.48 0.11 172)","oklch(0.60 0.15 174)","oklch(0.74 0.2 178)"] : ["oklch(0.93 0 0)","oklch(0.88 0.08 170)","oklch(0.78 0.12 165)","oklch(0.68 0.16 160)","oklch(0.58 0.19 155)"]).map((c) => (
-                  <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />
-                ))}
-                <span>More</span>
-              </div>
-              <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{heatmapYear} contribution-style activity</p>
-            </div>
-            </>
+            <OverviewTab
+              snapshot={{
+                totalHoursLabel: `${(data.overview.totalMinutes / 60).toFixed(1)}h`,
+                totalSessions: data.overview.totalSessions,
+                avgSessionLabel: formatDuration(data.overview.avgSessionMinutes),
+                longestLabel: formatDuration(data.overview.longestSession),
+                avgMoodLabel: data.overview.avgMood > 0 ? data.overview.avgMood.toFixed(1) : "—",
+                goalHours: pubGoalHours,
+                weekHoursLabel: `${(data.overview.thisWeekMinutes / 60).toFixed(1)}h`,
+                goalPct: Math.min(100, Math.round((data.overview.thisWeekMinutes / 60 / pubGoalHours) * 100)),
+              }}
+              subjects={publicSubjectStats}
+              dailyTotals={heatmapDailyTotals}
+            />
           )}
 
           {tab === "sessions" && (
@@ -774,132 +621,12 @@ export default function PublicProfilePage() {
                 </div>
               </div>
 
-              <div className="glass-card rounded-2xl p-4 sm:p-5">
-                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
-                  <div className="flex items-center rounded-xl bg-muted p-1">
-                    {[2025, 2026].map((year) => (
-                      <button key={year} type="button" onClick={() => setHeatmapYear(year)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${heatmapYear === year ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                        style={heatmapYear === year ? { boxShadow: "var(--shadow-sm)" } : undefined}>
-                        {year}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="w-full overflow-x-auto overflow-y-visible">
-                  <div className="min-w-[680px] sm:min-w-0">
-                    <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
-                      <div />
-                      <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px] text-[9px] text-muted-foreground">
-                        {heatmapData.monthLabels.map((label, i) => <span key={`${label}-${i}`} className="col-span-4">{label}</span>)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-[26px_1fr] gap-1">
-                      <div className="flex flex-col justify-between py-[1px] text-[9px] text-muted-foreground">
-                        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                      </div>
-                      <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px]">
-                        {heatmapData.weeks.map((week, weekIndex) => (
-                          <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-[2px]">
-                            {Array.from({ length: 7 }).map((_, dayIdx) => {
-                              const day = week[dayIdx];
-                              if (!day) return <div key={`empty-${weekIndex}-${dayIdx}`} className="aspect-square w-full" />;
-                              const ratio = day.minutes / heatmapData.maxMinutes;
-                              const emptyBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.93 0 0)";
-                              const scale = isDark
-                                ? ["oklch(0.35 0.06 165)", "oklch(0.48 0.11 172)", "oklch(0.60 0.15 174)", "oklch(0.74 0.2 178)"]
-                                : ["oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"];
-                              let bg = emptyBg;
-                              if (day.minutes > 0 && ratio <= 0.25) bg = scale[0];
-                              else if (ratio > 0.25 && ratio <= 0.5) bg = scale[1];
-                              else if (ratio > 0.5 && ratio <= 0.75) bg = scale[2];
-                              else if (ratio > 0.75) bg = scale[3];
-                              return (
-                                <div key={day.date} className="group relative aspect-square w-full">
-                                  <div className="h-full w-full rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: bg }} />
-                                  <div className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${weekIndex <= 2 ? "left-0" : weekIndex >= heatmapData.weeks.length - 3 ? "right-0" : "left-1/2 -translate-x-1/2"} bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}>
-                                    {formatDuration(day.minutes)} studied on {fromLocalDateKey(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
-                      <span>Less</span>
-                      {(isDark ? ["oklch(0.22 0 0)", "oklch(0.35 0.06 165)", "oklch(0.48 0.11 172)", "oklch(0.60 0.15 174)", "oklch(0.74 0.2 178)"] : ["oklch(0.93 0 0)", "oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"]).map((c) => (
-                        <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />
-                      ))}
-                      <span>More</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{heatmapYear} contribution-style activity</p>
-              </div>
+              <HeatmapCard dailyTotals={heatmapDailyTotals} />
             </div>
           )}
         </>
       )}
       <CalendarModal open={calendarOpen} onClose={() => setCalendarOpen(false)} sessions={normalizedSessions} />
-    </div>
-  );
-}
-
-function Panel({ title, icon: Icon, eyebrow, action, className, children }: { title: string; icon: LucideIcon; eyebrow?: string; action?: ReactNode; className?: string; children: ReactNode }) {
-  return (
-    <section className={`rounded-2xl border border-border bg-card p-5 sm:p-6${className ? ` ${className}` : ""}`} style={{ boxShadow: "var(--shadow-sm)" }}>
-      <header className="mb-4 flex shrink-0 items-center justify-between gap-3">
-        <div className="min-w-0 flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted"><Icon className="h-3.5 w-3.5 text-foreground" /></div>
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold tracking-tight text-foreground">{title}</h2>
-            {eyebrow && <p className="-mt-0.5 text-[11px] text-muted-foreground">{eyebrow}</p>}
-          </div>
-        </div>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function MutedHint({ children }: { children: ReactNode }) {
-  return <span className="text-xs text-muted-foreground">{children}</span>;
-}
-
-function CompactStat({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-xl bg-muted/50 p-3.5 transition-colors hover:bg-muted/70">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1.5 text-2xl font-bold leading-none text-foreground">{value}</p>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">{sub}</p>
-    </div>
-  );
-}
-
-function RingProgress({ pct, value, sub }: { pct: number; value: string; sub: string }) {
-  const r = 44;
-  const c = 2 * Math.PI * r;
-  const offset = c - (pct / 100) * c;
-  return (
-    <div className="relative h-36 w-36">
-      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <defs>
-          <linearGradient id="pub-ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--neon-purple)" />
-            <stop offset="100%" stopColor="var(--neon-cyan)" />
-          </linearGradient>
-        </defs>
-        <circle cx="50" cy="50" r={r} stroke="var(--muted)" strokeWidth="8" fill="none" />
-        <circle cx="50" cy="50" r={r} fill="none" stroke="url(#pub-ring-grad)" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)" }} />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold tracking-tight text-foreground">{value}</span>
-        <span className="mt-0.5 text-[11px] text-muted-foreground">{sub}</span>
-      </div>
     </div>
   );
 }

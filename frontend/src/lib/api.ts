@@ -109,19 +109,36 @@ export async function ensureDevAuth(): Promise<void> {
   setAuthState({ accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken });
 }
 
-async function request(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
+// Shared promise so parallel 401s all wait on one refresh, preventing token rotation races.
+let refreshInFlight: Promise<AuthState> | null = null;
+
+async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const auth = getAuthState();
-  const headers: HeadersInit = withClientHeaders(init.headers || {});
-  if (auth?.accessToken) (headers as Record<string, string>).Authorization = `Bearer ${auth.accessToken}`;
+  const headers = withClientHeaders(init.headers || {}) as Record<string, string>;
+  if (auth?.accessToken) headers.Authorization = `Bearer ${auth.accessToken}`;
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (res.status === 401 && auth && retry) {
+  if (res.status === 401 && auth) {
     try {
-      const refreshed = await refreshToken(auth.refreshId, auth.refreshToken);
-      setAuthState(refreshed);
-      return request(path, init, false);
+      if (!refreshInFlight) {
+        refreshInFlight = (async () => {
+          try {
+            const refreshed = await refreshToken(auth.refreshId, auth.refreshToken);
+            setAuthState(refreshed);
+            return refreshed;
+          } catch (err) {
+            clearAuthState();
+            throw err;
+          } finally {
+            refreshInFlight = null;
+          }
+        })();
+      }
+      const refreshed = await refreshInFlight;
+      const retryHeaders = withClientHeaders(init.headers || {}) as Record<string, string>;
+      retryHeaders.Authorization = `Bearer ${refreshed.accessToken}`;
+      return fetch(`${API_BASE}${path}`, { ...init, headers: retryHeaders });
     } catch {
-      clearAuthState();
       return res;
     }
   }
@@ -186,21 +203,21 @@ export async function logout(): Promise<void> {
 
 async function refreshToken(refreshId: string, refreshToken: string): Promise<AuthState> {
   const res = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', headers: withClientHeaders(), body: JSON.stringify({ refreshId, refreshToken }) });
-  if (!res.ok) throw new Error('Unable to refresh token');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to refresh token'));
   const data = await res.json();
   return { accessToken: data.accessToken, refreshId: data.refreshId, refreshToken: data.refreshToken };
 }
 
 export async function fetchMe(): Promise<UserProfile> {
   const res = await request('/users/me');
-  if (!res.ok) throw new Error('Unable to fetch profile');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch profile'));
   const user = await res.json();
   return mapUser(user);
 }
 
 export async function fetchMyPublicProfile(): Promise<UserPublicProfile> {
   const res = await request('/users/me/public-profile');
-  if (!res.ok) throw new Error('Unable to fetch public profile settings');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch public profile settings'));
   return (await res.json()) as BackendUserPublicProfile;
 }
 
@@ -257,7 +274,7 @@ export async function patchMyPublicProfile(payload: {
   targetCollege: string;
 }): Promise<UserPublicProfile> {
   const res = await request('/users/me/public-profile', { method: 'PATCH', body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('Unable to save public profile settings');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to save public profile settings'));
   return (await res.json()) as BackendUserPublicProfile;
 }
 
@@ -299,19 +316,19 @@ export async function patchMyPreferences(payload: Omit<UserPreferences, 'userId'
 
 export async function fetchMyPrivacy(): Promise<UserPrivacySettings> {
   const res = await request('/users/me/privacy');
-  if (!res.ok) throw new Error('Unable to fetch privacy settings');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch privacy settings'));
   return (await res.json()) as BackendUserPrivacy;
 }
 
 export async function patchMyPrivacy(payload: Omit<UserPrivacySettings, 'userId'>): Promise<UserPrivacySettings> {
   const res = await request('/users/me/privacy', { method: 'PATCH', body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('Unable to save privacy settings');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to save privacy settings'));
   return (await res.json()) as BackendUserPrivacy;
 }
 
 export async function fetchPublicProfile(username: string): Promise<PublicProfileView> {
   const res = await request(`/users/${encodeURIComponent(username)}/public-profile`);
-  if (!res.ok) throw new Error('Unable to fetch public profile');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch public profile'));
   return (await res.json()) as BackendPublicProfileView;
 }
 
@@ -323,13 +340,13 @@ export async function fetchPublicProfileDetails(usernameOrId: string, page = 1, 
 
 export async function updateMe(payload: { fullName: string; username: string; phone: string; avatarUrl?: string }): Promise<UserProfile> {
   const res = await request('/users/me', { method: 'PATCH', body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('Unable to update profile');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update profile'));
   return mapUser(await res.json());
 }
 
 export async function fetchSessions(): Promise<Session[]> {
   const res = await request('/sessions');
-  if (!res.ok) throw new Error('Unable to fetch sessions');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch sessions'));
   const sessions = await res.json();
   return sessions.map(mapSession);
 }
@@ -337,13 +354,13 @@ export async function fetchSessions(): Promise<Session[]> {
 export async function createSession(payload: Omit<Session, 'id'>): Promise<Session> {
   const startedAt = new Date(`${payload.date}T${payload.startTime}:00`).toISOString();
   const res = await request('/sessions', { method: 'POST', body: JSON.stringify({ subjectId: payload.subjectId, topic: payload.topic, durationMin: payload.duration, mood: String(payload.moodRating), startedAt }) });
-  if (!res.ok) throw new Error('Unable to create session');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create session'));
   return mapSession(await res.json());
 }
 
 export async function removeSession(id: string): Promise<void> {
   const res = await request(`/sessions/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Unable to delete session');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete session'));
 }
 
 export async function updateSession(id: string, payload: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }): Promise<Session> {
@@ -358,13 +375,13 @@ export async function updateSession(id: string, payload: { subjectId: string; to
       startedAt,
     }),
   });
-  if (!res.ok) throw new Error('Unable to update session');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update session'));
   return mapSession(await res.json());
 }
 
 export async function fetchGoals(): Promise<Goal[]> {
   const res = await request('/goals');
-  if (!res.ok) throw new Error('Unable to fetch goals');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch goals'));
   const data = (await res.json()) as BackendGoal[] | null;
   if (!Array.isArray(data)) return [];
   return data.map(mapGoal);
@@ -372,40 +389,40 @@ export async function fetchGoals(): Promise<Goal[]> {
 
 export async function fetchSubjects(): Promise<Subject[]> {
   const res = await request('/subjects');
-  if (!res.ok) throw new Error('Unable to fetch subjects');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch subjects'));
   const data = (await res.json()) as BackendSubject[];
   return data.map((s) => ({ id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) }));
 }
 
 export async function createSubject(name: string, color: string): Promise<Subject> {
   const res = await request('/subjects', { method: 'POST', body: JSON.stringify({ name, color }) });
-  if (!res.ok) throw new Error('Unable to create subject');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create subject'));
   const s = (await res.json()) as BackendSubject;
   return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) };
 }
 
 export async function removeSubject(id: string): Promise<void> {
   const res = await request(`/subjects/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Unable to delete subject');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete subject'));
 }
 
 export async function updateSubjectColor(id: string, color: string): Promise<Subject> {
   const res = await request(`/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ color }) });
-  if (!res.ok) throw new Error('Unable to update subject color');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update subject color'));
   const s = (await res.json()) as BackendSubject;
   return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) };
 }
 
 export async function fetchTimerState(): Promise<TimerStatePayload | null> {
   const res = await request('/timer-state');
-  if (!res.ok) throw new Error('Unable to fetch timer state');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch timer state'));
   const data = (await res.json()) as { state?: TimerStatePayload | null };
   return data.state ?? null;
 }
 
 export async function startTimerFromServer(): Promise<number> {
   const res = await request('/timer-state/start', { method: 'POST' });
-  if (!res.ok) throw new Error('Unable to start timer');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to start timer'));
   const data = (await res.json()) as { startedAtMs?: number };
   if (typeof data.startedAtMs !== 'number') throw new Error('Invalid start time response');
   return data.startedAtMs;
@@ -413,36 +430,36 @@ export async function startTimerFromServer(): Promise<number> {
 
 export async function saveTimerState(state: TimerStatePayload): Promise<void> {
   const res = await request('/timer-state', { method: 'PUT', body: JSON.stringify({ state }) });
-  if (!res.ok) throw new Error('Unable to save timer state');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to save timer state'));
 }
 
 export async function clearTimerState(): Promise<void> {
   const res = await request('/timer-state', { method: 'DELETE' });
-  if (!res.ok) throw new Error('Unable to clear timer state');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to clear timer state'));
 }
 
 export async function fetchDiscoverUsers(): Promise<FriendUser[]> {
   const res = await request('/friends/users');
-  if (!res.ok) throw new Error('Unable to fetch users');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch users'));
   return await res.json();
 }
 
 export async function fetchFriends(): Promise<UserProfile[]> {
   const res = await request('/friends');
-  if (!res.ok) throw new Error('Unable to fetch friends');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch friends'));
   const users = await res.json();
   return users.map(mapUser);
 }
 
 export async function fetchIncomingFriendRequests(): Promise<FriendRequest[]> {
   const res = await request('/friends/requests/incoming');
-  if (!res.ok) throw new Error('Unable to fetch incoming requests');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch incoming requests'));
   return await res.json();
 }
 
 export async function fetchOutgoingFriendRequests(): Promise<FriendRequest[]> {
   const res = await request('/friends/requests/outgoing');
-  if (!res.ok) throw new Error('Unable to fetch outgoing requests');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch outgoing requests'));
   return await res.json();
 }
 
@@ -474,7 +491,7 @@ export async function fetchFriendsLeaderboard(params?: {
   if (params?.toIso) query.set("to", params.toIso);
   const qs = query.toString();
   const res = await request(`/friends/leaderboard${qs ? `?${qs}` : ""}`);
-  if (!res.ok) throw new Error('Unable to fetch friends leaderboard');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch friends leaderboard'));
   return await res.json();
 }
 
@@ -501,18 +518,18 @@ export async function createOrUpdateGoal(targetHours: number): Promise<Goal> {
   deadline.setMonth(deadline.getMonth() + 1);
   if (goals.length === 0) {
     const res = await request('/goals', { method: 'POST', body: JSON.stringify({ title: 'Monthly Study Goal', targetMinutes: Math.round(targetHours * 60), deadline: deadline.toISOString() }) });
-    if (!res.ok) throw new Error('Unable to create goal');
+    if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create goal'));
     return mapGoal(await res.json());
   }
   const existing = goals[0];
   const res = await request(`/goals/${existing.id}`, { method: 'PATCH', body: JSON.stringify({ title: 'Monthly Study Goal', targetMinutes: Math.round(targetHours * 60), deadline: deadline.toISOString() }) });
-  if (!res.ok) throw new Error('Unable to update goal');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update goal'));
   return mapGoal(await res.json());
 }
 
 export async function fetchExamGoal(): Promise<ExamGoal | null> {
   const res = await request('/exam-goal');
-  if (!res.ok) throw new Error('Unable to fetch exam goal');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch exam goal'));
   const data = (await res.json()) as { examGoal?: BackendExamGoal | null };
   if (!data.examGoal) return null;
   return mapExamGoal(data.examGoal);
@@ -521,7 +538,7 @@ export async function fetchExamGoal(): Promise<ExamGoal | null> {
 export async function upsertExamGoal(name: string, dateIso: string): Promise<ExamGoal> {
   const examDate = new Date(`${dateIso}T00:00:00`).toISOString();
   const res = await request('/exam-goal', { method: 'PUT', body: JSON.stringify({ name, examDate }) });
-  if (!res.ok) throw new Error('Unable to save exam goal');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to save exam goal'));
   const data = (await res.json()) as { examGoal?: BackendExamGoal | null };
   if (!data.examGoal) throw new Error('Invalid exam goal response');
   return mapExamGoal(data.examGoal);
@@ -529,7 +546,7 @@ export async function upsertExamGoal(name: string, dateIso: string): Promise<Exa
 
 export async function deleteExamGoal(): Promise<void> {
   const res = await request('/exam-goal', { method: 'DELETE' });
-  if (!res.ok) throw new Error('Unable to delete exam goal');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete exam goal'));
 }
 
 function mapUser(raw: BackendUser): UserProfile {

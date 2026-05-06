@@ -1,16 +1,13 @@
 import { Navigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
 import { StrategyBlueprint } from "@/components/StrategyBlueprint";
+import { LoadingSplash } from "@/components/LoadingSplash";
 
 export default function StrategyDashboard() {
   const { user, preferences } = useStore();
 
   if (user.id === "anon") {
-    return (
-      <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-24">
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      </div>
-    );
+    return <LoadingSplash open />;
   }
 
   if (!preferences?.showStrategyPage) {
