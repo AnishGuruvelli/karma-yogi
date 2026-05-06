@@ -6,7 +6,7 @@ import { TimerModal } from "@/components/TimerModal";
 import { LogSessionModal } from "@/components/LogSessionModal";
 import { toLocalDateKey } from "@/lib/date";
 import { toast } from "sonner";
-import { subjectColor, subjectColorSoft } from "@/lib/colors";
+import { subjectColor } from "@/lib/colors";
 
 export default function SessionsPage() {
   const { sessions, getSubject, editSession, deleteSession } = useStore();
@@ -68,16 +68,16 @@ export default function SessionsPage() {
           <button
             type="button"
             onClick={() => setTimerOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neon-orange px-5 py-2.5 font-semibold text-white transition-all hover:opacity-90 neon-glow-orange sm:w-auto"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 sm:w-auto"
           >
             <Play className="h-4 w-4" />
-            Start Timer
+            Begin Session
           </button>
           <button
             type="button"
             onClick={() => setLogOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-all hover:opacity-90 sm:w-auto"
-            style={{ boxShadow: "var(--shadow-md)" }}
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-all hover:border-foreground/30 sm:w-auto"
+            style={{ boxShadow: "var(--shadow-sm)" }}
           >
             <Plus className="h-4 w-4" />
             Log Session
@@ -140,7 +140,6 @@ export default function SessionsPage() {
                       className="w-1 self-stretch rounded-full"
                       style={{
                         backgroundColor: subjectColor(subject?.color),
-                        boxShadow: `0 0 12px ${subjectColor(subject?.color)}, 0 0 24px ${subjectColorSoft(subject?.color, 45)}`,
                       }}
                     />
                     <div className="min-w-0 flex-1">

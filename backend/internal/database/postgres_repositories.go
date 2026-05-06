@@ -103,7 +103,7 @@ func (r *pgUserRepo) GetByUsername(ctx context.Context, username string) (domain
 }
 func (r *pgUserRepo) ListOthers(ctx context.Context, userID string) ([]domain.User, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id,email,full_name,username,phone,avatar_url,google_sub,COALESCE(password_hash,''),COALESCE(secret_answer_hash,''),created_at,updated_at
-		FROM users WHERE id <> $1 ORDER BY created_at DESC`, userID)
+		FROM users WHERE id <> $1 ORDER BY created_at DESC LIMIT 200`, userID)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ import { currentStreakUntilToday } from "@/lib/stats";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 import { motion } from "framer-motion";
 import { subjectColor } from "@/lib/colors";
+import { toast } from "sonner";
 
 const DAILY_QUOTES = [
   "The journey of a thousand miles begins with a single step.",
@@ -22,10 +23,11 @@ const DAILY_QUOTES = [
 ] as const;
 
 export default function DashboardPage() {
-  const { user, sessions, subjects, goal, getSubject } = useStore();
+  const { user, sessions, subjects, goal, getSubject, editSession, deleteSession } = useStore();
   const [timerOpen, setTimerOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [editing, setEditing] = useState<null | (typeof sessions)[number]>(null);
 
   const today = toLocalDateKey(new Date());
   const todaySessions = sessions.filter((s) => s.date === today);
@@ -104,7 +106,7 @@ export default function DashboardPage() {
             transition={{ type: "spring", stiffness: 500, damping: 28 }}
           >
             <Play className="h-4 w-4" />
-            Begin Sit
+            Begin Session
           </motion.button>
           <motion.button
             type="button"
@@ -201,7 +203,12 @@ export default function DashboardPage() {
               {recentSessions.map((session) => {
                 const subject = getSubject(session.subjectId);
                 return (
-                  <div key={session.id} className="rounded-xl bg-muted/40 p-3 transition-colors hover:bg-muted/70">
+                  <button
+                    key={session.id}
+                    type="button"
+                    onClick={() => setEditing(session)}
+                    className="w-full rounded-xl bg-muted/40 p-3 text-left transition-colors hover:bg-muted/70"
+                  >
                     <div className="flex items-start gap-3">
                     <div
                       className="w-1 self-stretch rounded-full"
@@ -219,7 +226,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -297,6 +304,27 @@ export default function DashboardPage() {
 
       <TimerModal open={timerOpen} onClose={() => setTimerOpen(false)} onRequestOpen={() => setTimerOpen(true)} />
       <LogSessionModal open={logOpen} onClose={() => setLogOpen(false)} />
+      {editing && (
+        <LogSessionModal
+          open
+          onClose={() => setEditing(null)}
+          initialSession={editing}
+          onSave={async (changes) => {
+            const ok = await editSession(editing.id, changes);
+            if (ok) {
+              toast.success("Session updated");
+              setEditing(null);
+              return;
+            }
+            toast.error("Couldn't update session. Please try again.");
+          }}
+          onDelete={() => {
+            deleteSession(editing.id);
+            toast.success("Session deleted");
+            setEditing(null);
+          }}
+        />
+      )}
       <GoalEditModal open={goalOpen} onClose={() => setGoalOpen(false)} />
     </div>
   );

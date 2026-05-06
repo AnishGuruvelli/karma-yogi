@@ -49,7 +49,7 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 			p.Get("/users/me/achievements", h.Achievements.ListMine)
 			p.Get("/users/me/study-stats", h.StudyStats.GetMine)
 			p.Get("/users/{username}/public-profile", h.Profile.GetPublicProfile)
-			p.Post("/users/public-profile/details", h.Profile.GetPublicProfileDetails)
+			p.Post("/friends/friend-profile", h.Profile.GetPublicProfileDetails)
 			p.Post("/subjects", h.Subjects.Create)
 			p.Get("/subjects", h.Subjects.List)
 			p.Patch("/subjects/{id}", h.Subjects.UpdateColor)
@@ -95,8 +95,9 @@ func simpleCORS(allowed []string) func(http.Handler) http.Handler {
 			if allowedMap[origin] {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin")
-				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client-Platform, X-App-Version")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client-Platform, X-App-Version, Cookie")
 				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -183,8 +183,22 @@ export default function PublicProfilePage() {
       }),
     [normalizedSessions, start, end],
   );
-  const totalMinutes = filteredSessions.reduce((sum, s) => sum + s.duration, 0);
-  const uniqueDays = new Set(filteredSessions.map((s) => s.date)).size;
+  // Server-precomputed daily map — accurate from first load, no pagination gaps
+  const insightsDailyMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of data?.insights?.dailyMinutes ?? []) map.set(d.dateKey, d.minutes);
+    return map;
+  }, [data?.insights?.dailyMinutes]);
+
+  const { totalMinutes, uniqueDays } = useMemo(() => {
+    let total = 0;
+    let days = 0;
+    for (const [dateKey, mins] of insightsDailyMap) {
+      const d = fromLocalDateKey(dateKey);
+      if (d >= start && d <= end) { total += mins; if (mins > 0) days++; }
+    }
+    return { totalMinutes: total, uniqueDays: days };
+  }, [insightsDailyMap, start, end]);
   const dailyAvg = uniqueDays > 0 ? totalMinutes / uniqueDays : 0;
   const longestSession = filteredSessions.length > 0 ? Math.max(...filteredSessions.map((s) => s.duration)) : 0;
   const canGoForward = offset < 0;
@@ -195,7 +209,7 @@ export default function PublicProfilePage() {
         const targetDate = new Date(start);
         targetDate.setDate(targetDate.getDate() + i);
         const dateStr = toLocalDateKey(targetDate);
-        const mins = filteredSessions.filter((s) => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
+        const mins = insightsDailyMap.get(dateStr) ?? 0;
         const isToday = dateStr === toLocalDateKey(now);
         return { name, hours: +(mins / 60).toFixed(1), minutes: mins, isToday, tooltipLabel: targetDate.toLocaleDateString("en-US") };
       });
@@ -206,7 +220,7 @@ export default function PublicProfilePage() {
         const day = i + 1;
         const targetDate = new Date(start.getFullYear(), start.getMonth(), day);
         const dateStr = toLocalDateKey(targetDate);
-        const mins = filteredSessions.filter((s) => s.date === dateStr).reduce((sum, s) => sum + s.duration, 0);
+        const mins = insightsDailyMap.get(dateStr) ?? 0;
         const isToday = dateStr === toLocalDateKey(now);
         return { name: String(day), hours: +(mins / 60).toFixed(1), minutes: mins, isToday, tooltipLabel: targetDate.toLocaleDateString("en-US") };
       });
@@ -214,16 +228,15 @@ export default function PublicProfilePage() {
     return MONTH_LABELS.map((name, i) => {
       const monthStart = new Date(start.getFullYear(), i, 1);
       const monthEnd = new Date(start.getFullYear(), i + 1, 0, 23, 59, 59, 999);
-      const mins = normalizedSessions
-        .filter((s) => {
-          const d = fromLocalDateKey(s.date);
-          return d >= monthStart && d <= monthEnd;
-        })
-        .reduce((sum, s) => sum + s.duration, 0);
+      let mins = 0;
+      for (const [dateKey, m] of insightsDailyMap) {
+        const d = fromLocalDateKey(dateKey);
+        if (d >= monthStart && d <= monthEnd) mins += m;
+      }
       const isCurrentMonth = i === now.getMonth() && start.getFullYear() === now.getFullYear();
       return { name, hours: +(mins / 60).toFixed(1), minutes: mins, isToday: isCurrentMonth, tooltipLabel: monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" }) };
     });
-  }, [mode, filteredSessions, normalizedSessions, start, now]);
+  }, [mode, insightsDailyMap, start, end, now]);
   const avgLineHours = useMemo(() => {
     if (mode === "all") {
       const activeMonths = weekBars.filter((d) => d.hours > 0).length;
@@ -232,35 +245,40 @@ export default function PublicProfilePage() {
     }
     return +(dailyAvg / 60).toFixed(2);
   }, [mode, totalMinutes, dailyAvg, weekBars]);
+  // Use server-precomputed subject breakdown — always accurate regardless of pagination
   const publicSubjectStats = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; mins: number; count: number }>();
-    for (const s of allSessions) {
-      const existing = map.get(s.subjectId) ?? { id: s.subjectId, name: s.subjectName, mins: 0, count: 0 };
-      existing.mins += s.durationMin;
-      existing.count += 1;
-      map.set(s.subjectId, existing);
-    }
-    const totalMins = [...map.values()].reduce((sum, v) => sum + v.mins, 0);
-    return [...map.values()]
-      .sort((a, b) => b.mins - a.mins)
-      .map((v) => ({ ...v, pct: totalMins ? (v.mins / totalMins) * 100 : 0, color: subjectToneFromId(v.id) as AccentKey }));
-  }, [allSessions]);
+    const breakdown = data?.insights?.subjectBreakdown ?? [];
+    const totalMins = breakdown.reduce((sum, v) => sum + v.minutes, 0);
+    // Count sessions per subject from loaded sessions (best effort; accurate when all loaded)
+    const countMap = new Map<string, number>();
+    for (const s of allSessions) countMap.set(s.subjectId, (countMap.get(s.subjectId) ?? 0) + 1);
+    return breakdown.map((v) => ({
+      id: v.subjectId,
+      name: v.subjectName,
+      mins: v.minutes,
+      count: countMap.get(v.subjectId) ?? 0,
+      pct: totalMins ? (v.minutes / totalMins) * 100 : 0,
+      color: subjectToneFromId(v.subjectId) as AccentKey,
+    }));
+  }, [data?.insights?.subjectBreakdown, allSessions]);
+
   const ratedSessions = useMemo(() => filteredSessions.filter((s) => s.moodRating > 0), [filteredSessions]);
   const avgMood = ratedSessions.length > 0 ? (ratedSessions.reduce((sum, s) => sum + s.moodRating, 0) / ratedSessions.length).toFixed(1) : "—";
   const moodLabel = Number(avgMood) >= 4 ? "Great" : Number(avgMood) >= 3 ? "Good" : Number(avgMood) >= 2 ? "Fair" : "Low";
-  const hourBuckets = Array(24).fill(0);
-  filteredSessions.forEach((s) => {
-    hourBuckets[parseInt(s.startTime.split(":")[0], 10)] += s.duration;
-  });
-  const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
-  const peakLabel = peakHour >= 21 || peakHour < 5 ? "🌙 Night Owl" : peakHour >= 5 && peakHour < 12 ? "☀️ Early Bird" : "🌤️ Afternoon Warrior";
+
+  // Use server-precomputed peak hour — always accurate regardless of pagination
+  const peakHour = data?.insights?.peakHourLocal ?? -1;
+  const peakLabel = (data?.insights?.peakHourMinutes ?? 0) === 0
+    ? null
+    : peakHour >= 21 || peakHour < 5 ? "🌙 Night Owl" : peakHour >= 5 && peakHour < 12 ? "☀️ Early Bird" : "🌤️ Afternoon Warrior";
   const maxHours = Math.max(...weekBars.map((d) => d.hours), 0.5);
 
   const subjectNameMap = useMemo(() => {
     const map = new Map<string, string>();
+    for (const s of data?.insights?.subjectBreakdown ?? []) map.set(s.subjectId, s.subjectName);
     for (const s of allSessions) map.set(s.subjectId, s.subjectName);
     return map;
-  }, [allSessions]);
+  }, [data?.insights?.subjectBreakdown, allSessions]);
   const bestSubjectByTime = useMemo(() => {
     const byId = new Map<string, number>();
     for (const s of filteredSessions) byId.set(s.subjectId, (byId.get(s.subjectId) || 0) + s.duration);
@@ -308,8 +326,8 @@ export default function PublicProfilePage() {
   }, [filteredSessions, subjectNameMap]);
   const insightsPieTotal = insightsPieData.reduce((sum, d) => sum + d.value, 0);
   const heatmapData = useMemo(() => {
-    const dailyTotals = new Map<string, number>();
-    normalizedSessions.forEach((s) => dailyTotals.set(s.date, (dailyTotals.get(s.date) || 0) + s.duration));
+    // Use server-precomputed heatmap — always accurate from first load
+    const dailyTotals = new Map<string, number>(Object.entries(data?.heatmap ?? {}));
     const startDate = new Date(heatmapYear, 0, 1);
     const endDate = new Date(heatmapYear, 11, 31);
     const days: { date: string; minutes: number; month: string; monthIndex: number; year: number; dayOfWeek: number }[] = [];
@@ -339,7 +357,7 @@ export default function PublicProfilePage() {
       return "";
     });
     return { weeks, maxMinutes, monthLabels };
-  }, [normalizedSessions, heatmapYear]);
+  }, [data?.heatmap, heatmapYear]);
 
   if (loading) {
     return <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-muted-foreground">Loading profile...</div>;
@@ -415,8 +433,9 @@ export default function PublicProfilePage() {
           </div>
 
           {tab === "overview" && data.overview && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="space-y-6 lg:col-span-2">
+            <>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-stretch">
+              <div className="flex flex-col gap-6 lg:col-span-2">
                 <Panel title="Performance Snapshot" icon={TrendingUp} eyebrow="All time">
                   <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <CompactStat
@@ -429,8 +448,8 @@ export default function PublicProfilePage() {
                     <CompactStat label="Avg mood" value={data.overview.avgMood > 0 ? data.overview.avgMood.toFixed(1) : "—"} sub="out of 5" />
                   </div>
                 </Panel>
-                <Panel title="Subject Mix" icon={BookOpen} action={<MutedHint>{publicSubjectStats.length} subjects</MutedHint>}>
-                  <div className="mt-2 space-y-4">
+                <Panel title="Subject Mix" icon={BookOpen} action={<MutedHint>{publicSubjectStats.length} subjects</MutedHint>} className="flex flex-1 flex-col min-h-0">
+                  <div className="mt-2 flex-1 min-h-[8rem] overflow-y-scroll space-y-4 pr-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
                     {publicSubjectStats.map((subject) => {
                       const palette = accent[subject.color];
                       return (
@@ -456,7 +475,7 @@ export default function PublicProfilePage() {
                   </div>
                 </Panel>
               </div>
-              <div className="space-y-6">
+              <div className="flex flex-col gap-6">
                 <Panel title="Weekly Goal" icon={Target}>
                   <div className="flex flex-col items-center pt-2 text-center">
                     <RingProgress
@@ -486,6 +505,74 @@ export default function PublicProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* Focus Heatmap */}
+            <div className="glass-card mt-6 rounded-2xl p-4 sm:p-5">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
+                <div className="flex items-center rounded-xl bg-muted p-1">
+                  {[2025, 2026].map((year) => (
+                    <button key={year} type="button" onClick={() => setHeatmapYear(year)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${heatmapYear === year ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                      style={heatmapYear === year ? { boxShadow: "var(--shadow-sm)" } : undefined}>
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="w-full overflow-x-auto overflow-y-visible">
+                <div className="min-w-[680px] sm:min-w-0">
+                  <div className="mb-2 grid grid-cols-[26px_1fr] gap-1">
+                    <div />
+                    <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px] text-[9px] text-muted-foreground">
+                      {heatmapData.monthLabels.map((label, i) => <span key={`${label}-${i}`} className="col-span-4">{label}</span>)}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-[26px_1fr] gap-1">
+                    <div className="flex flex-col justify-between py-[1px] text-[9px] text-muted-foreground">
+                      {["Mon","","Wed","","Fri","","Sun"].map((d, i) => <span key={i}>{d}</span>)}
+                    </div>
+                    <div className="grid grid-flow-col auto-cols-[minmax(0,1fr)] gap-[2px]">
+                      {heatmapData.weeks.map((week, weekIndex) => (
+                        <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-[2px]">
+                          {Array.from({ length: 7 }).map((_, dayIdx) => {
+                            const day = week[dayIdx];
+                            if (!day) return <div key={`empty-${weekIndex}-${dayIdx}`} className="aspect-square w-full" />;
+                            const ratio = day.minutes / heatmapData.maxMinutes;
+                            const emptyBg = isDark ? "oklch(0.22 0 0)" : "oklch(0.93 0 0)";
+                            const scale = isDark
+                              ? ["oklch(0.35 0.06 165)","oklch(0.48 0.11 172)","oklch(0.60 0.15 174)","oklch(0.74 0.2 178)"]
+                              : ["oklch(0.88 0.08 170)","oklch(0.78 0.12 165)","oklch(0.68 0.16 160)","oklch(0.58 0.19 155)"];
+                            let bg = emptyBg;
+                            if (day.minutes > 0 && ratio <= 0.25) bg = scale[0];
+                            else if (ratio > 0.25 && ratio <= 0.5) bg = scale[1];
+                            else if (ratio > 0.5 && ratio <= 0.75) bg = scale[2];
+                            else if (ratio > 0.75) bg = scale[3];
+                            return (
+                              <div key={day.date} className="group relative aspect-square w-full">
+                                <div className="h-full w-full rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: bg }} />
+                                <div className={`pointer-events-none absolute z-[9999] top-full mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-medium opacity-0 shadow-lg ring-1 ring-black/10 transition-opacity group-hover:opacity-100 dark:ring-white/20 ${weekIndex <= 2 ? "left-0" : weekIndex >= heatmapData.weeks.length - 3 ? "right-0" : "left-1/2 -translate-x-1/2"} bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900`}>
+                                  {formatDuration(day.minutes)} studied on {fromLocalDateKey(day.date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+                <span>Less</span>
+                {(isDark ? ["oklch(0.22 0 0)","oklch(0.35 0.06 165)","oklch(0.48 0.11 172)","oklch(0.60 0.15 174)","oklch(0.74 0.2 178)"] : ["oklch(0.93 0 0)","oklch(0.88 0.08 170)","oklch(0.78 0.12 165)","oklch(0.68 0.16 160)","oklch(0.58 0.19 155)"]).map((c) => (
+                  <span key={c} className="h-[10px] w-[10px] rounded-[2px] border border-black/5 dark:border-white/5" style={{ backgroundColor: c }} />
+                ))}
+                <span>More</span>
+              </div>
+              <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{heatmapYear} contribution-style activity</p>
+            </div>
+            </>
           )}
 
           {tab === "sessions" && (
@@ -761,10 +848,10 @@ export default function PublicProfilePage() {
   );
 }
 
-function Panel({ title, icon: Icon, eyebrow, action, children }: { title: string; icon: LucideIcon; eyebrow?: string; action?: ReactNode; children: ReactNode }) {
+function Panel({ title, icon: Icon, eyebrow, action, className, children }: { title: string; icon: LucideIcon; eyebrow?: string; action?: ReactNode; className?: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 sm:p-6" style={{ boxShadow: "var(--shadow-sm)" }}>
-      <header className="mb-4 flex items-center justify-between gap-3">
+    <section className={`rounded-2xl border border-border bg-card p-5 sm:p-6${className ? ` ${className}` : ""}`} style={{ boxShadow: "var(--shadow-sm)" }}>
+      <header className="mb-4 flex shrink-0 items-center justify-between gap-3">
         <div className="min-w-0 flex items-center gap-2.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted"><Icon className="h-3.5 w-3.5 text-foreground" /></div>
           <div className="min-w-0">
@@ -851,29 +938,4 @@ function mergeUniqueSessions(
     merged.push(session);
   }
   return merged;
-}
-
-
-function MiniStat({
-  icon: Icon,
-  value,
-  label,
-  color,
-  bg,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  value: string;
-  label: string;
-  color: string;
-  bg: string;
-}) {
-  return (
-    <div className="stat-card rounded-2xl p-4 text-center">
-      <div className={`mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${bg}`}>
-        <Icon className={`h-4 w-4 ${color}`} />
-      </div>
-      <div className="text-lg font-bold tracking-tight text-foreground">{value}</div>
-      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
-    </div>
-  );
 }

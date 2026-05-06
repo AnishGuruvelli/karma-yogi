@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,6 +24,7 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 	_ = godotenv.Load("../.env", ".env")
 	cfg, err := config.Load()
 	if err != nil {
@@ -68,9 +70,16 @@ func main() {
 	h := controller.NewHandlers(authSvc, userSvc, profileSvc, subjectSvc, sessSvc, goalSvc, examGoalSvc, insSvc, timerSvc, friendSvc, achievementSvc, studyStatsSvc)
 	router := httpx.NewRouter(h, tm, cfg.CORSAllowedOrigins)
 
-	srv := &http.Server{Addr: ":" + cfg.API.Port, Handler: router, ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{
+		Addr:              ":" + cfg.API.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	go func() {
-		log.Printf("api listening on :%s", cfg.API.Port)
+		slog.Info("api listening", "port", cfg.API.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
@@ -79,17 +88,28 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
+	slog.Info("shutting down")
 	ctxShutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctxShutdown)
+	pool.Close()
 }
 
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`); err != nil {
+		return fmt.Errorf("create schema_migrations: %w", err)
+	}
 	files, err := filepath.Glob("migrations/*.up.sql")
 	if err != nil {
 		return fmt.Errorf("loading migrations: %w", err)
 	}
 	for _, file := range files {
+		name := filepath.Base(file)
+		var exists bool
+		_ = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename=$1)`, name).Scan(&exists)
+		if exists {
+			continue
+		}
 		sqlBytes, err := os.ReadFile(file)
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", file, err)
@@ -104,6 +124,10 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 				return fmt.Errorf("apply migration %s: %w", file, err)
 			}
 		}
+		if _, err := pool.Exec(ctx, `INSERT INTO schema_migrations (filename) VALUES ($1)`, name); err != nil {
+			return fmt.Errorf("record migration %s: %w", file, err)
+		}
+		slog.Info("migration applied", "file", name)
 	}
 	return nil
 }

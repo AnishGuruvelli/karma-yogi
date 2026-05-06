@@ -1,4 +1,4 @@
-import { Component, useEffect, useState, type ErrorInfo, type FormEvent, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { StoreProvider } from "@/lib/store";
 import { TopNav } from "@/components/TopNav";
@@ -8,15 +8,16 @@ import { isNativeGoogleAuthPlatform, signInWithNativeGoogle } from "@/lib/native
 import { STANDARD_SECRET_QUESTION } from "@/lib/auth-constants";
 import { YogiIcon } from "@/components/YogiIcon";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
-import DashboardPage from "@/pages/DashboardPage";
-import SessionsPage from "@/pages/SessionsPage";
-import InsightsPage from "@/pages/InsightsPage";
-import StrategyDashboard from "@/pages/StrategyDashboard";
-import FriendsPage from "@/pages/FriendsPage";
-import DataPage from "@/pages/DataPage";
-import ProfilePage from "@/pages/ProfilePage";
-import PublicProfilePage from "@/pages/PublicProfilePage";
 import { Toaster } from "@/components/ui/sonner";
+
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const SessionsPage = lazy(() => import("@/pages/SessionsPage"));
+const InsightsPage = lazy(() => import("@/pages/InsightsPage"));
+const StrategyDashboard = lazy(() => import("@/pages/StrategyDashboard"));
+const FriendsPage = lazy(() => import("@/pages/FriendsPage"));
+const DataPage = lazy(() => import("@/pages/DataPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const PublicProfilePage = lazy(() => import("@/pages/PublicProfilePage"));
 
 declare global {
   interface Window {
@@ -75,7 +76,9 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
     const mount = document.getElementById("google-signin-button");
     if (!mount) return;
 
+    let cancelled = false;
     const render = () => {
+      if (cancelled) return;
       if (!window.google?.accounts?.id) return;
       mount.innerHTML = "";
       const buttonWidth = Math.max(240, Math.min(420, Math.floor(mount.clientWidth || 360)));
@@ -111,6 +114,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
       render();
       window.addEventListener("resize", handleResize);
       return () => {
+        cancelled = true;
         if (resizeTimer) window.clearTimeout(resizeTimer);
         window.removeEventListener("resize", handleResize);
       };
@@ -121,6 +125,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
       existing.addEventListener("load", onLoad, { once: true });
       window.addEventListener("resize", handleResize);
       return () => {
+        cancelled = true;
         if (resizeTimer) window.clearTimeout(resizeTimer);
         existing.removeEventListener("load", onLoad);
         window.removeEventListener("resize", handleResize);
@@ -134,6 +139,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
     document.head.appendChild(script);
     window.addEventListener("resize", handleResize);
     return () => {
+      cancelled = true;
       if (resizeTimer) window.clearTimeout(resizeTimer);
       window.removeEventListener("resize", handleResize);
     };
@@ -278,10 +284,11 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
             <form className="space-y-4" onSubmit={view === "login" ? submitLogin : submitRegister}>
               {view === "register" && (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Full name</label>
+                  <label htmlFor="auth-fullname" className="text-sm font-medium text-foreground">Full name</label>
                   <div className="relative">
                     <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
+                      id="auth-fullname"
                       className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                       placeholder="Arjun Sharma"
                       value={fullName}
@@ -293,10 +300,11 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Email</label>
+                <label htmlFor="auth-email" className="text-sm font-medium text-foreground">Email</label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
+                    id="auth-email"
                     className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                     type="email"
                     placeholder="you@example.com"
@@ -310,7 +318,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-sm font-medium text-foreground">Password</label>
+                  <label htmlFor="auth-password" className="text-sm font-medium text-foreground">Password</label>
                   {view === "login" && (
                     <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => { setView("reset"); setError(""); }}>
                       Forgot?
@@ -320,6 +328,7 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
+                    id="auth-password"
                     className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-10 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                     type={showPassword ? "text" : "password"}
                     placeholder={view === "register" ? "At least 8 characters" : "••••••••"}
@@ -341,10 +350,11 @@ function AuthScreen({ onAuthSuccess }: { onAuthSuccess: () => void }) {
 
               {view === "register" && (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Confirm password</label>
+                  <label htmlFor="auth-confirm-password" className="text-sm font-medium text-foreground">Confirm password</label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
+                      id="auth-confirm-password"
                       className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-10 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                       type={showConfirm ? "text" : "password"}
                       placeholder="Repeat password"
@@ -693,21 +703,20 @@ export default function App() {
         <StoreProvider>
           <TopNav onLogout={() => { void logout(); }} />
           <main className="min-h-[calc(100vh-4rem)] pb-24 sm:pb-0">
-            <AppErrorBoundary>
+            <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
               <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/sessions" element={<SessionsPage />} />
-                <Route path="/insights" element={<InsightsPage />} />
-                <Route path="/strategy-dashboard" element={<StrategyDashboard />} />
+                <Route path="/" element={<AppErrorBoundary><DashboardPage /></AppErrorBoundary>} />
+                <Route path="/sessions" element={<AppErrorBoundary><SessionsPage /></AppErrorBoundary>} />
+                <Route path="/insights" element={<AppErrorBoundary><InsightsPage /></AppErrorBoundary>} />
+                <Route path="/strategy-dashboard" element={<AppErrorBoundary><StrategyDashboard /></AppErrorBoundary>} />
                 <Route path="/strategy" element={<Navigate to="/strategy-dashboard" replace />} />
-                <Route path="/friends" element={<FriendsPage />} />
-                <Route path="/library" element={<DataPage />} />
-                <Route path="/data" element={<DataPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/profile/:userId" element={<PublicProfilePage />} />
+                <Route path="/friends" element={<AppErrorBoundary><FriendsPage /></AppErrorBoundary>} />
+                <Route path="/friends/:userId" element={<AppErrorBoundary><PublicProfilePage /></AppErrorBoundary>} />
+                <Route path="/library" element={<AppErrorBoundary><DataPage /></AppErrorBoundary>} />
+                <Route path="/profile" element={<AppErrorBoundary><ProfilePage /></AppErrorBoundary>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </AppErrorBoundary>
+            </Suspense>
           </main>
           <Toaster position="top-right" />
         </StoreProvider>

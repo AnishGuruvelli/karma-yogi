@@ -452,7 +452,7 @@ export default function FriendsPage() {
               {topSearchResults.map((u) => (
                 <Link
                   key={u.id}
-                  to={`/profile/${u.username || u.id}`}
+                  to={`/friends/${u.username || u.id}`}
                   className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-sm transition-colors hover:bg-muted/50 dark:border-slate-700 dark:bg-slate-900/70"
                 >
                   <span className="min-w-0">
@@ -561,7 +561,7 @@ export default function FriendsPage() {
                         toast.info("This is your profile");
                         return;
                       }
-                      navigate(`/profile/${entry.username || entry.userId}`);
+                      navigate(`/friends/${entry.username || entry.userId}`);
                     }}
                     className={`min-w-[240px] rounded-2xl bg-gradient-to-b ${bg} ${darkBg} p-5 text-center transition hover:opacity-95 md:min-w-0 ${isMe ? "cursor-default" : "cursor-pointer"}`}
                   >
@@ -598,7 +598,7 @@ export default function FriendsPage() {
                         toast.info("This is your profile");
                         return;
                       }
-                      navigate(`/profile/${row.username || row.userId}`);
+                      navigate(`/friends/${row.username || row.userId}`);
                     }}
                     className={`block w-full rounded-2xl p-3 text-left transition hover:opacity-95 ${isMe ? "cursor-default bg-primary/5 dark:bg-cyan-400/10" : "cursor-pointer bg-muted/30 dark:bg-slate-900/70"}`}
                   >
@@ -648,7 +648,7 @@ export default function FriendsPage() {
                     {initials(friend.name || friend.email)}
                   </div>
                     <div>
-                      <Link to={`/profile/${friend.username || friend.id}`} className="font-semibold text-foreground transition-colors hover:text-primary">
+                      <Link to={`/friends/${friend.username || friend.id}`} className="font-semibold text-foreground transition-colors hover:text-primary">
                         {friend.name || friend.email}
                       </Link>
                       <p className="text-xs text-muted-foreground">@{friend.username || "friend"}</p>
@@ -688,7 +688,7 @@ export default function FriendsPage() {
                     {initials(u.fullName || u.email)}
                   </div>
                     <div>
-                      <Link to={`/profile/${u.username || u.id}`} className="font-semibold text-foreground transition-colors hover:text-primary">
+                      <Link to={`/friends/${u.username || u.id}`} className="font-semibold text-foreground transition-colors hover:text-primary">
                         {u.fullName || u.email}
                       </Link>
                     <p className="text-xs text-muted-foreground">@{u.username || "new-user"}</p>

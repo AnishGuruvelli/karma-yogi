@@ -316,7 +316,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
 }
 
 export async function fetchPublicProfileDetails(usernameOrId: string, page = 1, limit = 20): Promise<PublicProfileDetails> {
-  const res = await request('/users/public-profile/details', { method: 'POST', body: JSON.stringify({ username: usernameOrId, page, limit }) });
+  const res = await request('/friends/friend-profile', { method: 'POST', body: JSON.stringify({ username: usernameOrId, page, limit }) });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch public profile details'));
   return (await res.json()) as BackendPublicProfileDetails;
 }

@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "cap:sync:android": "npx cap sync android",
     "cap:open:android": "npx cap open android",
-    "android:build:sync": "npm run build && npx cap sync android"
+    "android:build:sync": "npm run build && npx cap sync android",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
@@ -71,6 +74,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

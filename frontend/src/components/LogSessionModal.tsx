@@ -523,7 +523,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                       <div className="flex w-full items-center justify-between gap-2">
                         <button
                           type="button"
-                          onClick={() => bumpMinutes(-5)}
+                          onClick={() => bumpMinutes(-1)}
                           disabled={(hours ?? 0) * 60 + (minutes ?? 0) < 5}
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Decrease minutes"
@@ -549,7 +549,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                         />
                         <button
                           type="button"
-                          onClick={() => bumpMinutes(5)}
+                          onClick={() => bumpMinutes(1)}
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Increase minutes"
                         >
