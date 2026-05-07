@@ -180,15 +180,6 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     }
   }, [subjectId, sessions, subjects]);
 
-  useEffect(() => {
-    if (!open) return;
-    const { overflow: prevOverflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open]);
-
   const handleCreateSubject = async () => {
     const normalizedName = newSubjectName.trim().toUpperCase();
     if (!normalizedName) return;

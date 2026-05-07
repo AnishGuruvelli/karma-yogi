@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { fromLocalDateKey } from "@/lib/date";
 import { useHeatmapData } from "@/hooks/useHeatmapData";
@@ -25,12 +25,19 @@ interface TooltipState {
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_COL_W = 28; // px width for the day-label column
 
-export function HeatmapCard({ dailyTotals, className }: HeatmapCardProps) {
+export const HeatmapCard = memo(function HeatmapCard({ dailyTotals, className }: HeatmapCardProps) {
   const { isDark } = useStore();
   const thisYear = new Date().getFullYear();
   const years = [thisYear - 1, thisYear];
   const [year, setYear] = useState(thisYear);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLElement>, tooltipText: string) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setTooltip({ text: tooltipText, x: rect.left + rect.width / 2, y: rect.top });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => setTooltip(null), []);
   const heatmapData = useHeatmapData(dailyTotals, year);
 
   const darkScale = ["oklch(0.35 0.06 165)", "oklch(0.48 0.11 172)", "oklch(0.60 0.15 174)", "oklch(0.74 0.2 178)"];
@@ -127,15 +134,8 @@ export function HeatmapCard({ dailyTotals, className }: HeatmapCardProps) {
                       key={day.date}
                       className="w-full rounded-[2px] border border-black/5 dark:border-white/5 transition-all duration-100 hover:ring-2 hover:ring-foreground/50 hover:ring-offset-1 cursor-default"
                       style={{ aspectRatio: "1 / 1", backgroundColor: bg }}
-                      onMouseEnter={(e) => {
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        setTooltip({
-                          text: tooltipText,
-                          x: rect.left + rect.width / 2,
-                          y: rect.top,
-                        });
-                      }}
-                      onMouseLeave={() => setTooltip(null)}
+                      onMouseEnter={(e) => handleMouseEnter(e, tooltipText)}
+                      onMouseLeave={handleMouseLeave}
                     />
                   );
                 })}
@@ -178,4 +178,4 @@ export function HeatmapCard({ dailyTotals, className }: HeatmapCardProps) {
         )}
     </div>
   );
-}
+});

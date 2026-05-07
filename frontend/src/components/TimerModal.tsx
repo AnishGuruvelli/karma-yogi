@@ -14,6 +14,26 @@ import { toast } from 'sonner';
 type TimerMode = 'stopwatch' | 'pomodoro';
 type PomodoroPhase = 'focus' | 'break';
 
+// Track sessions that were already stopped locally so a server-state restore
+// after a spin-down doesn't re-open the timer and create duplicate sessions.
+const COMPLETED_STARTS_KEY = 'karma_completed_timer_starts';
+
+function markTimerCompleted(startedAtMs: number) {
+  try {
+    const raw: number[] = JSON.parse(localStorage.getItem(COMPLETED_STARTS_KEY) || '[]');
+    const fresh = raw.filter((t) => Date.now() - t < 7 * 24 * 60 * 60 * 1000);
+    fresh.push(startedAtMs);
+    localStorage.setItem(COMPLETED_STARTS_KEY, JSON.stringify(fresh.slice(-20)));
+  } catch {}
+}
+
+function isTimerCompleted(startedAtMs: number): boolean {
+  try {
+    const raw: number[] = JSON.parse(localStorage.getItem(COMPLETED_STARTS_KEY) || '[]');
+    return raw.includes(startedAtMs);
+  } catch { return false; }
+}
+
 interface TimerModalProps {
   open: boolean;
   onClose: () => void;
@@ -64,6 +84,8 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<Date | null>(null);
+  // Holds a snapshot of current state for the keep-alive ping (avoids stale closure)
+  const keepAlivePayloadRef = useRef<Parameters<typeof saveTimerState>[0] | null>(null);
 
   const computedStopwatchElapsed = (() => {
     if (!startedAtMs) return elapsed;
@@ -84,15 +106,6 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
       setSubjectId(getLastStudiedSubjectId(sessions, subjects));
     }
   }, [subjectId, sessions, subjects]);
-
-  useEffect(() => {
-    if (!open) return;
-    const { overflow: prevOverflow } = document.body.style;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open]);
 
   useEffect(() => {
     const handleVisible = () => setTickNowMs(Date.now());
@@ -121,6 +134,13 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
         const pausedValue = Boolean(state.isPaused);
         const startedValue = Boolean(state.hasStarted);
         const startedMsValue = typeof state.startedAtMs === 'number' ? state.startedAtMs : null;
+
+        // If the user already stopped this session locally (even if clearTimerState failed
+        // because the server was spinning up), don't re-open it and create a duplicate.
+        if (startedMsValue && isTimerCompleted(startedMsValue)) {
+          void clearTimerState().catch(() => {});
+          return;
+        }
         const pauseMsValue = typeof state.pauseStartedAtMs === 'number' ? state.pauseStartedAtMs : null;
         const pausedTotalMsValue = typeof state.pausedAccumMs === 'number' ? state.pausedAccumMs : 0;
         const elapsedValue = typeof state.elapsed === 'number' ? state.elapsed : 0;
@@ -214,6 +234,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
           }
         : {};
     const state = { ...baseState, ...modeState };
+    keepAlivePayloadRef.current = state;
     void saveTimerState(state).catch(() => {});
   }, [
     mode,
@@ -233,6 +254,17 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     pauseStartedAtMs,
     pausedAccumMs,
   ]);
+
+  // Keep-alive: ping server every 2 minutes during active stopwatch sessions so
+  // Render's free-tier server doesn't spin down and lose the timer state.
+  useEffect(() => {
+    if (!isRunning || !hasStarted) return;
+    const id = setInterval(() => {
+      const payload = keepAlivePayloadRef.current;
+      if (payload) void saveTimerState(payload).catch(() => {});
+    }, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isRunning, hasStarted]);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -274,6 +306,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
 
   const handleStop = () => {
     clearTimer();
+    // Mark locally before any async work so a failed clearTimerState doesn't
+    // cause the server state to re-open this session on the next page load.
+    if (startedAtMs) markTimerCompleted(startedAtMs);
     const totalSeconds =
       mode === 'stopwatch'
         ? computedStopwatchElapsed

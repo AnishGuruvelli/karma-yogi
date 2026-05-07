@@ -50,21 +50,15 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    void fetchMyAchievements()
-      .then((rows) => {
-        const next: Partial<Record<UserAchievementKey, { earned: boolean; earnedAt?: string }>> = {};
-        for (const r of rows) {
-          next[r.key] = { earned: r.earned, earnedAt: r.earnedAt };
-        }
-        setAchByKey(next);
-      })
-      .catch(() => setAchByKey({}));
-  }, [user.id, sessions.length]);
-
-  useEffect(() => {
-    void fetchMyStudyStats(browserTz)
-      .then(setStudyStats)
-      .catch(() => setStudyStats(null));
+    void Promise.all([fetchMyAchievements(), fetchMyStudyStats(browserTz)]).then(([rows, stats]) => {
+      const next: Partial<Record<UserAchievementKey, { earned: boolean; earnedAt?: string }>> = {};
+      for (const r of rows) next[r.key] = { earned: r.earned, earnedAt: r.earnedAt };
+      setAchByKey(next);
+      setStudyStats(stats);
+    }).catch(() => {
+      setAchByKey({});
+      setStudyStats(null);
+    });
   }, [user.id, sessions.length, browserTz]);
 
   useEffect(() => {

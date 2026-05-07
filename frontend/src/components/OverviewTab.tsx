@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { TrendingUp, BookOpen, Target, Award } from "lucide-react";
 import { Panel, CompactStat, MutedHint, RingProgress } from "@/components/StatsPanel";
 import { HeatmapCard } from "@/components/HeatmapCard";
@@ -23,7 +24,7 @@ export type OverviewSubject = {
   pct: number;
 };
 
-export function OverviewTab({
+export const OverviewTab = memo(function OverviewTab({
   snapshot,
   subjects,
   dailyTotals,
@@ -123,4 +124,4 @@ export function OverviewTab({
       <HeatmapCard dailyTotals={dailyTotals} className="mt-6" />
     </>
   );
-}
+});

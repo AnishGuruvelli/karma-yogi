@@ -26,13 +26,6 @@ function readInitialDarkMode(): boolean {
   }
 }
 
-interface TimerState {
-  isRunning: boolean;
-  elapsed: number;
-  subjectId: string | null;
-  topic: string;
-}
-
 export type ThemeName = "sky" | "honey" | "forest" | "blossom" | "ember";
 
 interface StoreContextType {
@@ -40,7 +33,6 @@ interface StoreContextType {
   sessions: Session[];
   goal: Goal;
   user: UserProfile;
-  timer: TimerState;
   addSubject: (name: string, color: string) => Promise<Subject | null>;
   updateSubjectColor: (id: string, color: string) => Promise<boolean>;
   deleteSubject: (id: string) => void;
@@ -48,9 +40,6 @@ interface StoreContextType {
   deleteSession: (id: string) => void;
   editSession: (id: string, changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => Promise<boolean>;
   updateGoal: (targetHours: number) => void;
-  startTimer: (subjectId: string, topic: string) => void;
-  stopTimer: () => Session | null;
-  resetTimer: () => void;
   getSubject: (id: string) => Subject | undefined;
   isDark: boolean;
   toggleTheme: () => void;
@@ -60,7 +49,7 @@ interface StoreContextType {
   setExamGoal: (name: string, date: string) => Promise<void>;
   clearExamGoal: () => Promise<void>;
   updateUserProfile: (payload: { name: string; username: string; phone: string }) => Promise<void>;
-  reloadStoreData: () => Promise<void>;
+  reloadStoreData: (force?: boolean) => Promise<void>;
   /** True while initial or explicit store refresh (parallel /users + data APIs) is in flight. */
   dataLoading: boolean;
   /** Wrap saves + refetches so the loading splash covers the whole sequence (nested with reloadStoreData is OK). */
@@ -83,7 +72,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(readInitialDarkMode);
   const [theme, setThemeState] = useState<ThemeName>("blossom");
   const [examGoal, setExamGoalState] = useState<ExamGoal | null>(null);
-  const [timer, setTimer] = useState<TimerState>({ isRunning: false, elapsed: 0, subjectId: null, topic: '' });
   const [profileMeta, setProfileMeta] = useState<UserPublicProfile>({ userId: '', bio: '', location: '', education: '', occupation: '', targetExam: '', targetCollege: '' });
   const [preferences, setPreferences] = useState<UserPreferences>({
     userId: '', preferredStudyTime: '', defaultSessionMinutes: 50, breakMinutes: 10, pomodoroCycles: 4, studyLevel: '', weeklyGoalHours: 20,
@@ -92,8 +80,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   });
   const [privacy, setPrivacy] = useState<UserPrivacySettings>({ userId: '', profilePublic: true, showStats: true, showLeaderboard: true });
   const [dataLoadCount, setDataLoadCount] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timerStartRef = useRef<Date | null>(null);
+  const lastReloadRef = useRef<number>(0);
 
   const wrapWithDataLoading = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
     setDataLoadCount((n) => n + 1);
@@ -104,7 +91,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const reloadStoreData = useCallback(async () => {
+  const reloadStoreData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastReloadRef.current < 5000) return;
+    lastReloadRef.current = now;
     setDataLoadCount((n) => n + 1);
     try {
       await ensureDevAuth();
@@ -154,13 +144,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     root.add(`theme-${theme}`);
     localStorage.setItem('karma_theme_name', theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (timer.isRunning) {
-      timerRef.current = setInterval(() => setTimer((prev) => ({ ...prev, elapsed: prev.elapsed + 1 })), 1000);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [timer.isRunning]);
 
   const addSubject = useCallback(async (name: string, color: string): Promise<Subject | null> => {
     try {
@@ -265,42 +248,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const startTimer = useCallback((subjectId: string, topic: string) => {
-    timerStartRef.current = new Date();
-    setTimer({ isRunning: true, elapsed: 0, subjectId, topic });
-  }, []);
-
-  const stopTimer = useCallback((): Session | null => {
-    if (!timer.subjectId || !timerStartRef.current) return null;
-    const duration = Math.round(timer.elapsed / 60);
-    if (duration < 1) {
-      setTimer({ isRunning: false, elapsed: 0, subjectId: null, topic: '' });
-      return null;
-    }
-    const now = new Date();
-    const startTime = timerStartRef.current;
-    const session: Omit<Session, 'id'> = {
-      subjectId: timer.subjectId,
-      topic: timer.topic,
-      duration,
-      startTime: `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`,
-      endTime: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
-      date: toLocalDateKey(now),
-      moodRating: 3,
-      isManualLog: false,
-    };
-    addSession(session);
-    const newSession = { ...session, id: `sess${Date.now()}` };
-    setTimer({ isRunning: false, elapsed: 0, subjectId: null, topic: '' });
-    timerStartRef.current = null;
-    return newSession;
-  }, [timer, addSession]);
-
-  const resetTimer = useCallback(() => {
-    setTimer({ isRunning: false, elapsed: 0, subjectId: null, topic: '' });
-    timerStartRef.current = null;
-  }, []);
-
   const getSubject = useCallback((id: string) => subjects.find((s) => s.id === id), [subjects]);
   const toggleTheme = useCallback(() => {
     setIsDark((prev) => {
@@ -344,10 +291,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   return (
     <StoreContext.Provider value={{
-      subjects, sessions, goal, user, timer,
+      subjects, sessions, goal, user,
       addSubject, deleteSubject, addSession, deleteSession,
       updateSubjectColor,
-      updateGoal, startTimer, stopTimer, resetTimer, getSubject, editSession,
+      updateGoal, getSubject, editSession,
       isDark, toggleTheme, theme, setTheme, examGoal, setExamGoal, clearExamGoal, updateUserProfile, reloadStoreData,
       dataLoading, wrapWithDataLoading,
       profileMeta, preferences, privacy, saveProfileMeta, savePreferences, savePrivacy,

@@ -162,37 +162,42 @@ Then in Android Studio: **Gradle sync → select device → Run `app`**.
 
 ## 11. Building for the Play Store (production release)
 
-### 11a. Set the production API URL
-
-The Play Store APK/AAB must point to the **live Render backend**, not localhost.
-
-In the root `.env` (or a separate `.env.production` if you prefer), set:
-
-```
-VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api/v1
-VITE_CLIENT_PLATFORM=android
-VITE_GOOGLE_CLIENT_ID=<your-google-client-id>
-```
-
-Then build and sync:
+### All commands to build the AAB
 
 ```bash
+# 1. Go to frontend
 cd frontend
-npm run android:build:sync
+
+# 2. Build web assets pointing at the live backend
+VITE_API_BASE_URL=https://karma-yogi.onrender.com/api/v1 npm run build
+
+# 3. Sync into the Android project
+npx cap sync android
+
+# 4. Open Android Studio
+npm run cap:open:android
 ```
 
-Or as a one-liner without touching `.env`:
+Then in Android Studio:
+**Build → Generate Signed Bundle / APK → Android App Bundle → select keystore → release → Finish**
+
+The `.aab` file lands at `frontend/android/app/release/app-release.aab`.
+
+---
+
+### 11a. First time only — generate a signing keystore
+
+Play Store requires a signed AAB. Run this once and **back up the `.keystore` file somewhere safe** — losing it means you can never update the app.
 
 ```bash
-VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api/v1 npm run build
-npx cap sync android
+keytool -genkey -v \
+  -keystore karma-yogi-release.keystore \
+  -alias karma-yogi \
+  -keyalg RSA -keysize 2048 -validity 10000
 ```
-
-Every API call baked into the bundle will now hit Render. ✅
 
 > **Testing a debug APK on your phone before publishing?**
-> Use the same Render URL — it works over any network and is the simplest option.
-> Alternatively, use your Mac's LAN IP (see the table in section 2) if you need a local backend.
+> Use the same Render URL above — it works over any network.
 
 ---
 

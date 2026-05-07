@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Play, Search, Square, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
@@ -76,6 +76,15 @@ function getWeekRange(weekOffset = 0, now = new Date()): { start: Date; endExclu
   };
 }
 
+const LiveTimerDisplay = memo(function LiveTimerDisplay({ startedAtMs }: { startedAtMs: number }) {
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - startedAtMs) / 1000));
+  useEffect(() => {
+    const id = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAtMs) / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, [startedAtMs]);
+  return <>{new Date(elapsed * 1000).toISOString().slice(14, 19)}</>;
+});
+
 const durationPresets = [30, 45, 60, 90, 120];
 const tabStyle =
   "rounded-full px-4 py-1.5 text-sm font-semibold transition border border-transparent dark:text-slate-300";
@@ -107,7 +116,6 @@ export default function FriendsPage() {
   const [topic, setTopic] = useState("");
   const [durationMin, setDurationMin] = useState(60);
   const [liveStartedAtMs, setLiveStartedAtMs] = useState<number | null>(null);
-  const [liveElapsedSec, setLiveElapsedSec] = useState(0);
   const [friendTimerRestored, setFriendTimerRestored] = useState(false);
   const baseLoadRequestRef = useRef(0);
   const leaderboardLoadRequestRef = useRef(0);
@@ -122,14 +130,6 @@ export default function FriendsPage() {
     [search, users],
   );
   const topSearchResults = useMemo(() => users.filter((u) => matchesUserSearch(u, search)).slice(0, 8), [search, users]);
-
-  useEffect(() => {
-    if (!liveStartedAtMs) return;
-    const id = window.setInterval(() => {
-      setLiveElapsedSec(Math.floor((Date.now() - liveStartedAtMs) / 1000));
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [liveStartedAtMs]);
 
   useEffect(() => {
     if (friendTimerRestored) return;
@@ -164,11 +164,6 @@ export default function FriendsPage() {
         setDurationMin(typeof state.durationMin === "number" ? state.durationMin : 60);
         const startedMs = restoredSessionMode === "live" && typeof state.startedAtMs === "number" ? state.startedAtMs : null;
         setLiveStartedAtMs(startedMs);
-        if (startedMs) {
-          setLiveElapsedSec(Math.max(0, Math.floor((Date.now() - startedMs) / 1000)));
-        } else {
-          setLiveElapsedSec(0);
-        }
       })
       .catch(() => {});
     return () => {
@@ -261,7 +256,6 @@ export default function FriendsPage() {
     setTopic("");
     setDurationMin(60);
     setLiveStartedAtMs(null);
-    setLiveElapsedSec(0);
   };
 
   const openSessionModal = (preselectedFriendId?: string) => {
@@ -344,15 +338,6 @@ export default function FriendsPage() {
     }).catch(() => {});
   }, [showSessionModal, sessionMode, liveStartedAtMs, friendIds, useDifferentSubjects, friendPlans, subjectName, topic, durationMin]);
 
-  useEffect(() => {
-    if (!showSessionModal) return;
-    const { overflow: prevOverflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [showSessionModal]);
-
   const createSession = async (payload: { duration: number; startedAt: string }) => {
     if (!subjectName.trim()) throw new Error("Subject is required");
     if (!topic.trim()) throw new Error("Topic is required");
@@ -401,11 +386,10 @@ export default function FriendsPage() {
         return;
       }
       setLiveStartedAtMs(startedAtMs);
-      setLiveElapsedSec(0);
       return;
     }
 
-    const minutes = Math.max(1, Math.round(liveElapsedSec / 60));
+    const minutes = Math.max(1, Math.round((Date.now() - liveStartedAtMs) / 1000 / 60));
     try {
       await createSession({ duration: minutes, startedAt: new Date(liveStartedAtMs).toISOString() });
       await clearTimerState().catch(() => {});
@@ -1051,7 +1035,7 @@ export default function FriendsPage() {
               <div className="mb-4 rounded-2xl border border-border bg-muted/20 p-4 text-center">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ready to start</p>
                 <p className="font-mono text-5xl font-bold tracking-tight text-foreground">
-                  {new Date(liveElapsedSec * 1000).toISOString().slice(14, 19)}
+                  {liveStartedAtMs ? <LiveTimerDisplay startedAtMs={liveStartedAtMs} /> : "00:00"}
                 </p>
                 {selectedFriends.length > 0 && (
                   <p className="mt-1 text-xs text-muted-foreground">

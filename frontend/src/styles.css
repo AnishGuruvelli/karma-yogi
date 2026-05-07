@@ -553,21 +553,18 @@
   body {
     background-color: var(--color-background);
     background-image:
-      radial-gradient(circle at center, color-mix(in oklch, var(--foreground) 18%, transparent) 1px, transparent 1.5px),
       radial-gradient(45rem 32rem at 8% -6%, color-mix(in oklch, var(--neon-pink) 22%, transparent), transparent 62%),
       radial-gradient(55rem 38rem at 105% 0%, color-mix(in oklch, var(--neon-orange) 24%, transparent), transparent 60%),
       radial-gradient(50rem 40rem at 100% 105%, color-mix(in oklch, var(--neon-purple) 20%, transparent), transparent 62%),
-      radial-gradient(46rem 34rem at -8% 95%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 62%),
-      radial-gradient(38rem 28rem at 50% 50%, color-mix(in oklch, var(--neon-cyan) 12%, transparent), transparent 70%),
       linear-gradient(
         180deg,
         color-mix(in oklch, var(--neon-orange) 5%, var(--background)) 0%,
         var(--background) 45%,
         color-mix(in oklch, var(--primary) 6%, var(--background)) 100%
       );
-    background-size: 22px 22px, auto, auto, auto, auto, auto, auto;
-    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
-    background-attachment: fixed;
+    background-size: auto, auto, auto, auto;
+    background-position: 0 0, 0 0, 0 0, 0 0;
+    background-attachment: scroll;
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -701,21 +698,15 @@
 
   /* Log Session modal — frosted sage glass (matches design reference) */
   .log-session-modal-backdrop {
-    background: color-mix(in oklch, var(--foreground) 38%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+  background: color-mix(in oklch, var(--background) 82%, black 18%);
   }
 
   .dark .log-session-modal-backdrop {
-    background: color-mix(in oklch, oklch(0.08 0.02 145) 72%, transparent);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+  background: color-mix(in oklch, var(--background) 88%, black 12%);
   }
 
   .log-session-modal-panel {
-    background: color-mix(in oklch, var(--card) 80%, var(--neon-green) 12%);
-    backdrop-filter: blur(22px);
-    -webkit-backdrop-filter: blur(22px);
+  background: var(--card);
     border: 1px solid color-mix(in oklch, var(--neon-green) 28%, var(--border));
     box-shadow:
       var(--shadow-xl),
@@ -723,7 +714,7 @@
   }
 
   .dark .log-session-modal-panel {
-    background: color-mix(in oklch, var(--card) 72%, var(--neon-green) 8%);
+  background: var(--card);
     box-shadow: var(--shadow-xl);
   }
 
