@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { X } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface GoalEditModalProps {
   open: boolean;
@@ -10,7 +11,7 @@ interface GoalEditModalProps {
 export function GoalEditModal({ open, onClose }: GoalEditModalProps) {
   const { goal, updateGoal } = useStore();
   const [targetHours, setTargetHours] = useState(goal.targetHours);
-
+  useBodyScrollLock(open);
   if (!open) return null;
 
   const handleSave = () => {

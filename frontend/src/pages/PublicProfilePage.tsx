@@ -379,7 +379,9 @@ export default function PublicProfilePage() {
           <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur sm:grid-cols-3 lg:grid-cols-5">
             <HeroMetric icon={Flame} color="orange" label="Current streak" value={data.overview.currentStreakDays} unit="days" />
             <HeroMetric icon={Zap} color="pink" label="Max streak" value={data.overview.maxStreakDays} unit="days" />
-            <HeroMetric icon={Clock} color="cyan" label="Total focus" value={(data.overview.totalMinutes / 60).toFixed(1)} unit="hours" />
+            <div className="col-span-2 sm:col-span-1">
+              <HeroMetric icon={Clock} color="cyan" label="Total focus" value={(data.overview.totalMinutes / 60).toFixed(1)} unit="hours" wide />
+            </div>
             <HeroMetric icon={Trophy} color="purple" label="Sessions" value={data.overview.totalSessions} unit="logged" />
             <HeroMetric icon={Users} color="green" label="Friends" value={data.overview.friendCount} unit="connected" />
           </div>

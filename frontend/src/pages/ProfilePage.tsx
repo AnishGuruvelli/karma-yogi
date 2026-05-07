@@ -332,7 +332,9 @@ export default function ProfilePage() {
           <div className="relative mt-8 grid grid-cols-2 gap-2 rounded-2xl border border-border/70 bg-background/40 p-2 backdrop-blur sm:grid-cols-3 lg:grid-cols-5">
             <HeroMetric icon={Flame} color="orange" label="Current streak" value={currentStreak} unit="days" />
             <HeroMetric icon={Zap} color="pink" label="Max streak" value={maxStreak} unit="days" />
-            <HeroMetric icon={Clock} color="cyan" label="Total focus" value={totalHours.toFixed(1)} unit="hours" />
+            <div className="col-span-2 sm:col-span-1">
+              <HeroMetric icon={Clock} color="cyan" label="Total focus" value={totalHours.toFixed(1)} unit="hours" wide />
+            </div>
             <HeroMetric icon={Trophy} color="purple" label="Sessions" value={snapSessions} unit="logged" />
             <HeroMetric icon={Users} color="green" label="Friends" value={friendCount} unit="connected" />
           </div>

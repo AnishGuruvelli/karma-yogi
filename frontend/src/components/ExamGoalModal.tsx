@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { format } from "date-fns";
 import { CalendarIcon, X, ArrowLeft } from "lucide-react";
 import { z } from "zod";
@@ -16,6 +17,7 @@ const PRESETS = ["CAT", "XAT", "GMAT", "GRE", "CUET", "NMAT"];
 const nameSchema = z.string().trim().min(1, "Name required").max(40, "Too long");
 
 export function ExamGoalModal({ open, onClose }: Props) {
+  useBodyScrollLock(open);
   const { examGoal, setExamGoal } = useStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");

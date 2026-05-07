@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Play, Search, Square, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
@@ -97,6 +98,7 @@ export default function FriendsPage() {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
   const [showSessionModal, setShowSessionModal] = useState(false);
+  useBodyScrollLock(showSessionModal);
   const [sessionMode, setSessionMode] = useState<SessionMode>("past");
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [useDifferentSubjects, setUseDifferentSubjects] = useState(false);

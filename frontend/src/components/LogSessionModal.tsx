@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { MOOD_EMOJIS } from "@/lib/types";
 import { Calendar as CalendarIcon, X, Minus, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,6 +80,7 @@ interface LogSessionModalProps {
 const labelClass = "mb-1.5 block text-sm font-medium text-muted-foreground";
 
 export function LogSessionModal({ open, onClose, initialSession, onSave, onDelete }: LogSessionModalProps) {
+  useBodyScrollLock(open);
   const { subjects, sessions, addSession, addSubject } = useStore();
   const [subjectId, setSubjectId] = useState(() => getLastStudiedSubjectId(sessions, subjects));
   const [topic, setTopic] = useState(initialSession?.topic || "");

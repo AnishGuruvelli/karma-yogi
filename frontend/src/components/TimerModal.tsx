@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { clearTimerState, fetchTimerState, saveTimerState, startTimerFromServer } from '@/lib/api';
 import { toLocalDateKey } from '@/lib/date';
@@ -25,6 +26,7 @@ const labelClass = "mb-1.5 block text-sm font-medium text-muted-foreground";
 const MOOD_EMOJIS = ['😞', '😐', '🙂', '😄', '🤩'] as const;
 
 export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
+  useBodyScrollLock(open);
   const { subjects, sessions, addSession, addSubject } = useStore();
   const [subjectId, setSubjectId] = useState(() => getLastStudiedSubjectId(sessions, subjects));
   const [topic, setTopic] = useState('');

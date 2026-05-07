@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { StudyCalendar } from '@/components/StudyCalendar';
 import type { Session } from '@/lib/types';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CalendarModalProps {
   open: boolean;
@@ -9,6 +10,7 @@ interface CalendarModalProps {
 }
 
 export function CalendarModal({ open, onClose, sessions }: CalendarModalProps) {
+  useBodyScrollLock(open);
   if (!open) return null;
 
   return (

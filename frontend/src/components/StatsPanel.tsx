@@ -53,19 +53,42 @@ export function MutedHint({ children }: { children: ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
-export function HeroMetric({ icon: Icon, color, label, value, unit }: { icon: LucideIcon; color: AccentKey; label: string; value: string | number; unit: string }) {
+export function HeroMetric({ icon: Icon, color, label, value, unit, wide }: { icon: LucideIcon; color: AccentKey; label: string; value: string | number; unit: string; wide?: boolean }) {
   const c = accent[color];
+  if (wide) {
+    return (
+      <div className="flex h-full items-center justify-center gap-3 rounded-xl border border-border/60 bg-card/45 px-4 py-3 sm:justify-start sm:py-3.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: c.tint }}>
+          <Icon className="h-[18px] w-[18px]" style={{ color: c.fg }} />
+        </div>
+        {/* mobile: all on one centered line */}
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:hidden">
+          {label}
+          <span className="ml-2 text-xl font-bold text-foreground">{value}</span>
+          <span className="ml-1 text-xs font-medium text-muted-foreground">{unit}</span>
+        </p>
+        {/* sm+: normal stacked layout */}
+        <div className="hidden min-w-0 sm:block">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+          <div className="mt-1 flex min-w-0 items-baseline gap-1">
+            <span className="shrink-0 text-xl font-bold leading-tight text-foreground sm:text-2xl">{value}</span>
+            <span className="truncate text-xs font-medium text-muted-foreground">{unit}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex h-full items-center gap-3 rounded-xl border border-border/60 bg-card/45 px-4 py-3 sm:px-4 sm:py-3.5">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: c.tint }}>
         <Icon className="h-[18px] w-[18px]" style={{ color: c.fg }} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 overflow-hidden">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-xl font-bold leading-tight text-foreground sm:text-2xl">
-          <span className="break-words">{value}</span>
-          <span className="ml-1 inline-block text-xs font-medium text-muted-foreground">{unit}</span>
-        </p>
+        <div className="mt-1 flex min-w-0 items-baseline gap-1">
+          <span className="shrink-0 text-xl font-bold leading-tight text-foreground sm:text-2xl">{value}</span>
+          <span className="truncate text-xs font-medium text-muted-foreground">{unit}</span>
+        </div>
       </div>
     </div>
   );
