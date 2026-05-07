@@ -158,6 +158,80 @@ Then in Android Studio: **Gradle sync → select device → Run `app`**.
 
 ---
 
+---
+
+## 11. Building for the Play Store (production release)
+
+### 11a. Set the production API URL
+
+The Play Store APK/AAB must point to the **live Render backend**, not localhost.
+
+In the root `.env` (or a separate `.env.production` if you prefer), set:
+
+```
+VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api/v1
+VITE_CLIENT_PLATFORM=android
+VITE_GOOGLE_CLIENT_ID=<your-google-client-id>
+```
+
+Then build and sync:
+
+```bash
+cd frontend
+npm run android:build:sync
+```
+
+Or as a one-liner without touching `.env`:
+
+```bash
+VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api/v1 npm run build
+npx cap sync android
+```
+
+Every API call baked into the bundle will now hit Render. ✅
+
+> **Testing a debug APK on your phone before publishing?**
+> Use the same Render URL — it works over any network and is the simplest option.
+> Alternatively, use your Mac's LAN IP (see the table in section 2) if you need a local backend.
+
+---
+
+### 11b. Generate a signing keystore (one-time)
+
+Play Store requires a signed AAB. Create a keystore and **back it up somewhere safe** — losing it means you can never update the app.
+
+```bash
+keytool -genkey -v \
+  -keystore karma-yogi-release.keystore \
+  -alias karma-yogi \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Store the `.keystore` file **outside** the repo (never commit it).
+
+---
+
+### 11c. Build the signed AAB in Android Studio
+
+1. Open the project: `npm run cap:open:android`
+2. **Build → Generate Signed Bundle / APK**
+3. Choose **Android App Bundle**
+4. Fill in your keystore path, alias, and passwords
+5. Select **release** build variant
+6. Click **Finish** — the `.aab` file is output to `frontend/android/app/release/`
+
+---
+
+### 11d. Publish to Google Play
+
+1. Go to [play.google.com/console](https://play.google.com/console) (one-time $25 developer account fee)
+2. **Create app** → fill in name, category, and store listing (description, screenshots, icon)
+3. Go to **Production → Releases → Create release**
+4. Upload the `.aab` file
+5. Submit for review — typically 1–3 days for new apps
+
+---
+
 ## Reference
 
 - **Application ID / namespace:** `com.karmayogi.app`
