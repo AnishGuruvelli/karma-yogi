@@ -130,6 +130,13 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   };
 
   useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
     if (!open) {
       initDoneRef.current = false;
       return;
@@ -261,6 +268,8 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
           transition={{ duration: 0.2, ease: "easeOut" }}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
             className="glass-modal mt-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,760px)] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
             initial={{ y: 88, opacity: 0.92, scale: 0.98 }}

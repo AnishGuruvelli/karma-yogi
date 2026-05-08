@@ -40,9 +40,13 @@ test.describe("Dashboard - Strategy Page", () => {
     await expect(page.locator("body")).not.toContainText("Something went wrong");
   });
 
-  test("/strategy redirects to /strategy-dashboard", async ({ page }) => {
+  test("/strategy redirects away from /strategy (redirect fires)", async ({ page }) => {
     await loginAs(page);
     await page.goto("/strategy");
-    await expect(page).toHaveURL("/strategy-dashboard");
+    // The route <Navigate to="/strategy-dashboard" replace /> fires; the user
+    // may then be redirected to "/" if showStrategyPage is off — either way
+    // the URL should never stay at "/strategy".
+    await page.waitForFunction(() => !window.location.pathname.startsWith("/strategy") || window.location.pathname.startsWith("/strategy-dashboard"), { timeout: 8_000 });
+    expect(page.url()).not.toBe("http://localhost:8081/strategy");
   });
 });

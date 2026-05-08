@@ -41,9 +41,9 @@ test.describe("Authentication", () => {
     await page.goto("/");
     await page.waitForSelector('[id="auth-email"]', { timeout: 10_000 });
     await expect(page.locator('[id="auth-fullname"]')).not.toBeVisible();
-    await page.click('text=Create an account');
+    await page.locator('button:has-text("Create an account")').click();
     await expect(page.locator('[id="auth-fullname"]')).toBeVisible();
-    await page.click('text=Sign in');
+    await page.locator('button[type="button"]:has-text("Sign in")').click();
     await expect(page.locator('[id="auth-fullname"]')).not.toBeVisible();
   });
 

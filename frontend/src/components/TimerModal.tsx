@@ -438,6 +438,8 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
           }}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
             className="glass-modal mt-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:rounded-2xl"
             initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}

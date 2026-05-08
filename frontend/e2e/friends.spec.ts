@@ -15,7 +15,7 @@ test.describe("Friends", () => {
   test("friends tabs are visible", async ({ page }) => {
     await page.waitForLoadState("networkidle");
     // Should have tabs for leaderboard, friends, discover, requests
-    const tabLabels = ["Friends", "Discover", "Requests"];
+    const tabLabels = ["My Friends", "Discover", "Requests"];
     for (const label of tabLabels) {
       await expect(page.locator(`button:has-text("${label}")`).first()).toBeVisible({ timeout: 8_000 });
     }

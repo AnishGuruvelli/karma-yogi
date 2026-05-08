@@ -8,8 +8,8 @@ test.describe("Navigation", () => {
 
   test("dashboard loads after login", async ({ page }) => {
     await expect(page).toHaveURL("/");
-    // Top nav should be visible
-    await expect(page.locator("nav")).toBeVisible();
+    // Top nav should be visible (use first() — there are 2 navs: desktop + mobile)
+    await expect(page.locator("nav").first()).toBeVisible();
   });
 
   test("all nav items are present", async ({ page }) => {
@@ -20,7 +20,7 @@ test.describe("Navigation", () => {
   });
 
   test("navigates to Sessions page", async ({ page }) => {
-    await page.click('text=Sessions');
+    await page.locator('a[href="/sessions"]').first().click();
     await expect(page).toHaveURL("/sessions");
   });
 
@@ -40,7 +40,7 @@ test.describe("Navigation", () => {
   });
 
   test("navigates to Profile page", async ({ page }) => {
-    await page.click('text=Profile');
+    await page.locator('a[href="/profile"]').first().click();
     await expect(page).toHaveURL("/profile");
   });
 
@@ -66,7 +66,8 @@ test.describe("Navigation", () => {
   test("dark mode toggle works", async ({ page }) => {
     const html = page.locator("html");
     const initialClass = await html.getAttribute("class") ?? "";
-    await page.click('[aria-label*="theme"], button:has(svg.lucide-moon), button:has(svg.lucide-sun)');
+    // Use exact aria-label to avoid matching the "Choose theme palette" button
+    await page.locator('button[aria-label="Toggle theme"]').first().click();
     await page.waitForTimeout(300);
     const newClass = await html.getAttribute("class") ?? "";
     // Class should have changed (dark mode toggled)

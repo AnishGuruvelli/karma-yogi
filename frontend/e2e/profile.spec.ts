@@ -14,7 +14,12 @@ test.describe("Profile", () => {
 
   test("profile edit fields are present", async ({ page }) => {
     await page.waitForLoadState("networkidle");
-    // Should have some form inputs for editing profile
+    // Navigate to Account tab via the tab pills
+    await page.locator('button:has-text("Account")').first().click();
+    await page.waitForTimeout(300);
+    // Click the panel "Edit" button (exact text "Edit", not "Edit profile")
+    const editBtn = page.locator('button').filter({ hasText: /^\s*Edit\s*$/ });
+    await editBtn.first().click();
     await expect(page.locator("input, textarea").first()).toBeVisible({ timeout: 8_000 });
   });
 });

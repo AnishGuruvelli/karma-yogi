@@ -15,7 +15,7 @@ test.describe("Insights", () => {
 
   test("heatmap section is visible", async ({ page }) => {
     await page.waitForLoadState("networkidle");
-    await expect(page.locator('text=Focus Heatmap, text=Heatmap').first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('text=Focus Heatmap').first()).toBeVisible({ timeout: 8_000 });
   });
 
   test("week selector works", async ({ page }) => {
