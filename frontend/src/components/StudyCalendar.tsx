@@ -4,10 +4,9 @@ import type { Session } from '@/lib/types';
 
 interface StudyCalendarProps {
   sessions: Session[];
-  monthsToShow?: number;
 }
 
-export function StudyCalendar({ sessions, monthsToShow = 6 }: StudyCalendarProps) {
+export function StudyCalendar({ sessions }: StudyCalendarProps) {
   const todayRef = useRef<HTMLDivElement | null>(null);
   const today = useMemo(() => new Date(), []);
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -20,12 +19,25 @@ export function StudyCalendar({ sessions, monthsToShow = 6 }: StudyCalendarProps
 
   const months = useMemo(() => {
     const result: { year: number; month: number; label: string }[] = [];
-    for (let i = monthsToShow - 1; i >= 0; i -= 1) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const firstSessionDate = sessions.reduce<Date | null>((earliest, session) => {
+      const sessionDate = new Date(session.date);
+      if (Number.isNaN(sessionDate.getTime())) return earliest;
+      return earliest === null || sessionDate < earliest ? sessionDate : earliest;
+    }, null);
+
+    const start = firstSessionDate
+      ? new Date(firstSessionDate.getFullYear(), firstSessionDate.getMonth(), 1)
+      : new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    let cursor = new Date(start);
+    while (cursor <= end) {
+      const d = new Date(cursor);
       result.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
     return result;
-  }, [monthsToShow, today]);
+  }, [sessions, today]);
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfWeek = (year: number, month: number) => {
