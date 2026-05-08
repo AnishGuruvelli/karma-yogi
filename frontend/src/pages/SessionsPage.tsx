@@ -14,7 +14,7 @@ export default function SessionsPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [editing, setEditing] = useState<null | (typeof sessions)[number]>(null);
   const [page, setPage] = useState(1);
-  const pageSize = 18;
+  const pageSize = 30;
 
   const formatDuration = (m: number) => {
     if (m >= 60) {
