@@ -107,6 +107,16 @@ func (s *SubjectService) List(ctx context.Context, userID string) ([]domain.Subj
 func (s *SubjectService) UpdateColor(ctx context.Context, userID, id, color string) (domain.Subject, error) {
 	return s.repo.UpdateColor(ctx, id, userID, color)
 }
+func (s *SubjectService) Update(ctx context.Context, userID, id, name, color, icon string) (domain.Subject, error) {
+	name = strings.TrimSpace(strings.ToUpper(name))
+	if name == "" {
+		return domain.Subject{}, errors.New("name is required")
+	}
+	if icon == "" {
+		icon = "📘"
+	}
+	return s.repo.Update(ctx, id, userID, name, color, icon)
+}
 func (s *SubjectService) Delete(ctx context.Context, userID, id string) error {
 	return s.repo.Delete(ctx, id, userID)
 }

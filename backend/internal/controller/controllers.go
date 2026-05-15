@@ -439,18 +439,30 @@ func (h *SubjectHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *SubjectHandler) UpdateColor(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	var req struct {
+		Name  string `json:"name"`
 		Color string `json:"color"`
+		Icon  string `json:"icon"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	sub, err := h.svc.UpdateColor(r.Context(), claims.UserID, chi.URLParam(r, "id"), req.Color)
+	// Full update when name is provided; color-only patch otherwise (backward compat)
+	if req.Name != "" {
+		s, err := h.svc.Update(r.Context(), claims.UserID, chi.URLParam(r, "id"), req.Name, req.Color, req.Icon)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, s)
+		return
+	}
+	s, err := h.svc.UpdateColor(r.Context(), claims.UserID, chi.URLParam(r, "id"), req.Color)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, http.StatusOK, sub)
+	writeJSON(w, http.StatusOK, s)
 }
 func (h *SubjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { X, Play, Pause, Square, RotateCcw } from 'lucide-react';
+import { X, Play, Pause, Square, RotateCcw, Loader2 } from 'lucide-react';
 import { clearTimerState, fetchTimerState, saveTimerState, startTimerFromServer } from '@/lib/api';
 import { toLocalDateKey } from '@/lib/date';
 import { getSafeSubjectIcon } from '@/lib/subject-icon';
@@ -75,6 +75,7 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
   const [pendingDuration, setPendingDuration] = useState(0);
   const [pendingEndTime, setPendingEndTime] = useState<Date | null>(null);
+  const [isSavingSession, setIsSavingSession] = useState(false);
 
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(POMODORO_FOCUS);
@@ -330,24 +331,30 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     onClose();
   };
 
-  const handleSaveStoppedSession = () => {
+  const handleSaveStoppedSession = async () => {
     if (!startTimeRef.current || !pendingEndTime || !selectedMood || pendingDuration < 1) return;
-    addSession({
-      subjectId,
-      topic: topic || 'General study',
-      duration: pendingDuration,
-      startTime: `${startTimeRef.current.getHours().toString().padStart(2, '0')}:${startTimeRef.current.getMinutes().toString().padStart(2, '0')}`,
-      endTime: `${pendingEndTime.getHours().toString().padStart(2, '0')}:${pendingEndTime.getMinutes().toString().padStart(2, '0')}`,
-      date: toLocalDateKey(pendingEndTime),
-      moodRating: selectedMood,
-      isManualLog: false,
-    });
-    setShowMoodStep(false);
-    setSelectedMood(null);
-    setPendingDuration(0);
-    setPendingEndTime(null);
-    resetAll();
-    onClose();
+    setIsSavingSession(true);
+    try {
+      const ok = await addSession({
+        subjectId,
+        topic: topic || 'General study',
+        duration: pendingDuration,
+        startTime: `${startTimeRef.current.getHours().toString().padStart(2, '0')}:${startTimeRef.current.getMinutes().toString().padStart(2, '0')}`,
+        endTime: `${pendingEndTime.getHours().toString().padStart(2, '0')}:${pendingEndTime.getMinutes().toString().padStart(2, '0')}`,
+        date: toLocalDateKey(pendingEndTime),
+        moodRating: selectedMood,
+        isManualLog: false,
+      });
+      if (!ok) return;
+      setShowMoodStep(false);
+      setSelectedMood(null);
+      setPendingDuration(0);
+      setPendingEndTime(null);
+      resetAll();
+      onClose();
+    } finally {
+      setIsSavingSession(false);
+    }
   };
 
   const handleDiscardStoppedSession = () => {
@@ -671,17 +678,20 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                 <button
                   type="button"
                   onClick={handleDiscardStoppedSession}
-                  className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                  disabled={isSavingSession}
+                  className="w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Discard
                 </button>
                 <button
                   type="button"
-                  onClick={handleSaveStoppedSession}
-                  disabled={!selectedMood}
-                  className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => void handleSaveStoppedSession()}
+                  disabled={!selectedMood || isSavingSession}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {!selectedMood ? 'Select mood to save' : 'Save session'}
+                  {isSavingSession
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                    : !selectedMood ? 'Select mood to save' : 'Save session'}
                 </button>
               </div>
             </div>

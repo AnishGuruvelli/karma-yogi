@@ -139,7 +139,7 @@ export default function ProfilePage() {
   const snapAvgSession = studyStats?.avgSessionMinutes ?? avgSession;
   const snapLongest = studyStats?.longestSessionMinutes ?? longestSession;
   const snapAvgMoodStr = studyStats != null && Number.isFinite(studyStats.avgMood) ? studyStats.avgMood.toFixed(1) : avgMood;
-  const weekHours = studyStats != null ? studyStats.weekMinutesCurrent / 60 : weekHoursClient;
+  const weekHours = weekHoursClient;
   const totalHours = snapTotalMin / 60;
   const formatMinutesAsDuration = (mins: number) => {
     if (mins < 60) return `${mins}m`;

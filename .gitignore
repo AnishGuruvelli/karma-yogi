@@ -11,3 +11,6 @@ frontend/bunfig.toml
 
 backend/bin/
 *.test
+
+frontend/playwright-report/
+frontend/test-results/

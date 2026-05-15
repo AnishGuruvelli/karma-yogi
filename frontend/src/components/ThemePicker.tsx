@@ -7,7 +7,6 @@ const SWATCHES: Swatch[] = [
   { name: "honey", label: "Honey", color: "oklch(0.72 0.16 80)" },
   { name: "forest", label: "Forest", color: "oklch(0.58 0.13 155)" },
   { name: "blossom", label: "Blossom", color: "oklch(0.68 0.19 350)" },
-  { name: "ember", label: "Ember", color: "oklch(0.60 0.18 28)" },
 ];
 
 interface ThemePickerProps {

@@ -9,6 +9,8 @@
 
 For any code task: use Serena's symbolic tools (`find_symbol`, `get_symbols_overview`, `find_referencing_symbols`, `replace_symbol_body`, `replace_content`) instead of raw Read/Edit. Raw Read/Edit on code files is forbidden except for non-code files (config, markdown, YAML).
 
+**Keep Serena memories current.** After any task that changes architecture, adds/removes routes or types, modifies API contracts, or introduces new conventions — update the relevant file(s) in `.serena/memories/` before marking the task done. The index is `MEMORY.md` inside that folder; update it too if you add or rename a memory file.
+
 ---
 
 ## Auto-invoke skills
@@ -296,8 +298,20 @@ cd frontend && npx tsc --noEmit
 
 ### Testing and validation
 - After every feature or fix, run: `go test ./...` (backend), `npx tsc --noEmit` + frontend build (frontend).
+- **After any major change** (new page, new route, new modal/flow, auth change, API shape change, nav change) you **must** run the full Playwright suite: `cd frontend && npm run test:e2e`. Fix all failures before marking the task done.
 - Keep `scripts/e2e.sh` current — update it whenever auth, routes, or key user flows change.
+- Keep `frontend/e2e/` current — update the relevant spec when a page, modal, or flow changes; add a new spec file for every new page.
 - Run `/ultrareview` on the branch before merging significant features to get a thorough multi-agent review.
+
+#### When to update e2e after a change
+| Change type | What to update |
+|---|---|
+| New page added | New `frontend/e2e/<page>.spec.ts` — load, main interaction, error state |
+| New modal / bottom sheet | New `test` block in the relevant spec — open, fill, save, close |
+| Auth form IDs changed | `frontend/e2e/helpers.ts` selectors |
+| Nav links added/removed | `frontend/e2e/navigation.spec.ts` |
+| New backend endpoint | New block in `scripts/e2e.sh` before the cleanup section |
+| API route or shape changed | Update `jq` assertions in `scripts/e2e.sh` + frontend Playwright callers |
 
 ### Database
 - Use forward/backward SQL migrations for schema changes — never destructive edits.

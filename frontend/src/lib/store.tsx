@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import type { Subject, Session, Goal, UserProfile, ExamGoal, UserPreferences, UserPrivacySettings, UserPublicProfile } from '@/lib/types';
 import { LoadingSplash } from '@/components/LoadingSplash';
 import { toast } from 'sonner';
-import { createOrUpdateGoal, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor, upsertExamGoal } from '@/lib/api';
+import { createOrUpdateGoal, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor, updateSubject as patchSubject, upsertExamGoal } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
 import { toLocalDateKey } from '@/lib/date';
 
@@ -26,7 +26,7 @@ function readInitialDarkMode(): boolean {
   }
 }
 
-export type ThemeName = "sky" | "honey" | "forest" | "blossom" | "ember";
+export type ThemeName = "sky" | "honey" | "forest" | "blossom";
 
 interface StoreContextType {
   subjects: Subject[];
@@ -35,11 +35,12 @@ interface StoreContextType {
   user: UserProfile;
   addSubject: (name: string, color: string) => Promise<Subject | null>;
   updateSubjectColor: (id: string, color: string) => Promise<boolean>;
+  updateSubject: (id: string, name: string, color: string, icon: string) => Promise<boolean>;
   deleteSubject: (id: string) => void;
-  addSession: (session: Omit<Session, 'id'>) => void;
+  addSession: (session: Omit<Session, 'id'>) => Promise<boolean>;
   deleteSession: (id: string) => void;
   editSession: (id: string, changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => Promise<boolean>;
-  updateGoal: (targetHours: number) => void;
+  updateGoal: (targetHours: number) => Promise<void>;
   getSubject: (id: string) => Subject | undefined;
   isDark: boolean;
   toggleTheme: () => void;
@@ -128,7 +129,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('karma_theme_name');
-    if (savedTheme && ['sky', 'honey', 'forest', 'blossom', 'ember'].includes(savedTheme)) {
+    if (savedTheme && ['sky', 'honey', 'forest', 'blossom'].includes(savedTheme)) {
       setThemeState(savedTheme as ThemeName);
     }
   }, []);
@@ -140,7 +141,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement.classList;
-    root.remove('theme-sky', 'theme-honey', 'theme-forest', 'theme-blossom', 'theme-ember');
+    root.remove('theme-sky', 'theme-honey', 'theme-forest', 'theme-blossom');
     root.add(`theme-${theme}`);
     localStorage.setItem('karma_theme_name', theme);
   }, [theme]);
@@ -192,19 +193,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const addSession = useCallback((session: Omit<Session, 'id'>) => {
-    void createSession(session)
-      .then((created) => {
-        setSessions((prev) => {
-          const next = [created, ...prev];
-          setUser((u) => ({ ...u, currentStreak: currentStreakUntilToday(next) }));
-          return next;
-        });
-        setGoal((prev) => ({ ...prev, currentProgress: +(prev.currentProgress + session.duration / 60).toFixed(1) }));
-      })
-      .catch(() => {
-        toast.error("Session couldn't be saved. Please try again.");
+  const updateSubject = useCallback(async (id: string, name: string, color: string, icon: string): Promise<boolean> => {
+    try {
+      const updated = await patchSubject(id, name, color, icon);
+      setSubjects((prev) => prev.map((s) => (s.id === id ? { ...s, name: updated.name, color: updated.color, icon: updated.icon } : s)));
+      return true;
+    } catch {
+      toast.error("Couldn't update subject. Please try again.");
+      return false;
+    }
+  }, []);
+
+  const addSession = useCallback(async (session: Omit<Session, 'id'>): Promise<boolean> => {
+    try {
+      const created = await createSession(session);
+      setSessions((prev) => {
+        const next = [created, ...prev];
+        setUser((u) => ({ ...u, currentStreak: currentStreakUntilToday(next) }));
+        return next;
       });
+      setGoal((prev) => ({ ...prev, currentProgress: +(prev.currentProgress + session.duration / 60).toFixed(1) }));
+      return true;
+    } catch {
+      toast.error("Session couldn't be saved. Please try again.");
+      return false;
+    }
   }, []);
 
   const deleteSession = useCallback((id: string) => {
@@ -240,12 +253,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const updateGoal = useCallback((targetHours: number) => {
-    void createOrUpdateGoal(targetHours)
-      .then((updated) => setGoal((prev) => ({ ...prev, ...updated })))
-      .catch(() => {
-        toast.error("Couldn't update goal. Please try again.");
-      });
+  const updateGoal = useCallback(async (targetHours: number) => {
+    try {
+      const updated = await createOrUpdateGoal(targetHours);
+      setGoal((prev) => ({ ...prev, ...updated }));
+    } catch {
+      toast.error("Couldn't update goal. Please try again.");
+    }
   }, []);
 
   const getSubject = useCallback((id: string) => subjects.find((s) => s.id === id), [subjects]);
@@ -292,7 +306,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider value={{
       subjects, sessions, goal, user,
-      addSubject, deleteSubject, addSession, deleteSession,
+      addSubject, deleteSubject, addSession, deleteSession, updateSubject,
       updateSubjectColor,
       updateGoal, getSubject, editSession,
       isDark, toggleTheme, theme, setTheme, examGoal, setExamGoal, clearExamGoal, updateUserProfile, reloadStoreData,

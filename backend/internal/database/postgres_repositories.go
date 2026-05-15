@@ -263,6 +263,21 @@ func (r *pgSubjectRepo) UpdateColor(ctx context.Context, id, userID, color strin
 	}
 	return s, nil
 }
+func (r *pgSubjectRepo) Update(ctx context.Context, id, userID, name, color, icon string) (domain.Subject, error) {
+	var s domain.Subject
+	err := r.pool.QueryRow(ctx,
+		`UPDATE subjects SET name=$3, color=$4, icon=$5 WHERE id=$1 AND user_id=$2
+		 RETURNING id,user_id,name,color,icon,created_at`,
+		id, userID, name, color, icon).
+		Scan(&s.ID, &s.UserID, &s.Name, &s.Color, &s.Icon, &s.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Subject{}, errors.New("not found")
+		}
+		return domain.Subject{}, err
+	}
+	return s, nil
+}
 func (r *pgSubjectRepo) Delete(ctx context.Context, id, userID string) error {
 	ct, err := r.pool.Exec(ctx, `DELETE FROM subjects WHERE id=$1 AND user_id=$2`, id, userID)
 	if err != nil {

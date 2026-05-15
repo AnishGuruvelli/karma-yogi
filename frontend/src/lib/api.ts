@@ -423,6 +423,13 @@ export async function updateSubjectColor(id: string, color: string): Promise<Sub
   return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) };
 }
 
+export async function updateSubject(id: string, name: string, color: string, icon: string): Promise<Subject> {
+  const res = await request(`/subjects/${id}`, { method: 'PATCH', body: JSON.stringify({ name, color, icon }) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update subject'));
+  const s = (await res.json()) as BackendSubject;
+  return { id: s.id, name: s.name, color: s.color, icon: s.icon, createdAt: toLocalDateKey(new Date(s.createdAt)) };
+}
+
 export async function fetchTimerState(): Promise<TimerStatePayload | null> {
   const res = await request('/timer-state');
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch timer state'));

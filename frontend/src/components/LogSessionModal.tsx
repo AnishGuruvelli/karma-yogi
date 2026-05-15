@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { MOOD_EMOJIS } from "@/lib/types";
-import { Calendar as CalendarIcon, X, Minus, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, X, Minus, Plus, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -73,7 +73,7 @@ interface LogSessionModalProps {
     endTime?: string;
     moodRating: number;
   } | null;
-  onSave?: (changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => void;
+  onSave?: (changes: { subjectId: string; topic: string; duration: number; date: string; startTime: string; moodRating: number }) => Promise<void> | void;
   onDelete?: () => void;
 }
 
@@ -102,6 +102,8 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const [showCreateSubject, setShowCreateSubject] = useState(false);
   const [subjectSelectOpen, setSubjectSelectOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectColor, setNewSubjectColor] = useState("cyan");
   const initDoneRef = useRef(false);
@@ -208,7 +210,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     setShowCreateSubject(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const safeHours = hours ?? 0;
     const safeMinutes = minutes ?? 0;
     const trimmedTopic = topic.trim();
@@ -235,12 +237,18 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       moodRating: mood!,
       isManualLog: true,
     };
-    if (initialSession && onSave) {
-      onSave({ subjectId, topic: payload.topic, duration: payload.duration, date: payload.date, startTime: payload.startTime, moodRating: payload.moodRating });
-    } else {
-      addSession({ subjectId, ...payload });
+    setIsSaving(true);
+    try {
+      if (initialSession && onSave) {
+        await onSave({ subjectId, topic: payload.topic, duration: payload.duration, date: payload.date, startTime: payload.startTime, moodRating: payload.moodRating });
+      } else {
+        const ok = await addSession({ subjectId, ...payload });
+        if (!ok) return;
+      }
+      onClose();
+    } finally {
+      setIsSaving(false);
     }
-    onClose();
   };
 
   const handleSubjectChange = (value: string) => {
@@ -607,29 +615,30 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="rounded-xl border border-red-300/80 bg-red-50 py-3 text-sm font-semibold text-red-800 transition-colors hover:bg-red-100 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-200 dark:hover:bg-red-950/60"
+                      disabled={isDeleting}
+                      className="rounded-xl border border-red-300/80 bg-red-50 py-3 text-sm font-semibold text-red-800 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-200 dark:hover:bg-red-950/60"
                     >
                       Delete Session
                     </button>
                     <button
                       type="button"
-                      onClick={handleSubmit}
-                      disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0)) || !mood}
-                      className="rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
+                      onClick={() => void handleSubmit()}
+                      disabled={isSaving || subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0)) || !mood}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
                       style={{ boxShadow: "var(--shadow-md)" }}
                     >
-                      {subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : !mood ? "Mood is required" : "Save Session"}
+                      {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : !mood ? "Mood is required" : "Save Session"}
                     </button>
                   </div>
                 ) : (
                   <button
                     type="button"
-                    onClick={handleSubmit}
-                    disabled={subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0)) || !mood}
-                    className="w-full rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void handleSubmit()}
+                    disabled={isSaving || subjects.length === 0 || !topic.trim() || (!(hours ?? 0) && !(minutes ?? 0)) || !mood}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ boxShadow: "var(--shadow-md)" }}
                   >
-                    {subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : !mood ? "Mood is required" : "Save Session"}
+                    {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : subjects.length === 0 ? "Add a subject first" : !topic.trim() ? "Topic is required" : !mood ? "Mood is required" : "Save Session"}
                   </button>
                 )}
               </div>
@@ -666,13 +675,19 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
+                          disabled={isDeleting}
+                          onClick={async () => {
+                            setIsDeleting(true);
                             setShowDeleteConfirm(false);
-                            onDelete?.();
+                            try {
+                              await onDelete?.();
+                            } finally {
+                              setIsDeleting(false);
+                            }
                           }}
-                          className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 sm:px-5"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 sm:px-5"
                         >
-                          Delete
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
                         </button>
                       </div>
                     </motion.div>

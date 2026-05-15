@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { format } from "date-fns";
-import { CalendarIcon, X, ArrowLeft } from "lucide-react";
+import { CalendarIcon, X, ArrowLeft, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { useStore } from "@/lib/store";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface Props {
   open: boolean;
@@ -16,6 +17,17 @@ interface Props {
 const PRESETS = ["CAT", "XAT", "GMAT", "GRE", "CUET", "NMAT"];
 const nameSchema = z.string().trim().min(1, "Name required").max(40, "Too long");
 
+const backdropVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.18, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: "easeIn" } },
+};
+const panelVariants = {
+  hidden: { y: 56, opacity: 0, scale: 0.97 },
+  visible: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 400, damping: 34, mass: 0.85 } },
+  exit: { y: 40, opacity: 0, scale: 0.97, transition: { duration: 0.16, ease: "easeIn" } },
+};
+
 export function ExamGoalModal({ open, onClose }: Props) {
   useBodyScrollLock(open);
   const { examGoal, setExamGoal } = useStore();
@@ -23,6 +35,7 @@ export function ExamGoalModal({ open, onClose }: Props) {
   const [name, setName] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -32,8 +45,6 @@ export function ExamGoalModal({ open, onClose }: Props) {
       setError(null);
     }
   }, [open, examGoal]);
-
-  if (!open) return null;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -58,13 +69,34 @@ export function ExamGoalModal({ open, onClose }: Props) {
       return;
     }
     const iso = format(date, "yyyy-MM-dd");
-    await setExamGoal(name, iso);
-    onClose();
+    setIsSaving(true);
+    try {
+      await setExamGoal(name, iso);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div className="glass-modal w-full max-w-md rounded-2xl p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
+    <AnimatePresence>
+    {open && (
+    <motion.div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-4 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      <motion.div
+        className="glass-modal w-full max-w-md rounded-2xl p-4 sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+        variants={panelVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+      >
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {step === 2 && (
@@ -157,13 +189,15 @@ export function ExamGoalModal({ open, onClose }: Props) {
               <button onClick={onClose} className="flex-1 rounded-xl border border-border bg-card py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Cancel
               </button>
-              <button onClick={() => void handleSave()} className="flex-1 rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90" style={{ boxShadow: "var(--shadow-md)" }}>
-                Save Goal
+              <button onClick={() => void handleSave()} disabled={isSaving} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60" style={{ boxShadow: "var(--shadow-md)" }}>
+                {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save Goal"}
               </button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 }

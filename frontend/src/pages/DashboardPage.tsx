@@ -12,15 +12,15 @@ import { motion } from "framer-motion";
 import { subjectColor } from "@/lib/colors";
 import { toast } from "sonner";
 
-const DAILY_QUOTES = [
-  "The journey of a thousand miles begins with a single step.",
-  "Success is the sum of small efforts, repeated day in and day out.",
-  "Little by little, a little becomes a lot.",
-  "Discipline is choosing between what you want now and what you want most.",
-  "You do not rise to the level of your goals. You fall to the level of your systems.",
-  "Small daily improvements are the key to staggering long-term results.",
-  "Consistency compounds louder than intensity.",
-] as const;
+const DAILY_QUOTES: { text: string; author: string }[] = [
+  { text: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin" },
+  { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln" },
+  { text: "The expert in anything was once a beginner.", author: "Helen Hayes" },
+  { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+  { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" },
+  { text: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela" },
+  { text: "You do not rise to the level of your goals. You fall to the level of your systems.", author: "James Clear" },
+];
 
 export default function DashboardPage() {
   const { user, sessions, subjects, goal, getSubject, editSession, deleteSession } = useStore();
@@ -93,8 +93,8 @@ export default function DashboardPage() {
           <h1 className="break-words font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             {greeting()}, {user.name}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">"{dailyQuote}"</p>
-          <p className="mt-1 text-sm text-muted-foreground">Show up today, however small.</p>
+          <p className="mt-2 text-sm text-muted-foreground">"{dailyQuote.text}"</p>
+          <p className="mt-0.5 text-xs text-muted-foreground/70">— {dailyQuote.author}</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <motion.button
@@ -282,7 +282,13 @@ export default function DashboardPage() {
           <div className="glass-card rounded-2xl p-5">
             <h2 className="mb-3 font-semibold text-foreground">Subjects</h2>
             <div className="space-y-2.5">
-              {subjects.map((sub) => {
+              {[...subjects].sort((a, b) => {
+                const sA = sessions.find((s) => s.subjectId === a.id);
+                const sB = sessions.find((s) => s.subjectId === b.id);
+                const keyA = sA ? `${sA.date}T${sA.startTime}` : "";
+                const keyB = sB ? `${sB.date}T${sB.startTime}` : "";
+                return keyB.localeCompare(keyA);
+              }).map((sub) => {
                 const count = sessions.filter((s) => s.subjectId === sub.id).length;
                 const totalMins = sessions.filter((s) => s.subjectId === sub.id).reduce((sum, s) => sum + s.duration, 0);
                 return (

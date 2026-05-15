@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
-import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Play, Search, Square, UserPlus, Users, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Loader2, Play, Search, Square, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { AnimatePresence, motion } from "framer-motion";
@@ -105,6 +105,7 @@ export default function FriendsPage() {
   const [search, setSearch] = useState("");
   const [loadingBase, setLoadingBase] = useState(false);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [isSubmittingSession, setIsSubmittingSession] = useState(false);
 
   const [showSessionModal, setShowSessionModal] = useState(false);
   useBodyScrollLock(showSessionModal);
@@ -362,6 +363,7 @@ export default function FriendsPage() {
   };
 
   const onLogPast = async () => {
+    setIsSubmittingSession(true);
     try {
       await createSession({ duration: durationMin, startedAt: new Date().toISOString() });
       await clearTimerState().catch(() => {});
@@ -371,6 +373,8 @@ export default function FriendsPage() {
       await Promise.all([loadAllData(), reloadStoreData()]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to log session");
+    } finally {
+      setIsSubmittingSession(false);
     }
   };
 
@@ -380,16 +384,22 @@ export default function FriendsPage() {
         toast.error("Select friends, subject and topic first");
         return;
       }
-      const startedAtMs = await startTimerFromServer().catch(() => null);
-      if (!startedAtMs) {
-        toast.error("Unable to start timer");
-        return;
+      setIsSubmittingSession(true);
+      try {
+        const startedAtMs = await startTimerFromServer().catch(() => null);
+        if (!startedAtMs) {
+          toast.error("Unable to start timer");
+          return;
+        }
+        setLiveStartedAtMs(startedAtMs);
+      } finally {
+        setIsSubmittingSession(false);
       }
-      setLiveStartedAtMs(startedAtMs);
       return;
     }
 
     const minutes = Math.max(1, Math.round((Date.now() - liveStartedAtMs) / 1000 / 60));
+    setIsSubmittingSession(true);
     try {
       await createSession({ duration: minutes, startedAt: new Date(liveStartedAtMs).toISOString() });
       await clearTimerState().catch(() => {});
@@ -399,6 +409,8 @@ export default function FriendsPage() {
       await Promise.all([loadAllData(), reloadStoreData()]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unable to save live session");
+    } finally {
+      setIsSubmittingSession(false);
     }
   };
 
@@ -1063,31 +1075,33 @@ export default function FriendsPage() {
               {sessionMode === "past" ? (
                 <button
                   type="button"
-                  onClick={onLogPast}
-                  disabled={isPastSubmitDisabled}
-                  className={`inline-flex min-h-11 items-center justify-center px-2 py-2.5 text-center text-sm font-semibold leading-tight ${
-                    isPastSubmitDisabled
+                  onClick={() => void onLogPast()}
+                  disabled={isPastSubmitDisabled || isSubmittingSession}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 text-center text-sm font-semibold leading-tight ${
+                    isPastSubmitDisabled || isSubmittingSession
                       ? "cursor-not-allowed rounded-xl bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                       : "rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90"
                   }`}
                 >
-                  {isPastSubmitDisabled ? disabledCtaLabel : "Log Friend Session"}
+                  {isSubmittingSession ? <><Loader2 className="h-4 w-4 animate-spin" /> Logging…</> : isPastSubmitDisabled ? disabledCtaLabel : "Log Friend Session"}
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={onLivePrimary}
-                  disabled={isLiveSubmitDisabled}
+                  onClick={() => void onLivePrimary()}
+                  disabled={isLiveSubmitDisabled || isSubmittingSession}
                   className={`inline-flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 text-center text-sm font-semibold leading-tight ${
-                    isLiveSubmitDisabled
+                    isLiveSubmitDisabled || isSubmittingSession
                       ? "cursor-not-allowed rounded-xl bg-slate-300 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                       : liveStartedAtMs
                         ? "rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90"
                         : "rounded-xl bg-neon-orange text-white transition-opacity hover:opacity-90"
                   }`}
                 >
-                  {liveStartedAtMs ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  {liveStartedAtMs ? "Stop & Log" : isLiveSubmitDisabled ? disabledCtaLabel : "Start Timer"}
+                  {isSubmittingSession
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> {liveStartedAtMs ? "Saving…" : "Starting…"}</>
+                    : <>{liveStartedAtMs ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}{liveStartedAtMs ? "Stop & Log" : isLiveSubmitDisabled ? disabledCtaLabel : "Start Timer"}</>
+                  }
                 </button>
               )}
             </div>

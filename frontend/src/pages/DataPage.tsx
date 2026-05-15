@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { MOOD_EMOJIS } from "@/lib/types";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Loader2, Pencil } from "lucide-react";
+import { EditSubjectModal } from "@/components/EditSubjectModal";
+import type { Subject } from "@/lib/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +25,7 @@ export default function DataPage() {
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("cyan");
   const [saving, setSaving] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<{
     type: "subject" | "session";
@@ -121,62 +124,28 @@ export default function DataPage() {
               return (
                 <div
                   key={sub.id}
-                  className="flex flex-wrap items-center gap-3 border-b border-border/50 px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/30 sm:flex-nowrap"
+                  className="flex items-center gap-3 border-b border-border/50 px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <Popover
-                    open={colorPickerSubjectId === sub.id}
-                    onOpenChange={(open) => {
-                      if (open) {
-                        setNewColor(sub.color);
-                        setColorPickerSubjectId(sub.id);
-                        return;
-                      }
-                      setColorPickerSubjectId(null);
-                    }}
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
+                    style={{ backgroundColor: colorMap[sub.color] + "26" }}
                   >
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform hover:scale-105"
-                        style={{ backgroundColor: colorMap[sub.color] + "1A" }}
-                        title="Change subject color"
-                      >
-                        <span className="text-base">{getSafeSubjectIcon(sub.icon, sub.name.charAt(0) || "📘")}</span>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="z-[80] w-auto rounded-xl border-border bg-card/95 p-1.5 shadow-lg" align="start" side="bottom" sideOffset={8}>
-                      <div className="flex gap-1.5">
-                        {Object.entries(colorMap).map(([key, val]) => (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={async () => {
-                              setNewColor(key);
-                              const ok = await updateSubjectColor(sub.id, key);
-                              if (ok) {
-                                setColorPickerSubjectId(null);
-                              } else {
-                                toast.error("Couldn't update color. Please try again.");
-                              }
-                            }}
-                            aria-pressed={(colorPickerSubjectId === sub.id ? newColor : sub.color) === key}
-                            className={`h-10 w-10 rounded-full transition-all ${
-                              (colorPickerSubjectId === sub.id ? newColor : sub.color) === key
-                                ? "scale-105 border-2 border-background ring-2 ring-primary ring-offset-1 ring-offset-card"
-                                : "border border-transparent hover:scale-105"
-                            }`}
-                            style={{ backgroundColor: val }}
-                          />
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <div className="flex-1">
+                    {getSafeSubjectIcon(sub.icon, sub.name.charAt(0) || "📘")}
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <div className="font-semibold text-foreground">{sub.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {sessionCount} sessions · {formatDuration(totalMins)}
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSubject(sub)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                    title="Edit subject"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -297,15 +266,21 @@ export default function DataPage() {
                 type="button"
                 onClick={handleAddSubject}
                 disabled={saving || !newName.trim()}
-                className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{ boxShadow: "var(--shadow-md)" }}
               >
-                {saving ? "Adding…" : "Add Subject"}
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Adding…</> : "Add Subject"}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <EditSubjectModal
+        open={editingSubject !== null}
+        subject={editingSubject}
+        onClose={() => setEditingSubject(null)}
+      />
 
       <AlertDialog
         open={deleteDialogOpen}
