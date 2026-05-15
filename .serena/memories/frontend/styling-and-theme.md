@@ -12,7 +12,7 @@
 
 ### Theme Names & Classes
 ```tsx
-type ThemeName = "sky" | "honey" | "forest" | "blossom" | "ember";
+type ThemeName = "sky" | "honey" | "forest" | "blossom";
 
 // Applied as class: theme-${theme}
 // Dark variant: dark.theme-${theme} or .dark:not([class*="theme-"])

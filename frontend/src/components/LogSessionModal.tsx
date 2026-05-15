@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { AnimatePresence, motion } from "framer-motion";
 import { getSafeSubjectIcon } from "@/lib/subject-icon";
 import { getLastStudiedSubjectId } from "@/lib/last-studied-subject";
 import { toast } from "sonner";
@@ -103,6 +102,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const [subjectSelectOpen, setSubjectSelectOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectColor, setNewSubjectColor] = useState("cyan");
@@ -197,7 +197,8 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       toast.error("Subject already exists.");
       return;
     }
-    const created = await addSubject(normalizedName, newSubjectColor);
+    setIsCreatingSubject(true);
+    const created = await addSubject(normalizedName, newSubjectColor).finally(() => setIsCreatingSubject(false));
     if (created) {
       setSubjectId(created.id);
       toast.success("Subject created.");
@@ -265,25 +266,17 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const chipActive = (mins: number) => totalMinutes === mins;
 
   return (
-    <AnimatePresence>
+    <>
       {open && (
-        <motion.div
+        <div
           className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={onClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
         >
-          <motion.div
+          <div
             role="dialog"
             aria-modal="true"
             className="glass-modal mt-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,760px)] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
-            initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 320, damping: 34, mass: 1 }}
           >
             <div className="min-h-0 overflow-y-auto overscroll-contain p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
@@ -375,12 +368,13 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
+                              disabled={isCreatingSubject}
                               onClick={() => {
                                 void handleCreateSubject();
                               }}
-                              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:pointer-events-none disabled:opacity-50"
                             >
-                              Add
+                              {isCreatingSubject ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Adding…</> : "Add"}
                             </button>
                             <button
                               type="button"
@@ -643,22 +637,14 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                 )}
               </div>
 
-              <AnimatePresence>
+              <>
                 {showDeleteConfirm && (
-                  <motion.div
+                  <div
                     className="log-session-modal-backdrop fixed inset-0 z-[90] flex items-center justify-center p-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
                     onClick={() => setShowDeleteConfirm(false)}
                   >
-                    <motion.div
+                    <div
                       className="log-session-modal-panel w-full max-w-md rounded-3xl p-5 sm:p-6"
-                      initial={{ y: 10, opacity: 0.95, scale: 0.98 }}
-                      animate={{ y: 0, opacity: 1, scale: 1 }}
-                      exit={{ y: 8, opacity: 0.95, scale: 0.98 }}
-                      transition={{ type: "spring", stiffness: 320, damping: 28 }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <h3 className="font-display text-xl font-semibold text-foreground sm:text-2xl">Delete this session?</h3>
@@ -690,14 +676,14 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
                           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
                         </button>
                       </div>
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
                 )}
-              </AnimatePresence>
+              </>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }

@@ -8,22 +8,24 @@ import { toLocalDateKey } from '@/lib/date';
 
 const THEME_MODE_STORAGE_KEY = 'karma_theme_mode';
 
-/** Local clock: evening/night → dark (18:00–05:59), daytime → light. */
-function inferDarkModeFromLocalTime(): boolean {
-  const h = new Date().getHours();
-  return h >= 18 || h < 6;
-}
-
 function readInitialDarkMode(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const saved = localStorage.getItem(THEME_MODE_STORAGE_KEY);
     if (saved === 'dark') return true;
     if (saved === 'light') return false;
-    return inferDarkModeFromLocalTime();
+    return false; // default: light mode
   } catch {
-    return inferDarkModeFromLocalTime();
+    return false;
   }
+}
+
+/** Returns the colour theme suited to the current hour. */
+function inferThemeFromLocalTime(): ThemeName {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 12) return 'honey';  // morning  → yellow
+  if (h >= 12 && h < 18) return 'sky';   // afternoon → blue
+  return 'forest';                         // night     → green
 }
 
 export type ThemeName = "sky" | "honey" | "forest" | "blossom";
@@ -71,7 +73,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [goal, setGoal] = useState<Goal>({ id: 'default', targetHours: 20, currentProgress: 0 });
   const [user, setUser] = useState<UserProfile>({ id: 'anon', email: '', name: 'Guest', username: '', phone: '', currentStreak: 0, lastActiveDate: toLocalDateKey(new Date()) });
   const [isDark, setIsDark] = useState(readInitialDarkMode);
-  const [theme, setThemeState] = useState<ThemeName>("blossom");
+  const [theme, setThemeState] = useState<ThemeName>(inferThemeFromLocalTime);
   const [examGoal, setExamGoalState] = useState<ExamGoal | null>(null);
   const [profileMeta, setProfileMeta] = useState<UserPublicProfile>({ userId: '', bio: '', location: '', education: '', occupation: '', targetExam: '', targetCollege: '' });
   const [preferences, setPreferences] = useState<UserPreferences>({
@@ -127,12 +129,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void reloadStoreData();
   }, [reloadStoreData]);
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('karma_theme_name');
-    if (savedTheme && ['sky', 'honey', 'forest', 'blossom'].includes(savedTheme)) {
-      setThemeState(savedTheme as ThemeName);
-    }
-  }, []);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -143,7 +139,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement.classList;
     root.remove('theme-sky', 'theme-honey', 'theme-forest', 'theme-blossom');
     root.add(`theme-${theme}`);
-    localStorage.setItem('karma_theme_name', theme);
   }, [theme]);
 
   const addSubject = useCallback(async (name: string, color: string): Promise<Subject | null> => {

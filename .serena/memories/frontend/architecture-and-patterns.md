@@ -90,7 +90,7 @@ interface StoreContextType {
   // Theme
   isDark: boolean;
   toggleTheme: () => void;
-  theme: ThemeName; // "sky" | "honey" | "forest" | "blossom" | "ember"
+  theme: ThemeName; // "sky" | "honey" | "forest" | "blossom"
   setTheme: (theme: ThemeName) => void;
   
   // Exam goal

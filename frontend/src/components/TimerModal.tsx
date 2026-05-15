@@ -8,7 +8,6 @@ import { getSafeSubjectIcon } from '@/lib/subject-icon';
 import { getLastStudiedSubjectId } from '@/lib/last-studied-subject';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 type TimerMode = 'stopwatch' | 'pomodoro';
@@ -76,6 +75,8 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const [pendingDuration, setPendingDuration] = useState(0);
   const [pendingEndTime, setPendingEndTime] = useState<Date | null>(null);
   const [isSavingSession, setIsSavingSession] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false);
 
   const [pomodoroPhase, setPomodoroPhase] = useState<PomodoroPhase>('focus');
   const [pomodoroRemaining, setPomodoroRemaining] = useState(POMODORO_FOCUS);
@@ -288,7 +289,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
 
   const handleStart = async () => {
     if (!subjectId || !topic.trim()) return;
+    setIsStarting(true);
     const now = await startTimerFromServer().catch(() => null);
+    setIsStarting(false);
     if (!now) return;
     startTimeRef.current = new Date(now);
     setStartedAtMs(now);
@@ -407,7 +410,8 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
       toast.error('Subject already exists.');
       return;
     }
-    const created = await addSubject(normalizedName, newSubjectColor);
+    setIsCreatingSubject(true);
+    const created = await addSubject(normalizedName, newSubjectColor).finally(() => setIsCreatingSubject(false));
     if (created) {
       setSubjectId(created.id);
       toast.success('Subject created.');
@@ -432,26 +436,18 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   };
 
   return (
-    <AnimatePresence>
+    <>
       {open && (
-        <motion.div
+        <div
           className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
           onClick={() => {
             if (!hasStarted) onClose();
           }}
         >
-          <motion.div
+          <div
             role="dialog"
             aria-modal="true"
             className="glass-modal mt-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl sm:mt-0 sm:max-h-[min(92dvh,860px)] sm:rounded-2xl"
-            initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 1 }}
             onClick={e => e.stopPropagation()}
           >
         <div className="min-h-0 overflow-y-auto p-6">
@@ -563,12 +559,13 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
+                            disabled={isCreatingSubject}
                             onClick={() => {
                               void handleCreateSubject();
                             }}
-                            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:pointer-events-none disabled:opacity-50"
                           >
-                            Add
+                            {isCreatingSubject ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Adding…</> : 'Add'}
                           </button>
                           <button
                             type="button"
@@ -619,22 +616,29 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => {
-                        if (!canStart) return;
+                        if (!canStart || isStarting) return;
                         void handleStart();
                       }}
-                      aria-disabled={!canStart}
+                      disabled={isStarting}
+                      aria-disabled={!canStart || isStarting}
                       title={!canStart ? (subjects.length === 0 ? 'Please create/select a subject first.' : 'Please enter a topic to start the timer.') : undefined}
-                      className={`w-full rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-all ${
-                        canStart ? 'hover:opacity-95' : 'cursor-not-allowed opacity-70'
+                      className={`inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-all ${
+                        canStart && !isStarting ? 'hover:opacity-95' : 'cursor-not-allowed opacity-70'
                       }`}
                       style={{ boxShadow: "var(--shadow-md)" }}
                     >
-                      <Play className="mr-2 inline h-4 w-4" />
-                      {subjects.length === 0
-                        ? 'Add a subject first'
-                        : topic.trim().length === 0
-                          ? 'Add a topic first'
-                          : `Start ${mode === 'pomodoro' ? 'Pomodoro' : 'Timer'}`}
+                      {isStarting ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Starting…</>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4" />
+                          {subjects.length === 0
+                            ? 'Add a subject first'
+                            : topic.trim().length === 0
+                              ? 'Add a topic first'
+                              : `Start ${mode === 'pomodoro' ? 'Pomodoro' : 'Timer'}`}
+                        </>
+                      )}
                     </button>
                   </TooltipTrigger>
                   {!canStart && (
@@ -814,9 +818,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
             </div>
           )}
         </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }

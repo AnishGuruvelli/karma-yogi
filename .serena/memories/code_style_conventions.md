@@ -14,7 +14,7 @@
 - Shadows via inline style: `var(--shadow-sm)`, `var(--shadow-md)`, `var(--shadow-xl)`
 - Colors via `accent` map from `frontend/src/lib/colors.ts` — keys: `cyan`, `green`, `orange`, `pink`, `purple`
 - Never hardcode colors; use accent map or Tailwind semantic tokens (`text-foreground`, `bg-card`, etc.)
-- Five themes: `sky`, `honey`, `forest`, `blossom`, `ember` — defined as CSS vars in `frontend/src/styles.css`
+- Four themes: `sky`, `honey`, `forest`, `blossom` — defined as CSS vars in `frontend/src/styles.css`; auto-selected by time of day on load (honey 6–12, sky 12–18, forest 18–6)
 
 ### Mobile rules (enforced everywhere)
 - Tap targets: minimum `h-10 w-10` (44px) for all interactive elements

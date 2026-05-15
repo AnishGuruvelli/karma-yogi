@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Flame, Trophy, Clock, Target, BookOpen, Users, Calendar, TrendingUp, Award, Zap, Bell, Globe, Mail, Phone, MapPin,
-  Briefcase, GraduationCap, Edit3, Settings, Shield, Download, Share2, Star, CheckCircle2, Sparkles, AtSign, Check, X, ChevronRight, User as User2,
+  Briefcase, GraduationCap, Edit3, Settings, Shield, Download, Share2, Star, CheckCircle2, Sparkles, AtSign, Check, X, ChevronRight, User as User2, Loader2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { fetchFriends, fetchMyAchievements, fetchMyStudyStats, type UserAchievementKey, type StudyStatsSummary } from "@/lib/api";
@@ -25,6 +25,7 @@ export default function ProfilePage() {
   const browserTz = useMemo(() => (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC"), []);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [draft, setDraft] = useState({ name: user.name, username: user.username, email: user.email, phone: user.phone });
   const [profileDraft, setProfileDraft] = useState({ bio: profileMeta.bio, location: profileMeta.location, education: profileMeta.education, occupation: profileMeta.occupation, targetExam: profileMeta.targetExam, targetCollege: profileMeta.targetCollege });
   const [prefDraft, setPrefDraft] = useState({
@@ -236,6 +237,7 @@ export default function ProfilePage() {
   );
 
   const savePreferencesAndPrivacy = async () => {
+    setIsSavingPreferences(true);
     try {
       await wrapWithDataLoading(async () => {
         await Promise.all([saveProfileMeta(profileDraft), savePreferences(prefDraft), savePrivacy(privacyDraft)]);
@@ -245,6 +247,8 @@ export default function ProfilePage() {
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save preferences");
+    } finally {
+      setIsSavingPreferences(false);
     }
   };
 
@@ -383,7 +387,7 @@ export default function ProfilePage() {
                 <p className="mt-1 text-xs text-muted-foreground">badges earned · keep showing up</p>
                 <div className="mt-3 h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-foreground transition-all duration-700"
+                    className="h-full rounded-full bg-foreground"
                     style={{ width: `${(earnedCount / (achievements.length || 1)) * 100}%` }}
                   />
                 </div>
@@ -614,11 +618,11 @@ export default function ProfilePage() {
               <ActionRow type="button" icon={X} label="Delete account" desc="Permanent — cannot undo" danger />
               <button
                 type="button"
-                disabled={dataLoading}
+                disabled={dataLoading || isSavingPreferences}
                 onClick={() => void savePreferencesAndPrivacy()}
-                className="mt-4 w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-foreground px-3 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
               >
-                Save preferences
+                {isSavingPreferences ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save preferences"}
               </button>
             </div>
           </Panel>

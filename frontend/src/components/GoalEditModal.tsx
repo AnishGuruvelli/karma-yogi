@@ -2,23 +2,11 @@ import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { X, Loader2 } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { AnimatePresence, motion } from 'framer-motion';
 
 interface GoalEditModalProps {
   open: boolean;
   onClose: () => void;
 }
-
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.18, ease: 'easeOut' } },
-  exit: { opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } },
-};
-const panelVariants = {
-  hidden: { y: 56, opacity: 0, scale: 0.97 },
-  visible: { y: 0, opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 400, damping: 34, mass: 0.85 } },
-  exit: { y: 40, opacity: 0, scale: 0.97, transition: { duration: 0.16, ease: 'easeIn' } },
-};
 
 export function GoalEditModal({ open, onClose }: GoalEditModalProps) {
   const { goal, updateGoal } = useStore();
@@ -39,23 +27,15 @@ export function GoalEditModal({ open, onClose }: GoalEditModalProps) {
   };
 
   return (
-    <AnimatePresence>
+    <>
       {open && (
-        <motion.div
+        <div
           className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-4 backdrop-blur-sm sm:items-center"
           onClick={onClose}
-          variants={backdropVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
         >
-          <motion.div
+          <div
             className="glass-modal w-full max-w-sm rounded-2xl p-4 sm:p-6"
             onClick={e => e.stopPropagation()}
-            variants={panelVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
           >
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">Edit Weekly Goal</h2>
@@ -112,9 +92,9 @@ export function GoalEditModal({ open, onClose }: GoalEditModalProps) {
                 {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save"}
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }

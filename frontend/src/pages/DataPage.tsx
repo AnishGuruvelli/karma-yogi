@@ -25,6 +25,7 @@ export default function DataPage() {
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("cyan");
   const [saving, setSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<{
@@ -94,15 +95,20 @@ export default function DataPage() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDelete) return;
-    if (pendingDelete.type === "subject") {
-      deleteSubject(pendingDelete.id);
-    } else {
-      deleteSession(pendingDelete.id);
+    setIsDeleting(true);
+    try {
+      if (pendingDelete.type === "subject") {
+        await deleteSubject(pendingDelete.id);
+      } else {
+        await deleteSession(pendingDelete.id);
+      }
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setPendingDelete(null);
     }
-    setDeleteDialogOpen(false);
-    setPendingDelete(null);
   };
 
   return (
@@ -299,10 +305,11 @@ export default function DataPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void confirmDelete()}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:pointer-events-none disabled:opacity-50"
             >
-              Delete
+              {isDeleting ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

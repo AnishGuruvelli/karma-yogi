@@ -753,10 +753,9 @@ Five named themes applied via `data-theme` attribute on `<html>`:
 | Honey | `honey` | Amber / gold |
 | Forest | `forest` | Green / emerald |
 | Blossom | `blossom` | Pink / rose |
-| Ember | `ember` | Red / orange |
 
 - All themes define CSS variables for foreground, background, card, border, muted, primary, and accent shades.
-- Theme selection persisted to `localStorage`; applied before first paint to prevent FOUC.
+- Theme auto-selected from local time on every load: honey (6–12), sky (12–18), forest (18–6). Users can override via ThemePicker; override is session-only (not persisted).
 - Theme picker accessible from Profile page (5 color swatches).
 - Dark mode is a separate toggle (independent of theme); each theme has light + dark variants via CSS.
 

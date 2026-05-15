@@ -11,6 +11,19 @@ For any code task: use Serena's symbolic tools (`find_symbol`, `get_symbols_over
 
 **Keep Serena memories current.** After any task that changes architecture, adds/removes routes or types, modifies API contracts, or introduces new conventions — update the relevant file(s) in `.serena/memories/` before marking the task done. The index is `MEMORY.md` inside that folder; update it too if you add or rename a memory file.
 
+### How to invoke Serena MCP tools (CRITICAL)
+
+Serena tools are MCP tools — **never** call them via the `Skill` tool (`Skill` is only for files in `.claude/skills/`). Use a two-step pattern every time:
+
+```
+1. ToolSearch("select:mcp__serena__initial_instructions")   // loads schema
+2. mcp__serena__initial_instructions()                       // call directly
+```
+
+Same pattern for every Serena tool: `mcp__serena__find_symbol`, `mcp__serena__get_symbols_overview`, `mcp__serena__replace_symbol_body`, `mcp__serena__replace_content`, etc. — always load schema via `ToolSearch` first, then call directly.
+
+**At the start of every coding task**: load and call `mcp__serena__initial_instructions` before any Read, grep, or Bash on code files. Skipping this silently falls back to raw file reads and misses Serena's symbolic navigation.
+
 ---
 
 ## Auto-invoke skills
@@ -62,6 +75,15 @@ Karma Yogi is a study tracking app. Users log study sessions, track streaks, set
 
 Every page is **lazy-loaded** via `React.lazy()` in `App.tsx` and wrapped in `<AppErrorBoundary>`. When adding a new page, always follow this pattern.
 
+**DashboardPage greeting logic:**
+```ts
+const h = new Date().getHours();
+if (h >= 6 && h < 12)  return "Good Morning";
+if (h >= 12 && h < 17) return "Good Afternoon";
+if (h >= 17 && h < 21) return "Good Evening";
+return "Good Night";
+```
+
 ### Components (`frontend/src/components/`)
 
 Key components to know:
@@ -97,7 +119,7 @@ const {
   // Theme
   isDark,           // boolean
   toggleTheme,      // () => void
-  theme,            // ThemeName: "sky" | "honey" | "forest" | "blossom" | "ember"
+  theme,            // ThemeName: "sky" | "honey" | "forest" | "blossom"
   setTheme,         // (theme: ThemeName) => void
 
   // Actions
@@ -150,6 +172,58 @@ Always add new types here, never inline in component files.
 
 ---
 
+## UX rules (enforced everywhere)
+
+### Loading states
+
+Every button that triggers an async API call must show a loading state during the call:
+
+```tsx
+const [isLoading, setIsLoading] = useState(false);
+
+const handleAction = async () => {
+  setIsLoading(true);
+  try {
+    await someApiCall();
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+<button disabled={isLoading} onClick={handleAction}>
+  {isLoading ? (
+    <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+  ) : "Save"}
+</button>
+```
+
+- Import `Loader2` from `lucide-react`
+- Always `disabled` the button while loading — never allow double-submit
+- For per-item lists (friend cards, delete buttons) use `loadingId: string | null` to track which specific item is in-flight, not a global boolean
+
+### No animations
+
+Do **not** use Framer Motion or CSS transitions anywhere — they cause lag on mobile.
+
+Banned patterns:
+- `motion.div`, `motion.button`, `AnimatePresence`, `whileHover`, `whileTap`, `transition` (Framer Motion props)
+- `transition-all`, `transition-colors`, `transition-transform`, `duration-*` on anything that animates in/out
+- Spring physics, drag-to-close, slide-up entrance animations
+
+Static hover states via Tailwind (`hover:bg-muted`, `hover:opacity-90`) are fine — those are CSS pseudo-classes, not transitions.
+
+### Delete dialogs
+
+Delete confirmation dialogs must use a blurred backdrop:
+```css
+background: color-mix(in oklch, var(--foreground) 30%, transparent);
+backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
+```
+No white background required — the blur + overlay is sufficient.
+
+---
+
 ## Design system
 
 ### CSS classes
@@ -187,7 +261,7 @@ const c = accent.cyan;
 
 ### Themes
 
-Five themes: `sky`, `honey`, `forest`, `blossom`, `ember`. All defined in `frontend/src/styles.css` as CSS variable sets. Theme switching is handled by `StoreProvider` — it sets a `data-theme` attribute on `<html>`. Never reference theme colors directly; always use the semantic CSS variables.
+Four themes: `sky`, `honey`, `forest`, `blossom`. All defined in `frontend/src/styles.css` as CSS variable sets. Theme switching is handled by `StoreProvider` — it sets a `theme-*` class on `<html>`. The active theme is auto-selected from local time on every load (honey 6–12, sky 12–18, forest 18–6); users can override via ThemePicker but the override is session-only. Never reference theme colors directly; always use the semantic CSS variables.
 
 ---
 
@@ -263,10 +337,40 @@ If a Popover/Calendar lives inside the modal, its content must use `z-[70]` (one
 
 ---
 
+## Commands reference
+
+### Frontend (`cd frontend`)
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start Vite dev server (port 5173) |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint |
+| `npx tsc --noEmit` | TypeScript type-check |
+| `npm run test:e2e` | Playwright e2e tests (headless) |
+| `npm run test:e2e:ui` | Playwright UI mode |
+| `npm run android:build:sync` | Build + sync to Android |
+| `npx cap open android` | Open Android Studio |
+
+### Backend (`cd backend`)
+| Command | Purpose |
+|---------|---------|
+| `make run` | Run API server |
+| `make test` | Run all Go tests (`go test ./...`) |
+| `make lint` | `go vet ./...` |
+| `make build` | Compile binary |
+| `make migrate-up` | Apply SQL migrations |
+| `make migrate-down` | Roll back last migration |
+
+---
+
 ## After every change
 
 ```bash
+# Frontend
 cd frontend && npx tsc --noEmit
+
+# Backend
+cd backend && go test ./...
 ```
 
 ---
@@ -287,6 +391,22 @@ cd frontend && npx tsc --noEmit
 ---
 
 ## Karma Yogi best practices
+
+### Backend structure (`backend/internal/`)
+
+| Package | Purpose |
+|---------|---------|
+| `cmd/api/` | Entrypoint only |
+| `internal/domain/` | Types and interfaces |
+| `internal/service/` | Business logic |
+| `internal/controller/` | HTTP handlers |
+| `internal/http/` | Router setup |
+| `internal/middleware/` | Auth, CORS, rate limiting |
+| `internal/database/` | DB connection and queries |
+
+Router: chi · DB: pgx/v5 + PostgreSQL · Auth: JWT (golang-jwt/jwt/v5) + bcrypt
+
+---
 
 ### Security and auth
 - Never commit secrets, `.env`, API keys, or tokens.

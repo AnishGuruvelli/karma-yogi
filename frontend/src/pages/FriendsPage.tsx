@@ -3,7 +3,6 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { Check, ChevronLeft, ChevronRight, Clock3, Edit3, Loader2, Play, Search, Square, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import {
   acceptFriendRequest,
@@ -88,8 +87,6 @@ const LiveTimerDisplay = memo(function LiveTimerDisplay({ startedAtMs }: { start
 const durationPresets = [30, 45, 60, 90, 120];
 const tabStyle =
   "rounded-full px-4 py-1.5 text-sm font-semibold transition border border-transparent dark:text-slate-300";
-const SHEET_CLOSE_DRAG_Y = 120;
-const SHEET_CLOSE_VELOCITY_Y = 700;
 
 export default function FriendsPage() {
   const navigate = useNavigate();
@@ -105,6 +102,8 @@ export default function FriendsPage() {
   const [search, setSearch] = useState("");
   const [loadingBase, setLoadingBase] = useState(false);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
+  const [loadingRequestId, setLoadingRequestId] = useState<string | null>(null);
   const [isSubmittingSession, setIsSubmittingSession] = useState(false);
 
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -421,17 +420,14 @@ export default function FriendsPage() {
           <h1 className="text-3xl font-bold text-foreground dark:text-white sm:text-4xl">Friends</h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400 sm:text-base">Study together. Grow together.</p>
         </div>
-        <motion.button
+        <button
           type="button"
           onClick={() => openSessionModal()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm dark:border dark:border-cyan-300/30 dark:bg-cyan-400 dark:text-slate-900 sm:w-auto"
-          whileHover={{ y: -1, scale: 1.01 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 500, damping: 28 }}
         >
           <Users className="h-4 w-4" />
           New Friend Session
-        </motion.button>
+        </button>
       </div>
 
       <div className="mt-5 space-y-3 rounded-2xl border border-border/60 bg-muted/25 p-2 dark:border-slate-800 dark:bg-slate-900/40">
@@ -702,19 +698,23 @@ export default function FriendsPage() {
                 </div>
                 <button
                   type="button"
+                  disabled={loadingUserId === u.id}
                   onClick={async () => {
+                    setLoadingUserId(u.id);
                     try {
                       await sendFriendRequest(u.id);
                       toast.success("Friend request sent");
                       await loadAllData();
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Failed to send request");
+                    } finally {
+                      setLoadingUserId(null);
                     }
                   }}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 text-sm font-semibold text-primary-foreground dark:bg-cyan-400 dark:text-slate-900"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 text-sm font-semibold text-primary-foreground disabled:pointer-events-none disabled:opacity-50 dark:bg-cyan-400 dark:text-slate-900"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  Add Friend
+                  {loadingUserId === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                  {loadingUserId === u.id ? "Sending…" : "Add Friend"}
                 </button>
               </article>
             ))}
@@ -743,33 +743,43 @@ export default function FriendsPage() {
                   <div className="flex w-full gap-2 sm:w-auto">
                     <button
                       type="button"
+                      disabled={loadingRequestId === request.id}
                       onClick={async () => {
+                        setLoadingRequestId(request.id);
                         try {
                           await acceptFriendRequest(request.id);
                           toast.success("Friend request accepted");
                           await loadAllData();
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Unable to accept request");
+                        } finally {
+                          setLoadingRequestId(null);
                         }
                       }}
-                      className="flex-1 rounded-xl bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 disabled:pointer-events-none disabled:opacity-50 dark:bg-green-900/30 dark:text-green-300"
                     >
-                      Accept
+                      {loadingRequestId === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      {loadingRequestId === request.id ? "Accepting…" : "Accept"}
                     </button>
                     <button
                       type="button"
+                      disabled={loadingRequestId === request.id}
                       onClick={async () => {
+                        setLoadingRequestId(request.id);
                         try {
                           await rejectFriendRequest(request.id);
                           toast.success("Friend request rejected");
                           await loadAllData();
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Unable to reject request");
+                        } finally {
+                          setLoadingRequestId(null);
                         }
                       }}
-                      className="flex-1 rounded-xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground dark:border-slate-700 dark:text-slate-400"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-semibold text-muted-foreground disabled:pointer-events-none disabled:opacity-50 dark:border-slate-700 dark:text-slate-400"
                     >
-                      Decline
+                      {loadingRequestId === request.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      {loadingRequestId === request.id ? "Declining…" : "Decline"}
                     </button>
                   </div>
                 </div>
@@ -796,37 +806,13 @@ export default function FriendsPage() {
         </section>
       )}
 
-      <AnimatePresence>
+      <>
         {showSessionModal && (
-          <motion.div
+          <div
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
           >
-          <motion.div
+          <div
               className="flex h-[75dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:h-auto sm:max-h-[min(88dvh,760px)] sm:max-w-xl sm:rounded-3xl"
-              initial={{ y: 88, opacity: 0.92, scale: 0.98 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 96, opacity: 0.88, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 320, damping: 34, mass: 1 }}
-              drag="y"
-              dragDirectionLock
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.16}
-              dragMomentum={false}
-              onDragEnd={(_, info) => {
-                if (info.offset.y > SHEET_CLOSE_DRAG_Y || info.velocity.y > SHEET_CLOSE_VELOCITY_Y) {
-                  if (liveStartedAtMs) {
-                    setShowSessionModal(false);
-                    return;
-                  }
-                  void clearTimerState().catch(() => {});
-                  setShowSessionModal(false);
-                  resetSessionForm();
-                }
-              }}
             >
             <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted sm:hidden" />
@@ -1106,10 +1092,10 @@ export default function FriendsPage() {
               )}
             </div>
             </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
 }

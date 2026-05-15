@@ -5,8 +5,6 @@ import { useStore } from "@/lib/store";
 import { getSafeSubjectIcon } from "@/lib/subject-icon";
 import { toast } from "sonner";
 import type { Subject } from "@/lib/types";
-import { AnimatePresence, motion } from "framer-motion";
-
 const COLOR_OPTIONS: { key: string; hex: string }[] = [
   { key: "cyan",   hex: "#22d3ee" },
   { key: "orange", hex: "#fb923c" },
@@ -23,17 +21,6 @@ const ICON_OPTIONS = [
   "🌐", "🏛️", "📊", "📈", "🧮",
   "📐", "🎯", "⚡", "🧬", "🌱",
 ];
-
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.18, ease: "easeOut" } },
-  exit: { opacity: 0, transition: { duration: 0.15, ease: "easeIn" } },
-};
-const panelVariants = {
-  hidden: { y: 72, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } },
-  exit: { y: 56, opacity: 0, transition: { duration: 0.16, ease: "easeIn" } },
-};
 
 interface Props {
   open: boolean;
@@ -79,24 +66,16 @@ export function EditSubjectModal({ open, subject, onClose }: Props) {
   const colorHex = COLOR_OPTIONS.find((c) => c.key === color)?.hex ?? "#22d3ee";
 
   return (
-    <AnimatePresence>
+    <>
       {open && subject && (
-    <motion.div
+    <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
     >
-      <motion.div
+      <div
         className="glass-modal w-full max-w-md rounded-t-2xl p-5 sm:rounded-2xl sm:p-6"
         style={{ boxShadow: "var(--shadow-xl)" }}
         onClick={(e) => e.stopPropagation()}
-        variants={panelVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
       >
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
@@ -205,9 +184,9 @@ export function EditSubjectModal({ open, subject, onClose }: Props) {
             {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save"}
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }

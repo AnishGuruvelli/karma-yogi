@@ -118,7 +118,6 @@ export function RingProgress({ pct, value, sub }: { pct: number; value: string; 
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">

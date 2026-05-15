@@ -553,6 +553,7 @@
   body {
     background-color: var(--color-background);
     background-image:
+      radial-gradient(circle, color-mix(in oklch, var(--foreground) 12%, transparent) 1.5px, transparent 1.5px),
       radial-gradient(45rem 32rem at 8% -6%, color-mix(in oklch, var(--neon-pink) 22%, transparent), transparent 62%),
       radial-gradient(55rem 38rem at 105% 0%, color-mix(in oklch, var(--neon-orange) 24%, transparent), transparent 60%),
       radial-gradient(50rem 40rem at 100% 105%, color-mix(in oklch, var(--neon-purple) 20%, transparent), transparent 62%),
@@ -562,8 +563,8 @@
         var(--background) 45%,
         color-mix(in oklch, var(--primary) 6%, var(--background)) 100%
       );
-    background-size: auto, auto, auto, auto;
-    background-position: 0 0, 0 0, 0 0, 0 0;
+    background-size: 22px 22px, auto, auto, auto, auto;
+    background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
     background-attachment: scroll;
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -604,7 +605,6 @@
     background: var(--color-card);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-card);
-    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
   }
   .glass-card:hover {
     box-shadow: var(--shadow-lg);
@@ -636,7 +636,6 @@
     background: var(--color-card);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-card);
-    transition: all 0.25s ease;
   }
   .stat-card:hover {
     box-shadow: var(--shadow-lg);
@@ -646,7 +645,6 @@
   .input-field {
     background: var(--color-muted);
     border: 1px solid var(--color-border);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .input-field:focus {
     border-color: var(--color-primary);
@@ -672,7 +670,6 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--color-muted-foreground);
-    transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   }
   .pill-tab[data-active="true"] {
     color: var(--color-foreground);
@@ -696,13 +693,17 @@
     color: var(--color-foreground);
   }
 
-  /* Log Session modal — frosted sage glass (matches design reference) */
+  /* Log Session modal — frosted delete confirm overlay */
   .log-session-modal-backdrop {
-  background: color-mix(in oklch, var(--background) 82%, black 18%);
+    background: color-mix(in oklch, var(--foreground) 30%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   .dark .log-session-modal-backdrop {
-  background: color-mix(in oklch, var(--background) 88%, black 12%);
+    background: color-mix(in oklch, var(--background) 30%, black 70%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   .log-session-modal-panel {
@@ -723,10 +724,6 @@
     border: 1px solid color-mix(in oklch, var(--neon-green) 26%, var(--border));
     background: color-mix(in oklch, var(--muted) 88%, var(--neon-green) 10%);
     color: var(--color-foreground);
-    transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease,
-      background 0.15s ease;
   }
 
   .log-session-field:focus-within {

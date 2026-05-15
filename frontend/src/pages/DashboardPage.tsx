@@ -8,7 +8,6 @@ import { GoalEditModal } from "@/components/GoalEditModal";
 import { ExamCountdownCard } from "@/components/ExamCountdownCard";
 import { currentStreakUntilToday } from "@/lib/stats";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
-import { motion } from "framer-motion";
 import { subjectColor } from "@/lib/colors";
 import { toast } from "sonner";
 
@@ -69,9 +68,10 @@ export default function DashboardPage() {
 
   const greeting = () => {
     const h = now.getHours();
-    if (h < 12) return "Good Morning";
-    if (h < 17) return "Good Afternoon";
-    return "Good Evening";
+    if (h >= 6 && h < 12) return "Good Morning";
+    if (h >= 12 && h < 17) return "Good Afternoon";
+    if (h >= 17 && h < 21) return "Good Evening";
+    return "Good Night";
   };
 
   const msPerDay = 24 * 60 * 60 * 1000;
@@ -97,29 +97,23 @@ export default function DashboardPage() {
           <p className="mt-0.5 text-xs text-muted-foreground/70">— {dailyQuote.author}</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
-          <motion.button
+          <button
             type="button"
             onClick={() => setTimerOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 sm:w-auto"
-            whileHover={{ y: -1, scale: 1.01 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 500, damping: 28 }}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background hover:opacity-90 sm:w-auto"
           >
             <Play className="h-4 w-4" />
             Begin Session
-          </motion.button>
-          <motion.button
+          </button>
+          <button
             type="button"
             onClick={() => setLogOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-all hover:border-foreground/30 sm:w-auto"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground hover:border-foreground/30 sm:w-auto"
             style={{ boxShadow: "var(--shadow-sm)" }}
-            whileHover={{ y: -1, scale: 1.01 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 500, damping: 28 }}
           >
             <Plus className="h-4 w-4" />
             Log Session
-          </motion.button>
+          </button>
         </div>
       </div>
 
@@ -166,7 +160,7 @@ export default function DashboardPage() {
                     {weekBySubject.map((s) => (
                       <div
                         key={s.id}
-                        className="transition-all duration-500"
+                        className=""
                         style={{
                           width: `${(s.minutes / totalWeekMins) * 100}%`,
                           backgroundColor: subjectColor(s.color),
@@ -262,7 +256,7 @@ export default function DashboardPage() {
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
                   transform="rotate(-90 90 90)"
-                  className="transition-all duration-1000"
+                  className=""
                 />
                 <text x="90" y="84" textAnchor="middle" className="fill-foreground font-bold" fontSize="30">
                   {weekHours.toFixed(1)}

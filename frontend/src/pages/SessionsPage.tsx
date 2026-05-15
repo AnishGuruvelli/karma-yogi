@@ -63,10 +63,6 @@ export default function SessionsPage() {
   return (
     <div
       className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8"
-      style={{
-        backgroundImage: "radial-gradient(circle, color-mix(in oklch, var(--color-foreground) 12%, transparent) 1px, transparent 1px)",
-        backgroundSize: "22px 22px",
-      }}
     >
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Sessions</h1>

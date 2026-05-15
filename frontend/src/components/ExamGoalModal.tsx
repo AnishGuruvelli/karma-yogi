@@ -7,8 +7,6 @@ import { useStore } from "@/lib/store";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -16,17 +14,6 @@ interface Props {
 
 const PRESETS = ["CAT", "XAT", "GMAT", "GRE", "CUET", "NMAT"];
 const nameSchema = z.string().trim().min(1, "Name required").max(40, "Too long");
-
-const backdropVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.18, ease: "easeOut" } },
-  exit: { opacity: 0, transition: { duration: 0.15, ease: "easeIn" } },
-};
-const panelVariants = {
-  hidden: { y: 56, opacity: 0, scale: 0.97 },
-  visible: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 400, damping: 34, mass: 0.85 } },
-  exit: { y: 40, opacity: 0, scale: 0.97, transition: { duration: 0.16, ease: "easeIn" } },
-};
 
 export function ExamGoalModal({ open, onClose }: Props) {
   useBodyScrollLock(open);
@@ -79,23 +66,15 @@ export function ExamGoalModal({ open, onClose }: Props) {
   };
 
   return (
-    <AnimatePresence>
+    <>
     {open && (
-    <motion.div
+    <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 p-4 backdrop-blur-sm sm:items-center"
       onClick={onClose}
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
     >
-      <motion.div
+      <div
         className="glass-modal w-full max-w-md rounded-2xl p-4 sm:p-6"
         onClick={(e) => e.stopPropagation()}
-        variants={panelVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
       >
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -195,9 +174,9 @@ export function ExamGoalModal({ open, onClose }: Props) {
             </div>
           </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
     )}
-    </AnimatePresence>
+    </>
   );
 }

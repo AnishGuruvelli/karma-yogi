@@ -3,9 +3,9 @@ import { useStore, type ThemeName } from "@/lib/store";
 type Swatch = { name: ThemeName; label: string; color: string };
 
 const SWATCHES: Swatch[] = [
-  { name: "sky", label: "Sky", color: "oklch(0.62 0.18 235)" },
-  { name: "honey", label: "Honey", color: "oklch(0.72 0.16 80)" },
-  { name: "forest", label: "Forest", color: "oklch(0.58 0.13 155)" },
+  { name: "sky",     label: "Sky",     color: "oklch(0.62 0.18 235)" },
+  { name: "honey",   label: "Honey",   color: "oklch(0.72 0.16 80)"  },
+  { name: "forest",  label: "Forest",  color: "oklch(0.58 0.13 155)" },
   { name: "blossom", label: "Blossom", color: "oklch(0.68 0.19 350)" },
 ];
 
@@ -63,7 +63,7 @@ export function ThemePicker({ size = "md", layout = "horizontal" }: ThemePickerP
             aria-label={`Switch to ${swatch.label} theme`}
             aria-pressed={active}
             title={swatch.label}
-            className={`group relative ${dot} rounded-full transition-transform duration-200 hover:scale-110 focus-visible:ring-2 focus-visible:ring-foreground/30 focus-visible:outline-none`}
+            className={`group relative ${dot} rounded-full focus-visible:ring-2 focus-visible:ring-foreground/30 focus-visible:outline-none`}
             style={{
               background: swatch.color,
               boxShadow: active
