@@ -90,8 +90,8 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="eyebrow mb-2">{now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
-          <h1 className="break-words font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            {greeting()}, {user.name}
+          <h1 className="break-words font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            {greeting()}, <span className="text-primary">{user.name}.</span>
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">"{dailyQuote.text}"</p>
           <p className="mt-0.5 text-xs text-muted-foreground/70">— {dailyQuote.author}</p>
