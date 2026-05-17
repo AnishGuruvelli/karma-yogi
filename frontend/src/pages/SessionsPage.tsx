@@ -65,7 +65,7 @@ export default function SessionsPage() {
       className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8"
     >
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Sessions</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Sessions</h1>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <button
             type="button"

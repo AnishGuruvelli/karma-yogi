@@ -414,11 +414,11 @@ export default function FriendsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground dark:text-white sm:text-4xl">Friends</h1>
-          <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400 sm:text-base">Study together. Grow together.</p>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Friends</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Study together. Grow together.</p>
         </div>
         <button
           type="button"

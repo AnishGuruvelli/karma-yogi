@@ -241,7 +241,7 @@ export default function InsightsPage() {
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Insights</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Insights</h1>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <div className="grid w-full grid-cols-3 rounded-xl bg-muted p-1 sm:w-auto sm:flex">
             {(["week", "month", "all"] as const).map((p) => (

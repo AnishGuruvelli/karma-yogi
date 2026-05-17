@@ -113,7 +113,7 @@ export default function DataPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <h1 className="mb-8 font-display text-4xl font-semibold tracking-tight text-foreground">Library</h1>
+      <h1 className="mb-8 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Library</h1>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div>
@@ -144,24 +144,26 @@ export default function DataPage() {
                       {sessionCount} sessions · {formatDuration(totalMins)}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingSubject(sub)}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
-                    title="Edit subject"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      requestDeleteSubject(sub.id, sub.name);
-                    }}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingSubject(sub)}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
+                      title="Edit subject"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDeleteSubject(sub.id, sub.name);
+                      }}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
