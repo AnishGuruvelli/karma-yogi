@@ -17,10 +17,12 @@
 
 | | |
 |---|---|
-| <img width="100%" alt="Karma Yogi screenshot 1" src="https://github.com/user-attachments/assets/40453b4f-4deb-4003-b898-30d7691737cb" /> | <img width="100%" alt="Karma Yogi screenshot 2" src="https://github.com/user-attachments/assets/57188331-3d9e-4cd9-9e0d-202548afdf0b" /> |
-| <img width="100%" alt="Karma Yogi screenshot 3" src="https://github.com/user-attachments/assets/d4d56e5b-44e6-4310-b312-671442e50c90" /> | <img width="100%" alt="Karma Yogi screenshot 4" src="https://github.com/user-attachments/assets/6ca7231e-214e-49bd-9eff-e24094eb850a" /> |
-| <img width="100%" alt="Karma Yogi screenshot 5" src="https://github.com/user-attachments/assets/98c4d3b1-9cb4-4b8f-98fa-858cb660d69a" /> | <img width="100%" alt="Karma Yogi screenshot 6" src="https://github.com/user-attachments/assets/ca2c93a0-f4ae-4b0b-a188-ee50f321250d" /> |
-| <img width="100%" alt="Karma Yogi screenshot 7" src="https://github.com/user-attachments/assets/82f82304-c7ee-4887-a69d-2e10341e5813" /> | <img width="100%" alt="Karma Yogi screenshot 8" src="https://github.com/user-attachments/assets/c8defb99-ff98-4724-9cfb-ab5757d673a6" /> |
+| <img width="100%" alt="Dashboard – Honey theme" src="docs/screenshots/dashboard-honey.png" /> | <img width="100%" alt="Dashboard – Blossom theme with theme picker" src="docs/screenshots/dashboard-blossom-theme-picker.png" /> |
+| <img width="100%" alt="Sessions – Sky theme" src="docs/screenshots/sessions-sky.png" /> | <img width="100%" alt="Sessions – Dark theme" src="docs/screenshots/sessions-dark.png" /> |
+| <img width="100%" alt="Insights – Dark theme" src="docs/screenshots/insights-dark.png" /> | <img width="100%" alt="Insights – Sky theme with heatmap" src="docs/screenshots/insights-sky-heatmap.png" /> |
+| <img width="100%" alt="Calendar modal" src="docs/screenshots/calendar-modal.png" /> | <img width="100%" alt="Friends leaderboard" src="docs/screenshots/friends-leaderboard.png" /> |
+| <img width="100%" alt="Library – Forest theme" src="docs/screenshots/library-forest.png" /> | <img width="100%" alt="Library – Dark theme" src="docs/screenshots/library-dark.png" /> |
+| <img width="100%" alt="Profile – Honey theme" src="docs/screenshots/profile-honey.png" /> | <img width="100%" alt="Profile – Honey theme scrolled" src="docs/screenshots/profile-honey-scrolled.png" /> |
 
 ## Quick links
 
