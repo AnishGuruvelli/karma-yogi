@@ -17,7 +17,7 @@
 
 | | |
 |---|---|
-| <img width="100%" alt="Dashboard – Honey theme" src="docs/screenshots/dashboard-honey.png" /> | <img width="100%" alt="Dashboard – Blossom theme with theme picker" src="docs/screenshots/dashboard-blossom-theme-picker.png" /> |
+| <img width="100%" alt="Dashboard – Forest theme" src="docs/screenshots/dashboard-forest.png" /> | <img width="100%" alt="Dashboard – Blossom theme with theme picker" src="docs/screenshots/dashboard-blossom-theme-picker.png" /> |
 | <img width="100%" alt="Sessions – Sky theme" src="docs/screenshots/sessions-sky.png" /> | <img width="100%" alt="Sessions – Dark theme" src="docs/screenshots/sessions-dark.png" /> |
 | <img width="100%" alt="Insights – Dark theme" src="docs/screenshots/insights-dark.png" /> | <img width="100%" alt="Insights – Sky theme with heatmap" src="docs/screenshots/insights-sky-heatmap.png" /> |
 | <img width="100%" alt="Calendar modal" src="docs/screenshots/calendar-modal.png" /> | <img width="100%" alt="Friends leaderboard" src="docs/screenshots/friends-leaderboard.png" /> |
