@@ -78,6 +78,8 @@ export interface QotdEntry {
   source: string;
   correct: boolean;
   timeTakenSec?: number | null;
+  questionsCorrect?: number | null;
+  questionsTotal?: number | null;
   note: string;
   createdAt: string;
 }

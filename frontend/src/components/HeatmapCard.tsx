@@ -1,8 +1,10 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { ChevronDown, Check } from "lucide-react";
 import { fromLocalDateKey } from "@/lib/date";
 import { useHeatmapData } from "@/hooks/useHeatmapData";
 import { useStore } from "@/lib/store";
+import type { Session, Subject } from "@/lib/types";
 
 function fmt(m: number): string {
   const h = Math.floor(m / 60);
@@ -13,6 +15,8 @@ function fmt(m: number): string {
 
 interface HeatmapCardProps {
   dailyTotals: Map<string, number>;
+  sessions?: Session[];
+  subjects?: Subject[];
   className?: string;
 }
 
@@ -25,12 +29,28 @@ interface TooltipState {
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_COL_W = 28; // px width for the day-label column
 
-export const HeatmapCard = memo(function HeatmapCard({ dailyTotals, className }: HeatmapCardProps) {
+export const HeatmapCard = memo(function HeatmapCard({ dailyTotals, sessions, subjects, className }: HeatmapCardProps) {
   const { isDark } = useStore();
   const thisYear = new Date().getFullYear();
   const years = [thisYear - 1, thisYear];
   const [year, setYear] = useState(thisYear);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState("ALL");
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setDropOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropOpen]);
+
+  const selectedLabel = subjectFilter === "ALL"
+    ? "All Subjects"
+    : (subjects?.find(s => s.id === subjectFilter)?.name ?? "All Subjects");
 
   const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLElement>, tooltipText: string) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -38,7 +58,19 @@ export const HeatmapCard = memo(function HeatmapCard({ dailyTotals, className }:
   }, []);
 
   const handleMouseLeave = useCallback(() => setTooltip(null), []);
-  const heatmapData = useHeatmapData(dailyTotals, year);
+
+  const activeDailyTotals = useMemo(() => {
+    if (!sessions || subjectFilter === "ALL") return dailyTotals;
+    const map = new Map<string, number>();
+    for (const s of sessions) {
+      if (s.subjectId === subjectFilter) {
+        map.set(s.date, (map.get(s.date) || 0) + s.duration);
+      }
+    }
+    return map;
+  }, [dailyTotals, sessions, subjectFilter]);
+
+  const heatmapData = useHeatmapData(activeDailyTotals, year);
 
   const darkScale = ["oklch(0.35 0.06 165)", "oklch(0.48 0.11 172)", "oklch(0.60 0.15 174)", "oklch(0.74 0.2 178)"];
   const lightScale = ["oklch(0.88 0.08 170)", "oklch(0.78 0.12 165)", "oklch(0.68 0.16 160)", "oklch(0.58 0.19 155)"];
@@ -62,20 +94,52 @@ export const HeatmapCard = memo(function HeatmapCard({ dailyTotals, className }:
       {/* Header */}
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold text-foreground">Focus Heatmap</h2>
-        <div className="flex items-center rounded-xl bg-muted p-1">
-          {years.map((y) => (
-            <button
-              key={y}
-              type="button"
-              onClick={() => setYear(y)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                year === y ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"
-              }`}
-              style={year === y ? { boxShadow: "var(--shadow-sm)" } : undefined}
-            >
-              {y}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {subjects && subjects.length > 0 && (
+            <div className="relative flex items-center rounded-xl bg-muted p-1" ref={dropRef} style={{ boxShadow: "var(--shadow-sm)" }}>
+              <button
+                type="button"
+                onClick={() => setDropOpen(p => !p)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-background/40"
+              >
+                <span className="max-w-[110px] truncate">{selectedLabel}</span>
+                <ChevronDown className={`h-3 w-3 shrink-0 text-muted-foreground ${dropOpen ? "rotate-180" : ""}`} />
+              </button>
+              {dropOpen && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-1.5 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card py-1"
+                  style={{ boxShadow: "var(--shadow-md)" }}
+                >
+                  {[{ id: "ALL", name: "All Subjects" }, ...(subjects ?? [])].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => { setSubjectFilter(opt.id); setDropOpen(false); }}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-muted"
+                    >
+                      <span className="truncate">{opt.name}</span>
+                      {subjectFilter === opt.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-center rounded-xl bg-muted p-1">
+            {years.map((y) => (
+              <button
+                key={y}
+                type="button"
+                onClick={() => setYear(y)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  year === y ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"
+                }`}
+                style={year === y ? { boxShadow: "var(--shadow-sm)" } : undefined}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

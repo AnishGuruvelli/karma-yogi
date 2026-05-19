@@ -669,6 +669,12 @@ export async function createQotdEntry(payload: Omit<QotdEntry, 'id' | 'userId' |
   return (await res.json()) as QotdEntry;
 }
 
+export async function updateQotdEntry(id: string, payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>): Promise<QotdEntry> {
+  const res = await request(`/qotd/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update QOTD entry'));
+  return (await res.json()) as QotdEntry;
+}
+
 export async function removeQotdEntry(id: string): Promise<void> {
   const res = await request(`/qotd/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete QOTD entry'));

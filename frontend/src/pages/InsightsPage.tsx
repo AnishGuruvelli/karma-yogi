@@ -1,7 +1,7 @@
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo, useCallback, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine, LineChart, Line } from "recharts";
-import { Clock, BarChart3, Crown, Trophy, Star, ChevronLeft, ChevronRight, Calendar, BookOpen, ClipboardList } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine, LineChart, Line, CartesianGrid, Legend } from "recharts";
+import { Clock, BarChart3, Crown, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
 import { HeatmapCard } from "@/components/HeatmapCard";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
@@ -12,150 +12,214 @@ type PeriodMode = "week" | "month" | "all";
 
 const MONTH_LABELS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
-function MocksInsightsView({ fullMocks, sectionalTests }: { fullMocks: FullMock[]; sectionalTests: SectionalTest[] }) {
-  const [providerFilter, setProviderFilter] = useState<string>("ALL");
+const CHART_COLORS = {
+  overall: "#22d3ee",
+  varc: "#a78bfa",
+  dilr: "#fb923c",
+  quant: "#86efac",
+};
 
-  const providers = useMemo(() => {
-    const p = new Set<string>();
-    fullMocks.forEach((m) => p.add(m.provider));
-    return ["ALL", ...Array.from(p).sort()];
-  }, [fullMocks]);
+function MockTooltip({ active, payload, label, valueSuffix }: { active?: boolean; payload?: Array<{ dataKey?: string | number; value?: unknown; color?: string }>; label?: string; valueSuffix?: string }) {
+  if (!active || !payload?.length) return null;
+  const visible = payload.filter((p) => p.value != null);
+  if (!visible.length) return null;
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-xs" style={{ boxShadow: "var(--shadow-md)", minWidth: 120 }}>
+      <p className="mb-2 font-semibold text-foreground">{label}</p>
+      {visible.map((p, i) => (
+        <div key={i} className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
+            <span className="text-muted-foreground">{String(p.dataKey ?? "")}</span>
+          </div>
+          <span className="font-semibold tabular-nums text-foreground">{valueSuffix ? `${p.value}${valueSuffix}` : String(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  const filteredMocks = useMemo(() =>
-    providerFilter === "ALL" ? fullMocks : fullMocks.filter((m) => m.provider === providerFilter),
-    [fullMocks, providerFilter]
+function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="glass-card rounded-2xl p-5">
+      <div className="mb-4">
+        <p className="font-display text-lg font-semibold tracking-tight text-foreground">{title}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function avg(nums: (number | null | undefined)[]): number {
+  const valid = nums.filter((n): n is number => n != null);
+  if (!valid.length) return 0;
+  return +(valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1);
+}
+
+const LINE_SERIES = ["Overall", "VARC", "DILR", "QUANT"] as const;
+const BAR_SERIES = ["TIME", "IMS"] as const;
+type LineSeries = (typeof LINE_SERIES)[number];
+type BarSeries = (typeof BAR_SERIES)[number];
+
+function legendFormatter(value: string, hidden: Set<string>, color: string) {
+  return (
+    <span style={{ color, textDecoration: hidden.has(value) ? "line-through" : "none", opacity: hidden.has(value) ? 0.4 : 1, cursor: "pointer", fontSize: 11 }}>
+      {value}
+    </span>
+  );
+}
+
+function MocksInsightsView({ filteredMocks, sectionalTests, fullMocks }: { filteredMocks: FullMock[]; sectionalTests: SectionalTest[]; fullMocks: FullMock[] }) {
+  void sectionalTests;
+
+  const [hiddenScore, setHiddenScore] = useState<Set<string>>(new Set());
+  const [hiddenPct, setHiddenPct] = useState<Set<string>>(new Set());
+  const [hiddenProvider, setHiddenProvider] = useState<Set<string>>(new Set());
+
+  const toggleScore = useCallback((key: string) => setHiddenScore(p => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n; }), []);
+  const togglePct = useCallback((key: string) => setHiddenPct(p => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n; }), []);
+  const toggleProvider = useCallback((key: string) => setHiddenProvider(p => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n; }), []);
+
+  const sorted = useMemo(() =>
+    [...filteredMocks].sort((a, b) => a.date.localeCompare(b.date)),
+    [filteredMocks]
   );
 
   const scoreTrendData = useMemo(() =>
-    [...filteredMocks]
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((m) => ({
-        date: m.date.slice(5),
-        varc: m.varcScore ?? null,
-        dilr: m.dilrScore ?? null,
-        quant: m.quantScore ?? null,
-        overall: m.overallScore ?? null,
-      })),
-    [filteredMocks]
+    sorted.map((m) => ({
+      name: m.testName,
+      Overall: m.overallScore ?? null,
+      VARC: m.varcScore ?? null,
+      DILR: m.dilrScore ?? null,
+      QUANT: m.quantScore ?? null,
+    })),
+    [sorted]
   );
 
   const percentileData = useMemo(() =>
-    [...filteredMocks]
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((m) => ({
-        date: m.date.slice(5),
-        varc: m.varcPercentile ?? null,
-        dilr: m.dilrPercentile ?? null,
-        quant: m.quantPercentile ?? null,
-        overall: m.overallPercentile ?? null,
-      })),
-    [filteredMocks]
+    sorted.map((m) => ({
+      name: m.testName,
+      Overall: m.overallPercentile ?? null,
+      VARC: m.varcPercentile ?? null,
+      DILR: m.dilrPercentile ?? null,
+      QUANT: m.quantPercentile ?? null,
+    })),
+    [sorted]
   );
 
-  const allTags = useMemo(() => {
-    const tagCounts = new Map<string, number>();
-    [...fullMocks, ...sectionalTests].forEach((t) => {
-      t.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1));
+  const providerCompare = useMemo(() => {
+    const sections = ["VARC", "DILR", "QUANT"] as const;
+    return sections.map((sec) => {
+      const key = sec.toLowerCase() as "varc" | "dilr" | "quant";
+      return {
+        section: sec,
+        TIME: avg(fullMocks.filter(m => m.provider === "TIME").map(m => m[`${key}Score`])),
+        IMS: avg(fullMocks.filter(m => m.provider === "IMS").map(m => m[`${key}Score`])),
+      };
     });
-    return Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20);
-  }, [fullMocks, sectionalTests]);
+  }, [fullMocks]);
 
-  const noData = filteredMocks.length === 0;
+  const allTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    fullMocks.forEach((m) => m.tags.forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  }, [fullMocks]);
+
+  const hasProviderData = fullMocks.some(m => m.provider === "TIME") && fullMocks.some(m => m.provider === "IMS");
+
+  const axisTick = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
+  const gridStroke = "hsl(var(--border))";
+
+  const lineColor: Record<LineSeries, string> = { Overall: CHART_COLORS.overall, VARC: CHART_COLORS.varc, DILR: CHART_COLORS.dilr, QUANT: CHART_COLORS.quant };
+  const barColor: Record<BarSeries, string> = { TIME: CHART_COLORS.overall, IMS: CHART_COLORS.varc };
+
+  if (filteredMocks.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+        No full mock data yet. Log a mock test to see analytics.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Provider filter */}
-      <div className="flex flex-wrap gap-2">
-        {providers.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setProviderFilter(p)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold border ${providerFilter === p ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      {noData ? (
-        <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-          No full mock data yet. Log a mock test to see analytics.
-        </div>
-      ) : (
-        <>
-          {/* Score Trend */}
-          <div className="glass-card rounded-2xl p-4 sm:p-5">
-            <h2 className="mb-4 font-semibold text-foreground">Score Trend</h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={scoreTrendData}>
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="varc" name="VARC" stroke="#22d3ee" dot={false} connectNulls />
-                <Line type="monotone" dataKey="dilr" name="DILR" stroke="#4ade80" dot={false} connectNulls />
-                <Line type="monotone" dataKey="quant" name="QUANT" stroke="#fb923c" dot={false} connectNulls />
-                <Line type="monotone" dataKey="overall" name="Overall" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Percentile Progression */}
-          <div className="glass-card rounded-2xl p-4 sm:p-5">
-            <h2 className="mb-4 font-semibold text-foreground">Percentile Progression</h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={percentileData}>
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => `${v?.toFixed(1)}%ile`} />
-                <Line type="monotone" dataKey="varc" name="VARC" stroke="#22d3ee" dot={false} connectNulls />
-                <Line type="monotone" dataKey="dilr" name="DILR" stroke="#4ade80" dot={false} connectNulls />
-                <Line type="monotone" dataKey="quant" name="QUANT" stroke="#fb923c" dot={false} connectNulls />
-                <Line type="monotone" dataKey="overall" name="Overall" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </>
-      )}
-
-      {/* Weak Topics */}
+      {/* Top Weak Topics */}
       {allTags.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 sm:p-5">
-          <h2 className="mb-3 font-semibold text-foreground">Top Weak Topics</h2>
+        <ChartCard title="Top Weak Topics" subtitle="Most-tagged mistake areas across mocks">
           <div className="flex flex-wrap gap-2">
             {allTags.map(([tag, count]) => (
-              <span
-                key={tag}
-                className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground"
-                style={{ fontSize: `${Math.min(14, 10 + count)}px` }}
-              >
-                {tag} <span className="text-muted-foreground">×{count}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sectional breakdown */}
-      {sectionalTests.length > 0 && (
-        <div className="glass-card rounded-2xl p-4 sm:p-5">
-          <h2 className="mb-3 font-semibold text-foreground">Sectional Tests — Recent</h2>
-          <div className="space-y-2">
-            {[...sectionalTests].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-xl border border-border bg-muted/50 px-3 py-2">
-                <div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase">{s.section}</span>
-                  <div className="text-sm font-medium text-foreground">{s.testName}</div>
-                </div>
-                <div className="text-right">
-                  {s.score != null && <div className="font-bold text-foreground">{s.score}</div>}
-                  {s.percentile != null && <div className="text-xs text-muted-foreground">{s.percentile.toFixed(1)}%ile</div>}
-                </div>
+              <div key={tag} className="flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1.5">
+                <span className="text-sm font-medium text-foreground">{tag}</span>
+                <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">×{count}</span>
               </div>
             ))}
           </div>
-        </div>
+        </ChartCard>
       )}
+
+      {/* Score Trend */}
+      <ChartCard title="Score Trend" subtitle="Click a legend item to show/hide it">
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={scoreTrendData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+            <CartesianGrid stroke={gridStroke} strokeOpacity={0.35} vertical={false} />
+            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+            <YAxis tick={axisTick} axisLine={false} tickLine={false} />
+            <Tooltip content={(props) => <MockTooltip {...props} />} />
+            <Legend
+              wrapperStyle={{ paddingTop: 12, cursor: "pointer" }}
+              onClick={(e) => toggleScore(e.dataKey as string)}
+              formatter={(value) => legendFormatter(value, hiddenScore, lineColor[value as LineSeries] ?? "#888")}
+            />
+            {LINE_SERIES.map((key) => (
+              <Line key={key} type="monotone" dataKey={key} stroke={lineColor[key]} strokeWidth={key === "Overall" ? 2.5 : 1.5} dot={{ r: key === "Overall" ? 3 : 2, fill: lineColor[key] }} connectNulls hide={hiddenScore.has(key)} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Percentile Progression */}
+      <ChartCard title="Percentile Progression" subtitle="Click a legend item to show/hide it">
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={percentileData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+            <CartesianGrid stroke={gridStroke} strokeOpacity={0.35} vertical={false} />
+            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+            <YAxis tick={axisTick} axisLine={false} tickLine={false} domain={["auto", 100]} />
+            <Tooltip content={(props) => <MockTooltip {...props} valueSuffix="%ile" />} />
+            <Legend
+              wrapperStyle={{ paddingTop: 12, cursor: "pointer" }}
+              onClick={(e) => togglePct(e.dataKey as string)}
+              formatter={(value) => legendFormatter(value, hiddenPct, lineColor[value as LineSeries] ?? "#888")}
+            />
+            {LINE_SERIES.map((key) => (
+              <Line key={key} type="monotone" dataKey={key} stroke={lineColor[key]} strokeWidth={key === "Overall" ? 2.5 : 1.5} dot={{ r: key === "Overall" ? 3 : 2, fill: lineColor[key] }} connectNulls hide={hiddenPct.has(key)} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Provider Comparison */}
+      {hasProviderData && (
+        <ChartCard title="Provider Comparison" subtitle="Avg score per section across all mocks · click legend to show/hide">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={providerCompare} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+              <CartesianGrid stroke={gridStroke} strokeOpacity={0.35} vertical={false} />
+              <XAxis dataKey="section" tick={axisTick} axisLine={false} tickLine={false} />
+              <YAxis tick={axisTick} axisLine={false} tickLine={false} />
+              <Tooltip content={(props) => <MockTooltip {...props} />} />
+              <Legend
+                wrapperStyle={{ paddingTop: 12, cursor: "pointer" }}
+                onClick={(e) => toggleProvider(e.dataKey as string)}
+                formatter={(value) => legendFormatter(value, hiddenProvider, barColor[value as BarSeries] ?? "#888")}
+              />
+              {BAR_SERIES.map((key) => (
+                <Bar key={key} dataKey={key} fill={barColor[key]} radius={[6, 6, 0, 0]} hide={hiddenProvider.has(key)} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      )}
+
     </div>
   );
 }
@@ -166,6 +230,18 @@ export default function InsightsPage() {
   const [offset, setOffset] = useState(0);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [insightsTab, setInsightsTab] = useState<'study' | 'mocks'>('study');
+  const [providerFilter, setProviderFilter] = useState<string>("ALL");
+
+  const mockProviders = useMemo(() => {
+    const p = new Set<string>();
+    fullMocks.forEach((m) => p.add(m.provider));
+    return ["ALL", ...Array.from(p).sort()];
+  }, [fullMocks]);
+
+  const filteredMocks = useMemo(() =>
+    providerFilter === "ALL" ? fullMocks : fullMocks.filter((m) => m.provider === providerFilter),
+    [fullMocks, providerFilter]
+  );
 
   const now = useMemo(() => new Date(), []);
 
@@ -390,56 +466,87 @@ export default function InsightsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        {/* Left: eyebrow + title + subtitle */}
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Reflect &amp; Observe</p>
           <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Insights</h1>
-          <div className="flex rounded-xl bg-muted p-1">
+          <p className="mt-1 text-sm text-muted-foreground">What gets measured gets managed.</p>
+        </div>
+
+        {/* Right: Study/Mocks toggle + time controls */}
+        <div className="flex flex-col gap-2 sm:items-end">
+          <div className="flex rounded-full bg-muted p-1">
             <button
               type="button"
               onClick={() => setInsightsTab('study')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${insightsTab === 'study' ? 'bg-card text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold ${insightsTab === 'study' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               style={insightsTab === 'study' ? { boxShadow: "var(--shadow-sm)" } : undefined}
             >
-              <BookOpen className="h-3.5 w-3.5" /> Study
+              Study
             </button>
             <button
               type="button"
               onClick={() => setInsightsTab('mocks')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${insightsTab === 'mocks' ? 'bg-card text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold ${insightsTab === 'mocks' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               style={insightsTab === 'mocks' ? { boxShadow: "var(--shadow-sm)" } : undefined}
             >
-              <ClipboardList className="h-3.5 w-3.5" /> Mocks
+              Mocks
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {insightsTab === 'study' && (
+              <div className="flex rounded-xl bg-muted p-1">
+                {(["week", "month", "all"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleModeChange(p)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold sm:px-4 sm:text-sm ${
+                      mode === p ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    style={mode === p ? { boxShadow: "var(--shadow-sm)" } : undefined}
+                  >
+                    {p === "week" ? "Week" : p === "month" ? "Month" : "All Time"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {insightsTab === 'mocks' && (
+              <div className="flex items-center gap-2">
+                <span className="eyebrow hidden sm:inline">provider filter</span>
+                <div className="flex rounded-full bg-muted p-1">
+                  {mockProviders.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setProviderFilter(p)}
+                      className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
+                        providerFilter === p ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      style={providerFilter === p ? { boxShadow: "var(--shadow-sm)" } : undefined}
+                    >
+                      {p === "ALL" ? "All" : p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              className="flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+              style={{ boxShadow: "var(--shadow-sm)" }}
+            >
+              <Calendar className="h-4 w-4" />
+              <span>Calendar</span>
             </button>
           </div>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-          <div className="grid w-full grid-cols-3 rounded-xl bg-muted p-1 sm:w-auto sm:flex">
-            {(["week", "month", "all"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handleModeChange(p)}
-                className={`rounded-lg px-3 py-2 text-xs font-semibold transition-all sm:px-4 sm:text-sm ${
-                  mode === p ? "bg-card text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-                style={mode === p ? { boxShadow: "var(--shadow-sm)" } : undefined}
-              >
-                {p === "week" ? "Week" : p === "month" ? "Month" : "All Time"}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCalendarOpen(true)}
-            className="flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-muted px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground sm:w-auto"
-          >
-            <Calendar className="h-4 w-4" />
-            <span>Calendar</span>
-          </button>
-        </div>
       </div>
 
-      {insightsTab === 'mocks' && <MocksInsightsView fullMocks={fullMocks} sectionalTests={sectionalTests} />}
+      {insightsTab === 'mocks' && <MocksInsightsView filteredMocks={filteredMocks} fullMocks={fullMocks} sectionalTests={sectionalTests} />}
 
       {insightsTab === 'study' && <div className="glass-card mb-6 rounded-2xl p-4 sm:mb-8 sm:p-5">
         <div className="mb-4 flex items-center justify-between sm:mb-5">
@@ -623,7 +730,7 @@ export default function InsightsPage() {
         ))}
       </div>}
 
-      {hasData && <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {insightsTab === 'study' && hasData && <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {pieData.length > 0 && (
           <div className="glass-card rounded-2xl p-4 sm:p-5 lg:col-span-2">
             <h2 className="mb-4 font-semibold text-foreground">By Subject</h2>
@@ -641,26 +748,11 @@ export default function InsightsPage() {
                     if (!item) return null;
                     const percentage = pieTotal > 0 ? Math.round((item.value / pieTotal) * 100) : 0;
                     return (
-                      <div
-                        style={{
-                          borderRadius: 12,
-                          border: "1px solid var(--color-border)",
-                          background: "var(--color-card)",
-                          color: "var(--color-foreground)",
-                          padding: "10px 12px",
-                        }}
-                      >
-                        <p>Subject: {item.name}</p>
-                        <p>Percentage: {percentage}%</p>
-                        <p>Hours: {formatDuration(item.value)}</p>
+                      <div className="rounded-xl border border-border bg-card p-3 text-xs" style={{ boxShadow: "var(--shadow-md)" }}>
+                        <p className="mb-1 font-semibold text-foreground">{item.name}</p>
+                        <p className="text-muted-foreground">{percentage}% · {formatDuration(item.value)}</p>
                       </div>
                     );
-                  }}
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid var(--color-border)",
-                    background: "var(--color-card)",
-                    color: "var(--color-foreground)",
                   }}
                 />
               </PieChart>
@@ -711,8 +803,14 @@ export default function InsightsPage() {
         </div>
       </div>}
 
-      {insightsTab === 'study' && <HeatmapCard dailyTotals={heatmapDailyTotals} />}
-      {insightsTab === 'study' && <CalendarModal open={calendarOpen} onClose={() => setCalendarOpen(false)} sessions={sessions} />}
+      {insightsTab === 'study' && <HeatmapCard dailyTotals={heatmapDailyTotals} sessions={sessions} subjects={subjects} />}
+      <CalendarModal
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        sessions={insightsTab === 'study' ? sessions : undefined}
+        mockDates={insightsTab === 'mocks' ? fullMocks.map((m) => m.date) : undefined}
+        title={insightsTab === 'mocks' ? 'Mocks Calendar' : 'Calendar'}
+      />
     </div>
   );
 }

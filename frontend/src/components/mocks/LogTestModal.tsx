@@ -1,113 +1,24 @@
-import { useState, useCallback } from "react";
-import { X, ChevronLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { X, ChevronLeft, Loader2, Plus, CalendarIcon } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useStore } from "@/lib/store";
-import { toLocalDateKey } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import type { FullMock, MockProvider, SectionalTest, QotdEntry } from "@/lib/types";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type TestKind = "full" | "sectional" | "qotd";
 
 const PROVIDERS: { value: MockProvider; label: string }[] = [
   { value: "TIME", label: "TIME" },
   { value: "IMS", label: "IMS" },
-  { value: "CL", label: "CL" },
-  { value: "AIMCAT", label: "AIMCAT" },
   { value: "OTHER", label: "Other" },
 ];
 
-const SECTIONS = ["VARC", "DILR", "QUANT"];
-const QOTD_TOPICS = ["VARC", "DILR", "QUANT", "Reading Comprehension", "Verbal Ability", "Data Interpretation", "Logical Reasoning", "Quantitative Aptitude"];
-
-function TagInput({ tags, onChange, allTags }: { tags: string[]; onChange: (t: string[]) => void; allTags: string[] }) {
-  const [input, setInput] = useState("");
-  const suggestions = input.length > 0
-    ? allTags.filter((t) => t.toLowerCase().includes(input.toLowerCase()) && !tags.includes(t)).slice(0, 5)
-    : [];
-
-  const add = (tag: string) => {
-    const t = tag.trim();
-    if (t && !tags.includes(t)) onChange([...tags, t]);
-    setInput("");
-  };
-
-  return (
-    <div>
-      <div className="flex flex-wrap gap-1 mb-2">
-        {tags.map((t) => (
-          <span key={t} className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-foreground">
-            {t}
-            <button type="button" onClick={() => onChange(tags.filter((x) => x !== t))} className="ml-0.5 text-muted-foreground hover:text-foreground">×</button>
-          </span>
-        ))}
-      </div>
-      <div className="relative">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); if (input.trim()) add(input); }
-            if (e.key === "Backspace" && !input && tags.length > 0) onChange(tags.slice(0, -1));
-          }}
-          placeholder="Add tag (Enter to confirm)"
-          className="input-field w-full text-sm"
-        />
-        {suggestions.length > 0 && (
-          <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-lg border border-border bg-card shadow-lg">
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onMouseDown={(e) => { e.preventDefault(); add(s); }}
-                className="w-full px-3 py-1.5 text-left text-sm text-foreground hover:bg-muted"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface FullMockFormState {
-  provider: MockProvider;
-  providerName: string;
-  testName: string;
-  date: string;
-  varcScore: string;
-  varcAttempted: string;
-  varcCorrect: string;
-  varcPercentile: string;
-  dilrScore: string;
-  dilrAttempted: string;
-  dilrCorrect: string;
-  dilrPercentile: string;
-  quantScore: string;
-  quantAttempted: string;
-  quantCorrect: string;
-  quantPercentile: string;
-  overallScore: string;
-  overallPercentile: string;
-  durationMin: string;
-  tags: string[];
-  notes: string;
-}
-
-const emptyFullMock = (): FullMockFormState => ({
-  provider: "TIME",
-  providerName: "",
-  testName: "",
-  date: toLocalDateKey(new Date()),
-  varcScore: "", varcAttempted: "", varcCorrect: "", varcPercentile: "",
-  dilrScore: "", dilrAttempted: "", dilrCorrect: "", dilrPercentile: "",
-  quantScore: "", quantAttempted: "", quantCorrect: "", quantPercentile: "",
-  overallScore: "", overallPercentile: "",
-  durationMin: "",
-  tags: [],
-  notes: "",
-});
+const SECTIONS = ["varc", "dilr", "quant"] as const;
+type SK = (typeof SECTIONS)[number];
+const SECTION_LABELS: Record<SK, string> = { varc: "VARC", dilr: "DILR", quant: "QUANT" };
 
 function ni(v: string): number | null {
   const n = parseInt(v, 10);
@@ -118,38 +29,78 @@ function nf(v: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-function FullMockForm({ onSave, allTags }: { onSave: (m: Omit<FullMock, 'id' | 'userId' | 'createdAt'>) => Promise<void>; allTags: string[] }) {
-  const [form, setForm] = useState<FullMockFormState>(emptyFullMock());
-  const [saving, setSaving] = useState(false);
-  const set = (k: keyof FullMockFormState, v: string | string[]) => setForm((prev) => ({ ...prev, [k]: v }));
+// ── FULL MOCK FORM ────────────────────────────────────────────────────────────
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.testName.trim()) return;
+interface FullState {
+  provider: MockProvider;
+  providerName: string;
+  testName: string;
+  date: Date;
+  varcScore: string; varcAttempted: string; varcCorrect: string; varcPercentile: string;
+  dilrScore: string; dilrAttempted: string; dilrCorrect: string; dilrPercentile: string;
+  quantScore: string; quantAttempted: string; quantCorrect: string; quantPercentile: string;
+  overallPercentile: string;
+  duration: number;
+  tags: string[];
+  tagInput: string;
+  notes: string;
+}
+
+function emptyFull(): FullState {
+  return {
+    provider: "TIME", providerName: "", testName: "", date: new Date(),
+    varcScore: "", varcAttempted: "", varcCorrect: "", varcPercentile: "",
+    dilrScore: "", dilrAttempted: "", dilrCorrect: "", dilrPercentile: "",
+    quantScore: "", quantAttempted: "", quantCorrect: "", quantPercentile: "",
+    overallPercentile: "",
+    duration: 120,
+    tags: [], tagInput: "", notes: "",
+  };
+}
+
+function FullMockForm({ onSave, allTags }: { onSave: (m: Omit<FullMock, "id" | "userId" | "createdAt">) => Promise<void>; allTags: string[] }) {
+  const [f, setF] = useState<FullState>(emptyFull());
+  const [saving, setSaving] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const set = <K extends keyof FullState>(k: K, v: FullState[K]) => setF(p => ({ ...p, [k]: v }));
+
+  const suggestions = useMemo(() => {
+    const q = f.tagInput.trim().toLowerCase();
+    if (!q) return [];
+    return allTags.filter(t => t.includes(q) && !f.tags.includes(t)).slice(0, 6);
+  }, [f.tagInput, f.tags, allTags]);
+
+  const computedOverallScore = (ni(f.varcScore) ?? 0) + (ni(f.dilrScore) ?? 0) + (ni(f.quantScore) ?? 0);
+
+  const addTag = (val?: string) => {
+    const t = (val ?? f.tagInput).trim().toLowerCase();
+    if (t && !f.tags.includes(t)) set("tags", [...f.tags, t]);
+    set("tagInput", "");
+    setSuggestOpen(false);
+    tagInputRef.current?.focus();
+  };
+
+  const handleSubmit = async () => {
+    if (!f.testName.trim()) return;
     setSaving(true);
     try {
       await onSave({
-        provider: form.provider,
-        providerName: form.provider === "OTHER" ? form.providerName.trim() : form.provider,
-        testName: form.testName.trim(),
-        date: form.date,
-        varcScore: ni(form.varcScore),
-        varcAttempted: ni(form.varcAttempted),
-        varcCorrect: ni(form.varcCorrect),
-        varcPercentile: nf(form.varcPercentile),
-        dilrScore: ni(form.dilrScore),
-        dilrAttempted: ni(form.dilrAttempted),
-        dilrCorrect: ni(form.dilrCorrect),
-        dilrPercentile: nf(form.dilrPercentile),
-        quantScore: ni(form.quantScore),
-        quantAttempted: ni(form.quantAttempted),
-        quantCorrect: ni(form.quantCorrect),
-        quantPercentile: nf(form.quantPercentile),
-        overallScore: ni(form.overallScore),
-        overallPercentile: nf(form.overallPercentile),
-        durationMin: ni(form.durationMin),
-        tags: form.tags,
-        notes: form.notes.trim(),
+        provider: f.provider,
+        providerName: f.provider === "OTHER" ? f.providerName.trim() : f.provider,
+        testName: f.testName.trim(),
+        date: format(f.date, "yyyy-MM-dd"),
+        varcScore: ni(f.varcScore), varcAttempted: ni(f.varcAttempted),
+        varcCorrect: ni(f.varcCorrect), varcPercentile: nf(f.varcPercentile),
+        dilrScore: ni(f.dilrScore), dilrAttempted: ni(f.dilrAttempted),
+        dilrCorrect: ni(f.dilrCorrect), dilrPercentile: nf(f.dilrPercentile),
+        quantScore: ni(f.quantScore), quantAttempted: ni(f.quantAttempted),
+        quantCorrect: ni(f.quantCorrect), quantPercentile: nf(f.quantPercentile),
+        overallScore: computedOverallScore > 0 ? computedOverallScore : null,
+        overallPercentile: nf(f.overallPercentile),
+        durationMin: f.duration > 0 ? f.duration : null,
+        tags: f.tags,
+        notes: f.notes.trim(),
         linkedSessionId: null,
       });
     } finally {
@@ -157,163 +108,280 @@ function FullMockForm({ onSave, allTags }: { onSave: (m: Omit<FullMock, 'id' | '
     }
   };
 
-  const sectionFields = [
-    { key: "varc" as const, label: "VARC" },
-    { key: "dilr" as const, label: "DILR" },
-    { key: "quant" as const, label: "QUANT" },
-  ] as const;
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Provider</label>
-          <select
-            value={form.provider}
-            onChange={(e) => set("provider", e.target.value as MockProvider)}
-            className="input-field w-full text-sm"
-          >
-            {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
+    <div className="space-y-5">
+      {/* Provider */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Provider</label>
+        <div className="flex flex-wrap gap-2">
+          {PROVIDERS.map(p => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => set("provider", p.value)}
+              className={cn(
+                "rounded-full border px-4 py-1.5 text-sm font-medium",
+                f.provider === p.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:bg-muted",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Test Name *</label>
+        {f.provider === "OTHER" && (
           <input
-            required
             type="text"
-            value={form.testName}
-            onChange={(e) => set("testName", e.target.value)}
-            placeholder="e.g. Mock CAT 23"
-            className="input-field w-full text-sm"
+            value={f.providerName}
+            onChange={e => set("providerName", e.target.value)}
+            placeholder="e.g. Career Launcher, 2IIM"
+            className="input-field mt-2 w-full rounded-xl p-3 text-sm"
+          />
+        )}
+      </div>
+
+      {/* Test name + Date */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Test name</label>
+          <input
+            type="text"
+            value={f.testName}
+            onChange={e => set("testName", e.target.value)}
+            placeholder="AIMCAT 06"
+            className="input-field w-full rounded-xl p-3 text-sm"
           />
         </div>
-      </div>
-      {form.provider === "OTHER" && (
         <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Provider Name</label>
-          <input type="text" value={form.providerName} onChange={(e) => set("providerName", e.target.value)} placeholder="Provider name" className="input-field w-full text-sm" />
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Date</label>
-          <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className="input-field w-full text-sm" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Duration (min)</label>
-          <input type="number" min="0" value={form.durationMin} onChange={(e) => set("durationMin", e.target.value)} placeholder="180" className="input-field w-full text-sm" />
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="input-field flex w-full items-center justify-between rounded-xl p-3 text-left text-sm font-medium text-foreground"
+              >
+                {format(f.date, "PPP")}
+                <CalendarIcon className="h-4 w-4 opacity-60" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="z-[70] w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={f.date}
+                onSelect={d => d && set("date", d)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
-      {sectionFields.map(({ key, label }) => (
-        <div key={key} className="rounded-xl border border-border p-3">
-          <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</div>
-          <div className="grid grid-cols-4 gap-2">
-            <div>
-              <label className="mb-1 block text-[10px] text-muted-foreground">Score</label>
-              <input type="number" value={(form as unknown as Record<string, string>)[`${key}Score`]} onChange={(e) => set(`${key}Score` as keyof FullMockFormState, e.target.value)} className="input-field w-full text-xs" placeholder="0" />
+      {/* Sectional scores */}
+      <div className="space-y-3">
+        <p className="eyebrow">sectional scores</p>
+        {SECTIONS.map(key => {
+          const label = SECTION_LABELS[key];
+          return (
+            <div key={key} className="rounded-xl border border-border bg-card/60 p-3">
+              <p className="mb-2 font-display font-semibold text-foreground">{label}</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(["Score", "Attempted", "Correct", "Percentile"] as const).map(field => (
+                  <div key={field}>
+                    <label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {field}
+                    </label>
+                    <input
+                      type="number"
+                      value={(f as unknown as Record<string, string>)[`${key}${field}`]}
+                      onChange={e => set(`${key}${field}` as keyof FullState, e.target.value as FullState[keyof FullState])}
+                      className="input-field w-full rounded-lg p-2 text-sm tabular-nums"
+                      placeholder="0"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-[10px] text-muted-foreground">Attempted</label>
-              <input type="number" value={(form as unknown as Record<string, string>)[`${key}Attempted`]} onChange={(e) => set(`${key}Attempted` as keyof FullMockFormState, e.target.value)} className="input-field w-full text-xs" placeholder="0" />
-            </div>
-            <div>
-              <label className="mb-1 block text-[10px] text-muted-foreground">Correct</label>
-              <input type="number" value={(form as unknown as Record<string, string>)[`${key}Correct`]} onChange={(e) => set(`${key}Correct` as keyof FullMockFormState, e.target.value)} className="input-field w-full text-xs" placeholder="0" />
-            </div>
-            <div>
-              <label className="mb-1 block text-[10px] text-muted-foreground">%ile</label>
-              <input type="number" step="0.01" value={(form as unknown as Record<string, string>)[`${key}Percentile`]} onChange={(e) => set(`${key}Percentile` as keyof FullMockFormState, e.target.value)} className="input-field w-full text-xs" placeholder="0" />
+          );
+        })}
+
+        {/* Overall */}
+        <div className="grid grid-cols-2 gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Overall score</label>
+            <div className="group relative">
+              <div className="input-field flex w-full cursor-default select-none items-center rounded-lg p-2 opacity-80">
+                <span className="flex-1 text-sm tabular-nums font-semibold text-foreground">
+                  {computedOverallScore > 0 ? computedOverallScore : <span className="text-muted-foreground/40 font-normal">auto-populated</span>}
+                </span>
+              </div>
+              <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 hidden group-hover:block">
+                <div className="whitespace-nowrap rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground" style={{ boxShadow: "var(--shadow-sm)" }}>
+                  Auto-calculated from VARC + DILR + QUANT
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Overall Score</label>
-          <input type="number" value={form.overallScore} onChange={(e) => set("overallScore", e.target.value)} placeholder="0" className="input-field w-full text-sm" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Overall %ile</label>
-          <input type="number" step="0.01" value={form.overallPercentile} onChange={(e) => set("overallPercentile", e.target.value)} placeholder="0" className="input-field w-full text-sm" />
+          <div>
+            <label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Overall %ile <span className="normal-case tracking-normal font-normal text-muted-foreground/60">(optional)</span></label>
+            <input
+              type="number"
+              step="0.1"
+              value={f.overallPercentile}
+              onChange={e => set("overallPercentile", e.target.value)}
+              className="input-field w-full rounded-lg p-2 text-sm tabular-nums font-semibold"
+              placeholder="0"
+            />
+          </div>
         </div>
       </div>
 
-      <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Weak Topics / Tags</label>
-        <TagInput tags={form.tags} onChange={(t) => set("tags", t)} allTags={allTags} />
+      {/* Duration + Tags — same row */}
+      <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
+        {/* Duration */}
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">
+            Duration <span className="text-xs text-muted-foreground/60">(min)</span>
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={f.duration || ""}
+            onChange={e => set("duration", Math.max(0, parseInt(e.target.value) || 0))}
+            placeholder="120"
+            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+          />
+        </div>
+
+        {/* Tags with autocomplete */}
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Topic-mistake tags</label>
+          <div className="relative">
+            <div className="flex gap-2">
+              <input
+                ref={tagInputRef}
+                type="text"
+                value={f.tagInput}
+                onChange={e => { set("tagInput", e.target.value.toLowerCase()); setSuggestOpen(true); }}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); }
+                  if (e.key === "Escape") setSuggestOpen(false);
+                }}
+                onFocus={() => setSuggestOpen(true)}
+                onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
+                placeholder="e.g. pnc, rc inference"
+                className="input-field flex-1 rounded-xl p-3 text-sm"
+              />
+              <button type="button" onClick={() => addTag()} className="rounded-xl border border-border bg-card px-3 hover:bg-muted">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            {suggestOpen && suggestions.length > 0 && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card py-1" style={{ boxShadow: "var(--shadow-md)" }}>
+                {suggestions.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onMouseDown={e => { e.preventDefault(); addTag(s); }}
+                    className="w-full px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {f.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {f.tags.map(t => (
+                <button key={t} type="button" onClick={() => set("tags", f.tags.filter(x => x !== t))}
+                  className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive">
+                  {t} <span className="ml-1 opacity-60">×</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Notes */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Notes / Learnings</label>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Learnings / notes</label>
         <textarea
-          value={form.notes}
-          onChange={(e) => set("notes", e.target.value)}
+          value={f.notes}
+          onChange={e => set("notes", e.target.value)}
           rows={3}
-          placeholder="Key takeaways, mistakes, strategy notes..."
-          className="input-field w-full resize-none text-sm"
+          placeholder="What worked, what didn't, what to fix next time…"
+          className="input-field w-full resize-none rounded-xl p-3 text-sm"
         />
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        {form.durationMin && parseInt(form.durationMin) > 0 ? "✓ A study session will be auto-logged in your heatmap." : "Add duration to auto-log a study session in your heatmap."}
-      </p>
-
       <button
-        type="submit"
-        disabled={saving || !form.testName.trim()}
-        className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        type="button"
+        onClick={handleSubmit}
+        disabled={saving || !f.testName.trim()}
+        className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         style={{ boxShadow: "var(--shadow-md)" }}
       >
-        {saving ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Saving…</span> : "Save Full Mock"}
+        {saving ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+          </span>
+        ) : (
+          "Save Full Mock"
+        )}
       </button>
-    </form>
+    </div>
   );
 }
 
-interface SectionalFormState {
+// ── SECTIONAL FORM ────────────────────────────────────────────────────────────
+
+interface SectionalState {
   provider: MockProvider;
   providerName: string;
   testName: string;
   section: string;
-  date: string;
-  score: string;
-  attempted: string;
-  correct: string;
-  percentile: string;
-  durationMin: string;
+  date: Date;
+  score: string; attempted: string; correct: string; percentile: string;
+  duration: number;
   tags: string[];
+  tagInput: string;
   notes: string;
 }
 
-function SectionalForm({ onSave, allTags }: { onSave: (s: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>) => Promise<void>; allTags: string[] }) {
-  const [form, setForm] = useState<SectionalFormState>({
+function SectionalForm({ onSave }: { onSave: (s: Omit<SectionalTest, "id" | "userId" | "createdAt">) => Promise<void> }) {
+  const [f, setF] = useState<SectionalState>({
     provider: "TIME", providerName: "", testName: "", section: "VARC",
-    date: toLocalDateKey(new Date()), score: "", attempted: "", correct: "", percentile: "",
-    durationMin: "", tags: [], notes: "",
+    date: new Date(),
+    score: "", attempted: "", correct: "", percentile: "",
+    duration: 40, tags: [], tagInput: "", notes: "",
   });
   const [saving, setSaving] = useState(false);
-  const set = (k: keyof SectionalFormState, v: string | string[]) => setForm((prev) => ({ ...prev, [k]: v }));
+  const set = <K extends keyof SectionalState>(k: K, v: SectionalState[K]) => setF(p => ({ ...p, [k]: v }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.testName.trim() || !form.section.trim()) return;
+  const addTag = () => {
+    const t = f.tagInput.trim();
+    if (t && !f.tags.includes(t)) set("tags", [...f.tags, t]);
+    set("tagInput", "");
+  };
+
+  const handleSubmit = async () => {
+    if (!f.testName.trim()) return;
     setSaving(true);
     try {
       await onSave({
-        provider: form.provider,
-        providerName: form.provider === "OTHER" ? form.providerName.trim() : form.provider,
-        testName: form.testName.trim(),
-        section: form.section,
-        date: form.date,
-        score: ni(form.score),
-        attempted: ni(form.attempted),
-        correct: ni(form.correct),
-        percentile: nf(form.percentile),
-        durationMin: ni(form.durationMin),
-        tags: form.tags,
-        notes: form.notes.trim(),
+        provider: f.provider,
+        providerName: f.provider === "OTHER" ? f.providerName.trim() : f.provider,
+        testName: f.testName.trim(),
+        section: f.section,
+        date: format(f.date, "yyyy-MM-dd"),
+        score: ni(f.score), attempted: ni(f.attempted),
+        correct: ni(f.correct), percentile: nf(f.percentile),
+        durationMin: f.duration > 0 ? f.duration : null,
+        tags: f.tags,
+        notes: f.notes.trim(),
         linkedSessionId: null,
       });
     } finally {
@@ -322,133 +390,398 @@ function SectionalForm({ onSave, allTags }: { onSave: (s: Omit<SectionalTest, 'i
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Provider</label>
-          <select value={form.provider} onChange={(e) => set("provider", e.target.value as MockProvider)} className="input-field w-full text-sm">
-            {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Section</label>
-          <select value={form.section} onChange={(e) => set("section", e.target.value)} className="input-field w-full text-sm">
-            {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      {form.provider === "OTHER" && (
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Provider Name</label>
-          <input type="text" value={form.providerName} onChange={(e) => set("providerName", e.target.value)} placeholder="Provider name" className="input-field w-full text-sm" />
-        </div>
-      )}
+    <div className="space-y-5">
+      {/* Provider */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Test Name *</label>
-        <input required type="text" value={form.testName} onChange={(e) => set("testName", e.target.value)} placeholder="e.g. AIMCAT 2024" className="input-field w-full text-sm" />
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Provider</label>
+        <div className="flex flex-wrap gap-2">
+          {PROVIDERS.map(p => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => set("provider", p.value)}
+              className={cn(
+                "rounded-full border px-4 py-1.5 text-sm font-medium",
+                f.provider === p.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:bg-muted",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {f.provider === "OTHER" && (
+          <input
+            type="text"
+            value={f.providerName}
+            onChange={e => set("providerName", e.target.value)}
+            placeholder="e.g. Career Launcher, 2IIM"
+            className="input-field mt-2 w-full rounded-xl p-3 text-sm"
+          />
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+
+      {/* Test name + Date */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Date</label>
-          <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className="input-field w-full text-sm" />
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Test name</label>
+          <input
+            type="text"
+            value={f.testName}
+            onChange={e => set("testName", e.target.value)}
+            placeholder="Quant Sectional 12"
+            className="input-field w-full rounded-xl p-3 text-sm"
+          />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Duration (min)</label>
-          <input type="number" min="0" value={form.durationMin} onChange={(e) => set("durationMin", e.target.value)} placeholder="40" className="input-field w-full text-sm" />
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="input-field flex w-full items-center justify-between rounded-xl p-3 text-left text-sm font-medium text-foreground"
+              >
+                {format(f.date, "PPP")}
+                <CalendarIcon className="h-4 w-4 opacity-60" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="z-[70] w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={f.date}
+                onSelect={d => d && set("date", d)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-2">
-        {[["score", "Score"], ["attempted", "Attempted"], ["correct", "Correct"], ["percentile", "%ile"]] .map(([k, label]) => (
-          <div key={k}>
-            <label className="mb-1 block text-[10px] text-muted-foreground">{label}</label>
-            <input type="number" step={k === "percentile" ? "0.01" : "1"} value={(form as unknown as Record<string, string>)[k]} onChange={(e) => set(k as keyof SectionalFormState, e.target.value)} className="input-field w-full text-xs" placeholder="0" />
+
+      {/* Section selector */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Section</label>
+        <div className="flex gap-2">
+          {SECTIONS.map(k => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => set("section", SECTION_LABELS[k])}
+              className={cn(
+                "flex-1 rounded-full border px-3 py-2 text-sm font-medium",
+                f.section === SECTION_LABELS[k]
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:bg-muted",
+              )}
+            >
+              {SECTION_LABELS[k]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Scores */}
+      <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card/60 p-3 sm:grid-cols-4">
+        {(["Score", "Attempted", "Correct", "Percentile"] as const).map(field => (
+          <div key={field}>
+            <label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">
+              {field}
+            </label>
+            <input
+              type="number"
+              value={(f as unknown as Record<string, string>)[field.toLowerCase()]}
+              onChange={e => set(field.toLowerCase() as keyof SectionalState, e.target.value as SectionalState[keyof SectionalState])}
+              className="input-field w-full rounded-lg p-2 text-sm tabular-nums"
+              placeholder="0"
+            />
           </div>
         ))}
       </div>
+
+      {/* Duration */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Weak Topics / Tags</label>
-        <TagInput tags={form.tags} onChange={(t) => set("tags", t)} allTags={allTags} />
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">
+          Duration{" "}
+          <span className="text-xs text-muted-foreground/70">(minutes — also logs a session)</span>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="number"
+            min={0}
+            value={f.duration || ""}
+            onChange={e => set("duration", Math.max(0, parseInt(e.target.value) || 0))}
+            placeholder="40"
+            className="input-field w-24 rounded-xl p-3 text-sm tabular-nums"
+          />
+          {[40, 60, 30].map(preset => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => set("duration", preset)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-mono",
+                f.duration === preset
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {preset}m
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => set("duration", 0)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-mono",
+              f.duration === 0
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
+            )}
+          >
+            skip
+          </button>
+        </div>
       </div>
+
+      {/* Tags */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Notes</label>
-        <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Notes..." className="input-field w-full resize-none text-sm" />
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Topic-mistake tags</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={f.tagInput}
+            onChange={e => set("tagInput", e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); }
+            }}
+            placeholder="e.g. PnC, RC inference"
+            className="input-field flex-1 rounded-xl p-3 text-sm"
+          />
+          <button
+            type="button"
+            onClick={addTag}
+            className="rounded-xl border border-border bg-card px-3 hover:bg-muted"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        {f.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {f.tags.map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => set("tags", f.tags.filter(x => x !== t))}
+                className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+              >
+                {t} <span className="ml-1 opacity-60">×</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      <button type="submit" disabled={saving || !form.testName.trim()} className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50" style={{ boxShadow: "var(--shadow-md)" }}>
-        {saving ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Saving…</span> : "Save Sectional Test"}
+
+      {/* Notes */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Learnings / notes</label>
+        <textarea
+          value={f.notes}
+          onChange={e => set("notes", e.target.value)}
+          rows={3}
+          placeholder="What worked, what didn't, what to fix next time…"
+          className="input-field w-full resize-none rounded-xl p-3 text-sm"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={saving || !f.testName.trim()}
+        className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        style={{ boxShadow: "var(--shadow-md)" }}
+      >
+        {saving ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+          </span>
+        ) : (
+          "Save Sectional Test"
+        )}
       </button>
-    </form>
+    </div>
   );
 }
 
-interface QotdFormState {
-  date: string;
+// ── QOTD FORM ─────────────────────────────────────────────────────────────────
+
+const QOTD_TOPICS = ["QUANT", "VA", "RC", "LR", "DI"];
+
+interface QotdState {
+  date: Date;
   topic: string;
   source: string;
   correct: boolean;
   timeTakenSec: string;
+  questionsCorrect: string;
+  questionsTotal: string;
   note: string;
 }
 
-function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>) => Promise<void> }) {
-  const [form, setForm] = useState<QotdFormState>({ date: toLocalDateKey(new Date()), topic: "VARC", source: "", correct: false, timeTakenSec: "", note: "" });
+function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "createdAt">) => Promise<void> }) {
+  const [f, setF] = useState<QotdState>({ date: new Date(), topic: "QUANT", source: "iQuanta", correct: false, timeTakenSec: "", questionsCorrect: "", questionsTotal: "", note: "" });
   const [saving, setSaving] = useState(false);
-  const set = (k: keyof QotdFormState, v: string | boolean) => setForm((prev) => ({ ...prev, [k]: v }));
+  const set = <K extends keyof QotdState>(k: K, v: QotdState[K]) => setF(p => ({ ...p, [k]: v }));
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    if (!f.topic.trim()) { setError("Topic is required"); return; }
+    setError(null);
     setSaving(true);
     try {
-      await onSave({ date: form.date, topic: form.topic.trim(), source: form.source.trim(), correct: form.correct, timeTakenSec: ni(form.timeTakenSec), note: form.note.trim() });
+      await onSave({
+        date: format(f.date, "yyyy-MM-dd"),
+        topic: f.topic.trim(),
+        source: f.source.trim() || "iQuanta",
+        correct: f.correct,
+        timeTakenSec: ni(f.timeTakenSec),
+        questionsCorrect: ni(f.questionsCorrect),
+        questionsTotal: ni(f.questionsTotal),
+        note: f.note.trim(),
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-5">
+      {/* Date + Source */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Date</label>
-          <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} className="input-field w-full text-sm" />
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="input-field flex w-full items-center justify-between rounded-xl p-3 text-left text-sm font-medium text-foreground"
+              >
+                {format(f.date, "PPP")}
+                <CalendarIcon className="h-4 w-4 opacity-60" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="z-[70] w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={f.date}
+                onSelect={d => d && set("date", d)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Topic</label>
-          <select value={form.topic} onChange={(e) => set("topic", e.target.value)} className="input-field w-full text-sm">
-            {QOTD_TOPICS.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Source</label>
+          <input
+            type="text"
+            value={f.source}
+            onChange={e => set("source", e.target.value)}
+            className="input-field w-full rounded-xl p-3 text-sm"
+          />
         </div>
       </div>
+
+      {/* Topic */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Source / Platform</label>
-        <input type="text" value={form.source} onChange={(e) => set("source", e.target.value)} placeholder="e.g. CAT 2024, AIMCAT, TIME app" className="input-field w-full text-sm" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted-foreground">Time Taken (sec)</label>
-          <input type="number" min="0" value={form.timeTakenSec} onChange={(e) => set("timeTakenSec", e.target.value)} placeholder="120" className="input-field w-full text-sm" />
-        </div>
-        <div className="flex flex-col justify-end">
-          <label className="mb-2 block text-xs font-semibold text-muted-foreground">Got it right?</label>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => set("correct", true)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-semibold ${form.correct ? "border-green-500 bg-green-500/10 text-green-600" : "border-border text-muted-foreground"}`}>
-              <CheckCircle2 className="h-4 w-4" /> Yes
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Topic</label>
+        <div className="flex flex-wrap gap-2">
+          {QOTD_TOPICS.map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => set("topic", t)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium",
+                f.topic === t
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:bg-muted",
+              )}
+            >
+              {t}
             </button>
-            <button type="button" onClick={() => set("correct", false)} className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-semibold ${!form.correct ? "border-red-500 bg-red-500/10 text-red-500" : "border-border text-muted-foreground"}`}>
-              <XCircle className="h-4 w-4" /> No
-            </button>
-          </div>
+          ))}
         </div>
       </div>
+
+      {/* Time */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-muted-foreground">Note</label>
-        <textarea value={form.note} onChange={(e) => set("note", e.target.value)} rows={2} placeholder="What did you learn?" className="input-field w-full resize-none text-sm" />
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time <span className="text-xs text-muted-foreground/70">(seconds, optional)</span></label>
+        <input
+          type="number"
+          value={f.timeTakenSec}
+          onChange={e => set("timeTakenSec", e.target.value)}
+          placeholder="e.g. 120"
+          className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+        />
       </div>
-      <button type="submit" disabled={saving} className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50" style={{ boxShadow: "var(--shadow-md)" }}>
-        {saving ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Saving…</span> : "Save QOTD Entry"}
+
+      {/* Score */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Score <span className="text-xs text-muted-foreground/60">(optional)</span></label>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={f.questionsCorrect}
+            onChange={e => set("questionsCorrect", e.target.value)}
+            placeholder="Correct"
+            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+          />
+          <span className="shrink-0 text-sm font-medium text-muted-foreground">out of</span>
+          <input
+            type="number"
+            value={f.questionsTotal}
+            onChange={e => set("questionsTotal", e.target.value)}
+            placeholder="Total"
+            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+          />
+        </div>
+      </div>
+
+      {/* Note */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Note</label>
+        <textarea
+          value={f.note}
+          onChange={e => set("note", e.target.value)}
+          rows={3}
+          placeholder="What did you learn?"
+          className="input-field w-full resize-none rounded-xl p-3 text-sm"
+        />
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={saving}
+        className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        style={{ boxShadow: "var(--shadow-md)" }}
+      >
+        {saving ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+          </span>
+        ) : (
+          "Save QOTD Entry"
+        )}
       </button>
-    </form>
+    </div>
   );
 }
+
+// ── MAIN MODAL ────────────────────────────────────────────────────────────────
 
 export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useBodyScrollLock(open);
@@ -456,30 +789,34 @@ export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => 
   const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<TestKind>("full");
 
-  const allTags = [...new Set([
-    ...fullMocks.flatMap((m) => m.tags),
-    ...sectionalTests.flatMap((s) => s.tags),
-  ])].sort();
+  const allMockTags = useMemo(() => {
+    const s = new Set<string>();
+    fullMocks.forEach(m => m.tags.forEach(t => s.add(t.toLowerCase())));
+    return Array.from(s).sort();
+  }, [fullMocks]);
 
   const handleClose = useCallback(() => {
     setStep(1);
     onClose();
   }, [onClose]);
 
-  const handleSaveFull = async (payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>) => {
+  const handleSaveFull = async (payload: Omit<FullMock, "id" | "userId" | "createdAt">) => {
     const created = await addFullMock(payload);
     if (created) handleClose();
   };
 
-  const handleSaveSectional = async (payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>) => {
+  const handleSaveSectional = async (payload: Omit<SectionalTest, "id" | "userId" | "createdAt">) => {
     const created = await addSectional(payload);
     if (created) handleClose();
   };
 
-  const handleSaveQotd = async (payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>) => {
+  const handleSaveQotd = async (payload: Omit<QotdEntry, "id" | "userId" | "createdAt">) => {
     const created = await addQotdEntry(payload);
     if (created) handleClose();
   };
+
+  // suppress unused var warning — fullMocks/sectionalTests used only to satisfy store destructure
+  void fullMocks; void sectionalTests;
 
   if (!open) return null;
 
@@ -489,8 +826,8 @@ export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => 
       onClick={handleClose}
     >
       <div
-        className="glass-modal w-full max-w-lg rounded-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        className="glass-modal w-full max-w-2xl rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
         style={{ boxShadow: "var(--shadow-xl)" }}
       >
         {/* Header */}
@@ -500,48 +837,56 @@ export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => 
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Back"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
             )}
-            <h2 className="text-lg font-bold text-foreground">
-              {step === 1 ? "Log Test" : kind === "full" ? "Full Mock" : kind === "sectional" ? "Sectional Test" : "QOTD Entry"}
-            </h2>
+            <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">Log a Test</h2>
           </div>
           <button
+            type="button"
             onClick={handleClose}
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {step === 1 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">What type of test did you take?</p>
-            {(
-              [
-                { kind: "full" as const, title: "Full Mock", desc: "3-section (VARC + DILR + QUANT) timed test" },
-                { kind: "sectional" as const, title: "Sectional Test", desc: "Single-section practice test" },
-                { kind: "qotd" as const, title: "Question of the Day", desc: "Daily practice question (QOTD)" },
-              ]
-            ).map(({ kind: k, title, desc }) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => { setKind(k); setStep(2); }}
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-muted"
-              >
-                <div className="font-semibold text-foreground">{title}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
-              </button>
-            ))}
+        {/* Step 1: pick type */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <p className="eyebrow">step 1 / 2 — pick a type</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {([
+                { v: "full" as const, title: "Full Mock", desc: "AIMCAT, SIMCAT, etc." },
+                { v: "sectional" as const, title: "Sectional", desc: "One section test" },
+                { v: "qotd" as const, title: "QOTD", desc: "iQuanta daily question" },
+              ]).map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => { setKind(opt.v); setStep(2); }}
+                  className={cn(
+                    "rounded-xl border border-border bg-card p-4 text-left hover:border-primary/40 hover:bg-muted",
+                  )}
+                  style={{ boxShadow: "var(--shadow-sm)" }}
+                >
+                  <p className="font-display text-lg font-semibold text-foreground">{opt.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
+        )}
+
+        {/* Step 2: fill form */}
+        {step === 2 && (
           <>
-            {kind === "full" && <FullMockForm onSave={handleSaveFull} allTags={allTags} />}
-            {kind === "sectional" && <SectionalForm onSave={handleSaveSectional} allTags={allTags} />}
+            {kind === "full" && <FullMockForm onSave={handleSaveFull} allTags={allMockTags} />}
+            {kind === "sectional" && <SectionalForm onSave={handleSaveSectional} />}
             {kind === "qotd" && <QotdForm onSave={handleSaveQotd} />}
           </>
         )}

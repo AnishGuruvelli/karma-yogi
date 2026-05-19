@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import type { FullMock, QotdEntry, SectionalTest, Subject, Session, Goal, UserProfile, ExamGoal, UserPreferences, UserPrivacySettings, UserPublicProfile } from '@/lib/types';
 import { LoadingSplash } from '@/components/LoadingSplash';
 import { toast } from 'sonner';
-import { createFullMock, createOrUpdateGoal, createQotdEntry, createSectional, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchFullMocks, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchQotdEntries, fetchSectionals, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeFullMock, removeQotdEntry, removeSession, removeSectional, removeSubject, updateFullMock, updateMe, updateSectional, updateSession, updateSubjectColor as patchSubjectColor, updateSubject as patchSubject, upsertExamGoal } from '@/lib/api';
+import { createFullMock, createOrUpdateGoal, createQotdEntry, createSectional, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchFullMocks, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchQotdEntries, fetchSectionals, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeFullMock, removeQotdEntry, removeSession, removeSectional, removeSubject, updateFullMock, updateMe, updateQotdEntry, updateSectional, updateSession, updateSubjectColor as patchSubjectColor, updateSubject as patchSubject, upsertExamGoal } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
 import { toLocalDateKey } from '@/lib/date';
 
@@ -74,6 +74,7 @@ interface StoreContextType {
   editSectional: (id: string, payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>) => Promise<boolean>;
   deleteSectional: (id: string) => void;
   addQotdEntry: (payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>) => Promise<QotdEntry | null>;
+  editQotdEntry: (id: string, payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>) => Promise<boolean>;
   deleteQotdEntry: (id: string) => void;
 }
 
@@ -354,6 +355,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const editQotdEntry = useCallback(async (id: string, payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>): Promise<boolean> => {
+    try {
+      const updated = await updateQotdEntry(id, payload);
+      setQotdEntries((prev) => prev.map((e) => e.id === id ? updated : e));
+      return true;
+    } catch {
+      toast.error("Couldn't update QOTD entry. Please try again.");
+      return false;
+    }
+  }, []);
+
   const deleteQotdEntry = useCallback((id: string) => {
     setQotdEntries((prev) => prev.filter((e) => e.id !== id));
     void removeQotdEntry(id).catch(() => {
@@ -415,7 +427,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       fullMocks, sectionalTests, qotdEntries,
       addFullMock, editFullMock, deleteFullMock,
       addSectional, editSectional, deleteSectional,
-      addQotdEntry, deleteQotdEntry,
+      addQotdEntry, editQotdEntry, deleteQotdEntry,
     }}>
       <LoadingSplash open={dataLoading} />
       {children}

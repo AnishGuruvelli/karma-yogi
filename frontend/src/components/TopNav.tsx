@@ -77,9 +77,9 @@ function AvatarDropdown({ onLogout, user, preferences }: { onLogout: () => void;
           <div className="border-t border-border mt-1 pt-1">
             <button
               onClick={() => { setOpen(false); onLogout(); }}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted"
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted hover:text-red-500 group"
             >
-              <LogOut className="h-4 w-4 text-muted-foreground" />
+              <LogOut className="h-4 w-4 text-muted-foreground group-hover:text-red-500" />
               Log out
             </button>
           </div>

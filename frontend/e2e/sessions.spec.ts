@@ -22,8 +22,8 @@ test.describe("Sessions", () => {
   });
 
   test("Study tab is active by default and shows study controls", async ({ page }) => {
-    await expect(page.locator('button:has-text("Begin")').first()).toBeVisible({ timeout: 8_000 });
-    await expect(page.locator('button').filter({ hasText: /^Log$/ }).first()).toBeVisible();
+    await expect(page.locator('button:has-text("Begin Session")').first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('button:has-text("Log Session")').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test("switching to Mocks tab shows Log Test button", async ({ page }) => {
@@ -55,12 +55,12 @@ test.describe("Sessions", () => {
 
   // ── Log Session modal (Study tab) ────────────────────────────────
   test("Log button opens session modal", async ({ page }) => {
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 });
   });
 
   test("Log session modal save button is disabled without required fields", async ({ page }) => {
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await page.waitForSelector('[role="dialog"]', { timeout: 5_000 });
     // Button text changes dynamically: "Add a subject first" | "Topic is required" | "Mood is required" | "Save Session"
     const saveBtn = page.locator('[role="dialog"] button').filter({ hasText: /Save Session|required|first/i }).first();
@@ -68,21 +68,21 @@ test.describe("Sessions", () => {
   });
 
   test("Log session modal closes on Escape", async ({ page }) => {
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await page.waitForSelector('[role="dialog"]', { timeout: 5_000 });
     await page.keyboard.press("Escape");
     await expect(page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 3_000 });
   });
 
   test("Log session modal closes on backdrop click", async ({ page }) => {
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await page.waitForSelector('[role="dialog"]', { timeout: 5_000 });
     await page.mouse.click(10, 10);
     await expect(page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 3_000 });
   });
 
   test("duration chips set the duration value", async ({ page }) => {
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await page.waitForSelector('[role="dialog"]', { timeout: 5_000 });
     const chip1h = page.locator('[role="dialog"] button:has-text("1h")').first();
     if (await chip1h.isVisible()) {
@@ -92,7 +92,7 @@ test.describe("Sessions", () => {
   });
 
   test("hour/minute increment buttons update duration", async ({ page }) => {
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await page.waitForSelector('[role="dialog"]', { timeout: 5_000 });
     const incHours = page.locator('[aria-label="Increase hours"]');
     const decHours = page.locator('[aria-label="Decrease hours"]');
@@ -124,7 +124,7 @@ test.describe("Sessions", () => {
     await page.waitForLoadState("domcontentloaded");
 
     // ── Create ──────────────────────────────────────────────────────
-    await page.locator('button').filter({ hasText: /^Log$/ }).first().click();
+    await page.locator('button:has-text("Log Session")').first().click();
     await page.waitForSelector('[role="dialog"]', { timeout: 5_000 });
 
     await page.locator('[role="dialog"] [role="combobox"]').click();

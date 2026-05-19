@@ -609,6 +609,103 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
 
+    FullMock:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        userId: {type: string, format: uuid}
+        testName: {type: string}
+        date: {type: string, format: date}
+        durationMin: {type: integer, nullable: true}
+        vaScore: {type: integer, nullable: true}
+        rcScore: {type: integer, nullable: true}
+        diScore: {type: integer, nullable: true}
+        lrScore: {type: integer, nullable: true}
+        qaScore: {type: integer, nullable: true}
+        overallScore: {type: integer, nullable: true}
+        percentile: {type: number, nullable: true}
+        tags: {type: array, items: {type: string}}
+        notes: {type: string}
+        createdAt: {type: string, format: date-time}
+      required: [id, userId, testName, date, tags, notes, createdAt]
+
+    FullMockInput:
+      type: object
+      properties:
+        testName: {type: string}
+        date: {type: string, format: date}
+        durationMin: {type: integer, nullable: true}
+        vaScore: {type: integer, nullable: true}
+        rcScore: {type: integer, nullable: true}
+        diScore: {type: integer, nullable: true}
+        lrScore: {type: integer, nullable: true}
+        qaScore: {type: integer, nullable: true}
+        overallScore: {type: integer, nullable: true}
+        percentile: {type: number, nullable: true}
+        tags: {type: array, items: {type: string}}
+        notes: {type: string}
+      required: [testName, date]
+
+    SectionalTest:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        userId: {type: string, format: uuid}
+        testName: {type: string}
+        section: {type: string}
+        date: {type: string, format: date}
+        durationMin: {type: integer, nullable: true}
+        score: {type: integer, nullable: true}
+        percentile: {type: number, nullable: true}
+        notes: {type: string}
+        createdAt: {type: string, format: date-time}
+      required: [id, userId, testName, section, date, notes, createdAt]
+
+    SectionalTestInput:
+      type: object
+      properties:
+        testName: {type: string}
+        section: {type: string}
+        date: {type: string, format: date}
+        durationMin: {type: integer, nullable: true}
+        score: {type: integer, nullable: true}
+        percentile: {type: number, nullable: true}
+        notes: {type: string}
+      required: [testName, section, date]
+
+    QotdEntry:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        userId: {type: string, format: uuid}
+        date: {type: string, format: date}
+        topic:
+          type: string
+          enum: [QUANT, VA, RC, LR, DI]
+        source: {type: string}
+        correct: {type: boolean}
+        questionsCorrect: {type: integer, nullable: true}
+        questionsTotal: {type: integer, nullable: true}
+        timeTakenSec: {type: integer, nullable: true}
+        note: {type: string}
+        createdAt: {type: string, format: date-time}
+      required: [id, userId, date, topic, source, correct, note, createdAt]
+
+    QotdEntryInput:
+      type: object
+      properties:
+        date: {type: string, format: date}
+        topic:
+          type: string
+          enum: [QUANT, VA, RC, LR, DI]
+        source: {type: string}
+        correct: {type: boolean}
+        questionsCorrect: {type: integer, nullable: true}
+        questionsTotal: {type: integer, nullable: true}
+        timeTakenSec: {type: integer, nullable: true}
+        note: {type: string}
+      required: [date, topic, source, correct]
+
 security: []
 
 paths:
@@ -1852,3 +1949,242 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  # ── Mock Test Tracking ─────────────────────────────────────────────
+
+  /mocks:
+    get:
+      summary: List full mock test entries for the authenticated user
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Array of FullMock objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FullMock'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create a full mock entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullMockInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullMock'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /mocks/{id}:
+    get:
+      summary: Get a single full mock entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: FullMock object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullMock'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update a full mock entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullMockInput'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullMock'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a full mock entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /sectional-tests:
+    get:
+      summary: List sectional test entries
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Array of SectionalTest objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SectionalTest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create a sectional test entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionalTestInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionalTest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /sectional-tests/{id}:
+    patch:
+      summary: Update a sectional test entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionalTestInput'
+      responses:
+        '200':
+          description: Updated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a sectional test entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /qotd:
+    get:
+      summary: List QOTD entries
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Array of QotdEntry objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QotdEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create a QOTD entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QotdEntryInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QotdEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /qotd/{id}:
+    patch:
+      summary: Update a QOTD entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QotdEntryInput'
+      responses:
+        '200':
+          description: Updated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a QOTD entry
+      tags: [Mocks]
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
