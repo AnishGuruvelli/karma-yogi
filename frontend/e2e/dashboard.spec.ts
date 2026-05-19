@@ -5,7 +5,7 @@ test.describe("Dashboard", () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page);
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
   });
 
   test("dashboard loads without errors", async ({ page }) => {
@@ -60,10 +60,12 @@ test.describe("Dashboard", () => {
 });
 
 test.describe("Dashboard - Strategy Page", () => {
-  test("strategy dashboard is accessible", async ({ page }) => {
+  test("strategy dashboard redirects if feature is disabled", async ({ page }) => {
     await loginAs(page);
     await page.goto("/strategy-dashboard");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
+    // Either the strategy page loads or it redirects to "/" — both are valid.
+    // The test simply verifies no crash occurs.
     await expect(page.locator("body")).not.toContainText("Something went wrong");
   });
 

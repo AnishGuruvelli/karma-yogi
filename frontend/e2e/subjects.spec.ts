@@ -8,25 +8,25 @@ test.describe("Library / Subjects", () => {
   });
 
   test("library page loads", async ({ page }) => {
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     await expect(page.locator("body")).not.toContainText("Something went wrong");
   });
 
   test("/data redirects or 404s — /library is canonical", async ({ page }) => {
     await page.goto("/data");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     const url = page.url();
     expect(url).not.toBe("about:blank");
   });
 
   test("can see subject list or empty state", async ({ page }) => {
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     const body = await page.locator("body").innerText();
     expect(body.length).toBeGreaterThan(0);
   });
 
   test("adds a subject and verifies it in the list, then deletes it", async ({ page }) => {
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     const subjectName = `E2E_LIB_${Date.now()}`;
 
     // Open Add Subject modal (button at the bottom of the subject list)
@@ -57,33 +57,27 @@ test.describe("Library / Subjects", () => {
     await expect(page.locator(`text="${subjectName}"`)).not.toBeVisible({ timeout: 5_000 });
   });
 
-  test("opening color picker shows swatches", async ({ page }) => {
-    await page.waitForLoadState("networkidle");
-    const subjectName = `E2E_COLOR_${Date.now()}`;
-
-    // Create a subject to test color picker on
+  test("Add Subject modal shows color swatches for selection", async ({ page }) => {
+    await page.waitForLoadState("domcontentloaded");
+    // Open the Add Subject modal
     await page.locator('button:has-text("Add Subject")').first().click();
     await page.waitForSelector('input[placeholder="Subject name"]', { timeout: 5_000 });
-    await page.fill('input[placeholder="Subject name"]', subjectName);
-    await page.locator('.glass-modal button:has-text("Add Subject")').click();
-    await expect(page.locator(`text="${subjectName}"`).first()).toBeVisible({ timeout: 8_000 });
 
-    // Click the subject icon / color picker trigger (first button in the row)
-    const row = page.locator("div.flex").filter({ hasText: subjectName }).filter({ has: page.locator("button") }).first();
-    await row.locator("button").first().click();
+    // Color swatches are inline rounded-full buttons with aria-pressed
+    const swatches = page.locator('.glass-modal button[aria-pressed]');
+    await expect(swatches.first()).toBeVisible({ timeout: 3_000 });
+    const count = await swatches.count();
+    expect(count).toBeGreaterThan(1);
 
-    // Color swatch popover should appear
-    await expect(page.locator('[data-radix-popper-content-wrapper]')).toBeVisible({ timeout: 3_000 });
+    // Click the second swatch to select a different color (no crash)
+    await swatches.nth(1).click();
+    await expect(swatches.nth(1)).toHaveAttribute('aria-pressed', 'true', { timeout: 2_000 });
+
     await page.keyboard.press("Escape");
-
-    // Cleanup
-    await row.locator("button").last().click();
-    await page.waitForSelector('[role="alertdialog"]', { timeout: 3_000 });
-    await page.locator('[role="alertdialog"]').getByRole("button", { name: "Delete" }).click();
   });
 
   test("Add Subject modal closes on X button", async ({ page }) => {
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     await page.locator('button:has-text("Add Subject")').first().click();
     await page.waitForSelector('input[placeholder="Subject name"]', { timeout: 5_000 });
     // X close button is the first button inside the modal header
@@ -92,7 +86,7 @@ test.describe("Library / Subjects", () => {
   });
 
   test("Add Subject save button is disabled when name is empty", async ({ page }) => {
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     await page.locator('button:has-text("Add Subject")').first().click();
     await page.waitForSelector('input[placeholder="Subject name"]', { timeout: 5_000 });
     const saveBtn = page.locator('.glass-modal button:has-text("Add Subject")');

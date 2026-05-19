@@ -1,21 +1,171 @@
 import { useState, useMemo, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine } from "recharts";
-import { Clock, BarChart3, Crown, Trophy, Star, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ReferenceLine, LineChart, Line } from "recharts";
+import { Clock, BarChart3, Crown, Trophy, Star, ChevronLeft, ChevronRight, Calendar, BookOpen, ClipboardList } from "lucide-react";
 import { CalendarModal } from "@/components/CalendarModal";
 import { HeatmapCard } from "@/components/HeatmapCard";
 import { fromLocalDateKey, toLocalDateKey } from "@/lib/date";
 import { getSafeSubjectIcon } from "@/lib/subject-icon";
+import type { FullMock, SectionalTest } from "@/lib/types";
 
 type PeriodMode = "week" | "month" | "all";
 
 const MONTH_LABELS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
+function MocksInsightsView({ fullMocks, sectionalTests }: { fullMocks: FullMock[]; sectionalTests: SectionalTest[] }) {
+  const [providerFilter, setProviderFilter] = useState<string>("ALL");
+
+  const providers = useMemo(() => {
+    const p = new Set<string>();
+    fullMocks.forEach((m) => p.add(m.provider));
+    return ["ALL", ...Array.from(p).sort()];
+  }, [fullMocks]);
+
+  const filteredMocks = useMemo(() =>
+    providerFilter === "ALL" ? fullMocks : fullMocks.filter((m) => m.provider === providerFilter),
+    [fullMocks, providerFilter]
+  );
+
+  const scoreTrendData = useMemo(() =>
+    [...filteredMocks]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((m) => ({
+        date: m.date.slice(5),
+        varc: m.varcScore ?? null,
+        dilr: m.dilrScore ?? null,
+        quant: m.quantScore ?? null,
+        overall: m.overallScore ?? null,
+      })),
+    [filteredMocks]
+  );
+
+  const percentileData = useMemo(() =>
+    [...filteredMocks]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((m) => ({
+        date: m.date.slice(5),
+        varc: m.varcPercentile ?? null,
+        dilr: m.dilrPercentile ?? null,
+        quant: m.quantPercentile ?? null,
+        overall: m.overallPercentile ?? null,
+      })),
+    [filteredMocks]
+  );
+
+  const allTags = useMemo(() => {
+    const tagCounts = new Map<string, number>();
+    [...fullMocks, ...sectionalTests].forEach((t) => {
+      t.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1));
+    });
+    return Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  }, [fullMocks, sectionalTests]);
+
+  const noData = filteredMocks.length === 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Provider filter */}
+      <div className="flex flex-wrap gap-2">
+        {providers.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setProviderFilter(p)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold border ${providerFilter === p ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      {noData ? (
+        <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+          No full mock data yet. Log a mock test to see analytics.
+        </div>
+      ) : (
+        <>
+          {/* Score Trend */}
+          <div className="glass-card rounded-2xl p-4 sm:p-5">
+            <h2 className="mb-4 font-semibold text-foreground">Score Trend</h2>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={scoreTrendData}>
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="varc" name="VARC" stroke="#22d3ee" dot={false} connectNulls />
+                <Line type="monotone" dataKey="dilr" name="DILR" stroke="#4ade80" dot={false} connectNulls />
+                <Line type="monotone" dataKey="quant" name="QUANT" stroke="#fb923c" dot={false} connectNulls />
+                <Line type="monotone" dataKey="overall" name="Overall" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Percentile Progression */}
+          <div className="glass-card rounded-2xl p-4 sm:p-5">
+            <h2 className="mb-4 font-semibold text-foreground">Percentile Progression</h2>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={percentileData}>
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v: number) => `${v?.toFixed(1)}%ile`} />
+                <Line type="monotone" dataKey="varc" name="VARC" stroke="#22d3ee" dot={false} connectNulls />
+                <Line type="monotone" dataKey="dilr" name="DILR" stroke="#4ade80" dot={false} connectNulls />
+                <Line type="monotone" dataKey="quant" name="QUANT" stroke="#fb923c" dot={false} connectNulls />
+                <Line type="monotone" dataKey="overall" name="Overall" stroke="#a78bfa" strokeWidth={2} dot={false} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+
+      {/* Weak Topics */}
+      {allTags.length > 0 && (
+        <div className="glass-card rounded-2xl p-4 sm:p-5">
+          <h2 className="mb-3 font-semibold text-foreground">Top Weak Topics</h2>
+          <div className="flex flex-wrap gap-2">
+            {allTags.map(([tag, count]) => (
+              <span
+                key={tag}
+                className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground"
+                style={{ fontSize: `${Math.min(14, 10 + count)}px` }}
+              >
+                {tag} <span className="text-muted-foreground">×{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sectional breakdown */}
+      {sectionalTests.length > 0 && (
+        <div className="glass-card rounded-2xl p-4 sm:p-5">
+          <h2 className="mb-3 font-semibold text-foreground">Sectional Tests — Recent</h2>
+          <div className="space-y-2">
+            {[...sectionalTests].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map((s) => (
+              <div key={s.id} className="flex items-center justify-between rounded-xl border border-border bg-muted/50 px-3 py-2">
+                <div>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">{s.section}</span>
+                  <div className="text-sm font-medium text-foreground">{s.testName}</div>
+                </div>
+                <div className="text-right">
+                  {s.score != null && <div className="font-bold text-foreground">{s.score}</div>}
+                  {s.percentile != null && <div className="text-xs text-muted-foreground">{s.percentile.toFixed(1)}%ile</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InsightsPage() {
-  const { sessions, subjects } = useStore();
+  const { sessions, subjects, fullMocks, sectionalTests } = useStore();
   const [mode, setMode] = useState<PeriodMode>("week");
   const [offset, setOffset] = useState(0);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [insightsTab, setInsightsTab] = useState<'study' | 'mocks'>('study');
 
   const now = useMemo(() => new Date(), []);
 
@@ -241,7 +391,27 @@ export default function InsightsPage() {
   return (
     <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Insights</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Insights</h1>
+          <div className="flex rounded-xl bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setInsightsTab('study')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${insightsTab === 'study' ? 'bg-card text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              style={insightsTab === 'study' ? { boxShadow: "var(--shadow-sm)" } : undefined}
+            >
+              <BookOpen className="h-3.5 w-3.5" /> Study
+            </button>
+            <button
+              type="button"
+              onClick={() => setInsightsTab('mocks')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${insightsTab === 'mocks' ? 'bg-card text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              style={insightsTab === 'mocks' ? { boxShadow: "var(--shadow-sm)" } : undefined}
+            >
+              <ClipboardList className="h-3.5 w-3.5" /> Mocks
+            </button>
+          </div>
+        </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <div className="grid w-full grid-cols-3 rounded-xl bg-muted p-1 sm:w-auto sm:flex">
             {(["week", "month", "all"] as const).map((p) => (
@@ -269,7 +439,9 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      <div className="glass-card mb-6 rounded-2xl p-4 sm:mb-8 sm:p-5">
+      {insightsTab === 'mocks' && <MocksInsightsView fullMocks={fullMocks} sectionalTests={sectionalTests} />}
+
+      {insightsTab === 'study' && <div className="glass-card mb-6 rounded-2xl p-4 sm:mb-8 sm:p-5">
         <div className="mb-4 flex items-center justify-between sm:mb-5">
           <button
             type="button"
@@ -379,9 +551,9 @@ export default function InsightsPage() {
             <p className="mt-1 text-xs text-muted-foreground">Log a study session to see your insights here.</p>
           </div>
         )}
-      </div>
+      </div>}
 
-      {hasData && <div className="mb-6 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+      {insightsTab === 'study' && hasData && <div className="mb-6 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
         {(
           [
             { icon: Clock, value: formatDuration(totalMinutes), label: "Total", color: "text-neon-cyan", bg: "bg-neon-cyan/10" },
@@ -539,9 +711,8 @@ export default function InsightsPage() {
         </div>
       </div>}
 
-      <HeatmapCard dailyTotals={heatmapDailyTotals} />
-
-      <CalendarModal open={calendarOpen} onClose={() => setCalendarOpen(false)} sessions={sessions} />
+      {insightsTab === 'study' && <HeatmapCard dailyTotals={heatmapDailyTotals} />}
+      {insightsTab === 'study' && <CalendarModal open={calendarOpen} onClose={() => setCalendarOpen(false)} sessions={sessions} />}
     </div>
   );
 }

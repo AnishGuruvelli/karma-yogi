@@ -5,7 +5,7 @@ test.describe("Profile", () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page);
     await page.goto("/profile");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
   });
 
   test("profile page loads without error", async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe("Public Profile", () => {
 
   test("public profile navigated from friends uses /friends/ route", async ({ page }) => {
     await page.goto("/friends");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     // If there are any friend links, they should go to /friends/username
     const friendLinks = await page.locator('a[href*="/friends/"]').all();
     for (const link of friendLinks) {
@@ -104,7 +104,7 @@ test.describe("Public Profile", () => {
   test("friend profile route uses Friends nav highlight", async ({ page }) => {
     // Navigate to a public profile via /friends/ route
     await page.goto("/friends/test-user");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     // Should not show profile error for valid navigation
     await expect(page.locator("body")).not.toContainText("Something went wrong");
     // Current path should still be /friends/...

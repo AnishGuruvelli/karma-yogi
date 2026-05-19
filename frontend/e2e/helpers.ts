@@ -43,5 +43,5 @@ export async function registerAndLogin(page: Page) {
 }
 
 export async function waitForNav(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 }

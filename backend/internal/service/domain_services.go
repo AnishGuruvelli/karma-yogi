@@ -33,7 +33,18 @@ func NewSessionService(repo database.SessionRepository) *SessionService {
 	return &SessionService{repo: repo}
 }
 func (s *SessionService) Create(ctx context.Context, userID, subjectID, topic, mood string, duration int, startedAt time.Time) (domain.Session, error) {
-	return s.repo.Create(ctx, domain.Session{ID: uuid.NewString(), UserID: userID, SubjectID: subjectID, Topic: topic, DurationMin: duration, Mood: mood, StartedAt: startedAt})
+	return s.repo.Create(ctx, domain.Session{ID: uuid.NewString(), UserID: userID, SubjectID: subjectID, Topic: topic, DurationMin: duration, Mood: mood, StartedAt: startedAt, Kind: "study"})
+}
+
+func (s *SessionService) CreateWithKind(ctx context.Context, userID, subjectID, topic, mood string, duration int, startedAt time.Time, kind string, linkedTestID, linkedTestType *string) (domain.Session, error) {
+	if kind == "" {
+		kind = "study"
+	}
+	return s.repo.Create(ctx, domain.Session{
+		ID: uuid.NewString(), UserID: userID, SubjectID: subjectID, Topic: topic,
+		DurationMin: duration, Mood: mood, StartedAt: startedAt,
+		Kind: kind, LinkedTestID: linkedTestID, LinkedTestType: linkedTestType,
+	})
 }
 func (s *SessionService) List(ctx context.Context, userID string, from, to *time.Time) ([]domain.Session, error) {
 	return s.repo.ListByUser(ctx, userID, from, to)

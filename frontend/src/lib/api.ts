@@ -1,11 +1,14 @@
 import type {
   ExamGoal,
+  FullMock,
   FriendRequest,
   FriendUser,
   Goal,
   LeaderboardEntry,
   PublicProfileDetails,
   PublicProfileView,
+  QotdEntry,
+  SectionalTest,
   Session,
   Subject,
   UserPreferences,
@@ -22,7 +25,7 @@ const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || '').trim();
 type AuthState = { accessToken: string; refreshId: string; refreshToken: string };
 type BackendUser = { id: string; email?: string; fullName?: string; name?: string; username?: string; phone?: string; avatarUrl?: string };
 type BackendSession = { id: string; startedAt: string; durationMin: number; subject: string; mood?: string | number };
-type BackendSessionV2 = { id: string; startedAt: string; durationMin: number; subjectId?: string; topic?: string; mood?: string | number };
+type BackendSessionV2 = { id: string; startedAt: string; durationMin: number; subjectId?: string; topic?: string; mood?: string | number; kind?: string; linkedTestId?: string | null; linkedTestType?: string | null };
 type BackendGoal = { id: string; targetMinutes: number };
 type BackendExamGoal = { id: string; name: string; examDate: string };
 type BackendSubject = { id: string; name: string; color: string; icon?: string; createdAt: string };
@@ -363,7 +366,11 @@ export async function fetchSessions(): Promise<Session[]> {
 
 export async function createSession(payload: Omit<Session, 'id'>): Promise<Session> {
   const startedAt = new Date(`${payload.date}T${payload.startTime}:00`).toISOString();
-  const res = await request('/sessions', { method: 'POST', body: JSON.stringify({ subjectId: payload.subjectId, topic: payload.topic, durationMin: payload.duration, mood: String(payload.moodRating), startedAt }) });
+  const body: Record<string, unknown> = { subjectId: payload.subjectId, topic: payload.topic, durationMin: payload.duration, mood: String(payload.moodRating), startedAt };
+  if (payload.kind && payload.kind !== 'study') body.kind = payload.kind;
+  if (payload.linkedTestId) body.linkedTestId = payload.linkedTestId;
+  if (payload.linkedTestType) body.linkedTestType = payload.linkedTestType;
+  const res = await request('/sessions', { method: 'POST', body: JSON.stringify(body) });
   if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create session'));
   return mapSession(await res.json());
 }
@@ -583,6 +590,9 @@ function mapSession(raw: BackendSession | BackendSessionV2): Session {
   const end = new Date(started.getTime() + raw.durationMin * 60000);
   const topic = 'topic' in raw && raw.topic ? raw.topic : ('subject' in raw ? raw.subject : 'General study');
   const subjectId = 'subjectId' in raw && raw.subjectId ? raw.subjectId : '';
+  const kind = ('kind' in raw && raw.kind) ? raw.kind as 'study' | 'analysis' | 'test' : 'study';
+  const linkedTestId = 'linkedTestId' in raw ? raw.linkedTestId ?? undefined : undefined;
+  const linkedTestType = 'linkedTestType' in raw ? raw.linkedTestType as 'full' | 'sectional' | undefined ?? undefined : undefined;
   return {
     id: raw.id,
     subjectId,
@@ -593,7 +603,75 @@ function mapSession(raw: BackendSession | BackendSessionV2): Session {
     date: toLocalDateKey(started),
     moodRating: Number(raw.mood || 3),
     isManualLog: false,
+    kind,
+    linkedTestId,
+    linkedTestType,
   };
+}
+
+// ── Mocks ──────────────────────────────────────────────────────────────────
+
+export async function fetchFullMocks(): Promise<FullMock[]> {
+  const res = await request('/mocks');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch mocks'));
+  return (await res.json()) as FullMock[];
+}
+
+export async function createFullMock(payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>): Promise<FullMock> {
+  const res = await request('/mocks', { method: 'POST', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create mock'));
+  return (await res.json()) as FullMock;
+}
+
+export async function updateFullMock(id: string, payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>): Promise<FullMock> {
+  const res = await request(`/mocks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update mock'));
+  return (await res.json()) as FullMock;
+}
+
+export async function removeFullMock(id: string): Promise<void> {
+  const res = await request(`/mocks/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete mock'));
+}
+
+export async function fetchSectionals(): Promise<SectionalTest[]> {
+  const res = await request('/sectionals');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch sectional tests'));
+  return (await res.json()) as SectionalTest[];
+}
+
+export async function createSectional(payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>): Promise<SectionalTest> {
+  const res = await request('/sectionals', { method: 'POST', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create sectional test'));
+  return (await res.json()) as SectionalTest;
+}
+
+export async function updateSectional(id: string, payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>): Promise<SectionalTest> {
+  const res = await request(`/sectionals/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to update sectional test'));
+  return (await res.json()) as SectionalTest;
+}
+
+export async function removeSectional(id: string): Promise<void> {
+  const res = await request(`/sectionals/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete sectional test'));
+}
+
+export async function fetchQotdEntries(): Promise<QotdEntry[]> {
+  const res = await request('/qotd');
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to fetch QOTD entries'));
+  return (await res.json()) as QotdEntry[];
+}
+
+export async function createQotdEntry(payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>): Promise<QotdEntry> {
+  const res = await request('/qotd', { method: 'POST', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to create QOTD entry'));
+  return (await res.json()) as QotdEntry;
+}
+
+export async function removeQotdEntry(id: string): Promise<void> {
+  const res = await request(`/qotd/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await readErrorMessage(res, 'Unable to delete QOTD entry'));
 }
 
 function mapGoal(raw: BackendGoal): Goal {

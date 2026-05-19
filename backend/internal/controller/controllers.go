@@ -28,9 +28,10 @@ type Handlers struct {
 	Friends      *FriendHandler
 	Achievements *AchievementHandler
 	StudyStats   *StudyStatsHandler
+	Mocks        *MocksHandler
 }
 
-func NewHandlers(a *service.AuthService, u *service.UserService, p *service.ProfileService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, eg *service.ExamGoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService, ach *service.AchievementService, study *service.StudyStatsService) Handlers {
+func NewHandlers(a *service.AuthService, u *service.UserService, p *service.ProfileService, sub *service.SubjectService, s *service.SessionService, g *service.GoalService, eg *service.ExamGoalService, i *service.InsightsService, t *service.TimerStateService, f *service.FriendService, ach *service.AchievementService, study *service.StudyStatsService, mocks *service.MocksService) Handlers {
 	return Handlers{
 		Auth:         &AuthHandler{svc: a},
 		Users:        &UserHandler{svc: u},
@@ -44,6 +45,7 @@ func NewHandlers(a *service.AuthService, u *service.UserService, p *service.Prof
 		Friends:      &FriendHandler{svc: f},
 		Achievements: &AchievementHandler{svc: ach},
 		StudyStats:   &StudyStatsHandler{svc: study},
+		Mocks:        &MocksHandler{svc: mocks},
 	}
 }
 
@@ -349,17 +351,23 @@ type SessionHandler struct{ svc *service.SessionService }
 func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	var req struct {
-		SubjectID   string    `json:"subjectId"`
-		Topic       string    `json:"topic"`
-		DurationMin int       `json:"durationMin"`
-		Mood        string    `json:"mood"`
-		StartedAt   time.Time `json:"startedAt"`
+		SubjectID      string    `json:"subjectId"`
+		Topic          string    `json:"topic"`
+		DurationMin    int       `json:"durationMin"`
+		Mood           string    `json:"mood"`
+		StartedAt      time.Time `json:"startedAt"`
+		Kind           string    `json:"kind"`
+		LinkedTestID   *string   `json:"linkedTestId"`
+		LinkedTestType *string   `json:"linkedTestType"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s, err := h.svc.Create(r.Context(), claims.UserID, req.SubjectID, req.Topic, req.Mood, req.DurationMin, req.StartedAt)
+	if req.Kind == "" {
+		req.Kind = "study"
+	}
+	s, err := h.svc.CreateWithKind(r.Context(), claims.UserID, req.SubjectID, req.Topic, req.Mood, req.DurationMin, req.StartedAt, req.Kind, req.LinkedTestID, req.LinkedTestType)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { Subject, Session, Goal, UserProfile, ExamGoal, UserPreferences, UserPrivacySettings, UserPublicProfile } from '@/lib/types';
+import type { FullMock, QotdEntry, SectionalTest, Subject, Session, Goal, UserProfile, ExamGoal, UserPreferences, UserPrivacySettings, UserPublicProfile } from '@/lib/types';
 import { LoadingSplash } from '@/components/LoadingSplash';
 import { toast } from 'sonner';
-import { createOrUpdateGoal, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeSession, removeSubject, updateMe, updateSession, updateSubjectColor as patchSubjectColor, updateSubject as patchSubject, upsertExamGoal } from '@/lib/api';
+import { createFullMock, createOrUpdateGoal, createQotdEntry, createSectional, createSession, createSubject, deleteExamGoal, ensureDevAuth, fetchExamGoal, fetchFullMocks, fetchGoals, fetchMe, fetchMyPreferences, fetchMyPrivacy, fetchMyPublicProfile, fetchQotdEntries, fetchSectionals, fetchSessions, fetchSubjects, patchMyPreferences, patchMyPrivacy, patchMyPublicProfile, removeFullMock, removeQotdEntry, removeSession, removeSectional, removeSubject, updateFullMock, updateMe, updateSectional, updateSession, updateSubjectColor as patchSubjectColor, updateSubject as patchSubject, upsertExamGoal } from '@/lib/api';
 import { currentStreakUntilToday } from '@/lib/stats';
 import { toLocalDateKey } from '@/lib/date';
 
@@ -63,6 +63,18 @@ interface StoreContextType {
   saveProfileMeta: (payload: Omit<UserPublicProfile, 'userId'>) => Promise<void>;
   savePreferences: (payload: Omit<UserPreferences, 'userId'>) => Promise<UserPreferences>;
   savePrivacy: (payload: Omit<UserPrivacySettings, 'userId'>) => Promise<void>;
+  // Mocks
+  fullMocks: FullMock[];
+  sectionalTests: SectionalTest[];
+  qotdEntries: QotdEntry[];
+  addFullMock: (payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>) => Promise<FullMock | null>;
+  editFullMock: (id: string, payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>) => Promise<boolean>;
+  deleteFullMock: (id: string) => void;
+  addSectional: (payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>) => Promise<SectionalTest | null>;
+  editSectional: (id: string, payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>) => Promise<boolean>;
+  deleteSectional: (id: string) => void;
+  addQotdEntry: (payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>) => Promise<QotdEntry | null>;
+  deleteQotdEntry: (id: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -82,6 +94,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     showStrategyPage: false,
   });
   const [privacy, setPrivacy] = useState<UserPrivacySettings>({ userId: '', profilePublic: true, showStats: true, showLeaderboard: true });
+  const [fullMocks, setFullMocks] = useState<FullMock[]>([]);
+  const [sectionalTests, setSectionalTests] = useState<SectionalTest[]>([]);
+  const [qotdEntries, setQotdEntries] = useState<QotdEntry[]>([]);
   const [dataLoadCount, setDataLoadCount] = useState(0);
   const lastReloadRef = useRef<number>(0);
 
@@ -101,8 +116,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDataLoadCount((n) => n + 1);
     try {
       await ensureDevAuth();
-      const [me, subs, sess, goals, examGoalRes, publicProfileRes, preferencesRes, privacyRes] = await Promise.allSettled([
+      const [me, subs, sess, goals, examGoalRes, publicProfileRes, preferencesRes, privacyRes, mocksRes, sectionalsRes, qotdRes] = await Promise.allSettled([
         fetchMe(), fetchSubjects(), fetchSessions(), fetchGoals(), fetchExamGoal(), fetchMyPublicProfile(), fetchMyPreferences(), fetchMyPrivacy(),
+        fetchFullMocks(), fetchSectionals(), fetchQotdEntries(),
       ]);
       if (me.status === 'fulfilled') setUser(me.value);
       if (subs.status === 'fulfilled') setSubjects(subs.value);
@@ -120,6 +136,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (publicProfileRes.status === 'fulfilled') setProfileMeta(publicProfileRes.value);
       if (preferencesRes.status === 'fulfilled') setPreferences(preferencesRes.value);
       if (privacyRes.status === 'fulfilled') setPrivacy(privacyRes.value);
+      if (mocksRes.status === 'fulfilled') setFullMocks(mocksRes.value);
+      if (sectionalsRes.status === 'fulfilled') setSectionalTests(sectionalsRes.value);
+      if (qotdRes.status === 'fulfilled') setQotdEntries(qotdRes.value);
     } finally {
       setDataLoadCount((n) => Math.max(0, n - 1));
     }
@@ -257,6 +276,92 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const addFullMock = useCallback(async (payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>): Promise<FullMock | null> => {
+    try {
+      const created = await createFullMock(payload);
+      setFullMocks((prev) => [created, ...prev]);
+      // Reload sessions since backend auto-creates a session for test duration
+      if (payload.durationMin && payload.durationMin > 0) {
+        try { const latest = await fetchSessions(); setSessions(latest); } catch { /* best-effort */ }
+      }
+      return created;
+    } catch {
+      toast.error("Couldn't save mock test. Please try again.");
+      return null;
+    }
+  }, []);
+
+  const editFullMock = useCallback(async (id: string, payload: Omit<FullMock, 'id' | 'userId' | 'createdAt'>): Promise<boolean> => {
+    try {
+      const updated = await updateFullMock(id, payload);
+      setFullMocks((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      return true;
+    } catch {
+      toast.error("Couldn't update mock test. Please try again.");
+      return false;
+    }
+  }, []);
+
+  const deleteFullMock = useCallback((id: string) => {
+    setFullMocks((prev) => prev.filter((m) => m.id !== id));
+    void removeFullMock(id).catch(() => {
+      void fetchFullMocks().then(setFullMocks).catch(() => {});
+      toast.error("Couldn't delete mock test. It has been restored.");
+    });
+  }, []);
+
+  const addSectional = useCallback(async (payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>): Promise<SectionalTest | null> => {
+    try {
+      const created = await createSectional(payload);
+      setSectionalTests((prev) => [created, ...prev]);
+      if (payload.durationMin && payload.durationMin > 0) {
+        try { const latest = await fetchSessions(); setSessions(latest); } catch { /* best-effort */ }
+      }
+      return created;
+    } catch {
+      toast.error("Couldn't save sectional test. Please try again.");
+      return null;
+    }
+  }, []);
+
+  const editSectional = useCallback(async (id: string, payload: Omit<SectionalTest, 'id' | 'userId' | 'createdAt'>): Promise<boolean> => {
+    try {
+      const updated = await updateSectional(id, payload);
+      setSectionalTests((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      return true;
+    } catch {
+      toast.error("Couldn't update sectional test. Please try again.");
+      return false;
+    }
+  }, []);
+
+  const deleteSectional = useCallback((id: string) => {
+    setSectionalTests((prev) => prev.filter((s) => s.id !== id));
+    void removeSectional(id).catch(() => {
+      void fetchSectionals().then(setSectionalTests).catch(() => {});
+      toast.error("Couldn't delete sectional test. It has been restored.");
+    });
+  }, []);
+
+  const addQotdEntry = useCallback(async (payload: Omit<QotdEntry, 'id' | 'userId' | 'createdAt'>): Promise<QotdEntry | null> => {
+    try {
+      const created = await createQotdEntry(payload);
+      setQotdEntries((prev) => [created, ...prev]);
+      return created;
+    } catch {
+      toast.error("Couldn't save QOTD entry. Please try again.");
+      return null;
+    }
+  }, []);
+
+  const deleteQotdEntry = useCallback((id: string) => {
+    setQotdEntries((prev) => prev.filter((e) => e.id !== id));
+    void removeQotdEntry(id).catch(() => {
+      void fetchQotdEntries().then(setQotdEntries).catch(() => {});
+      toast.error("Couldn't delete QOTD entry. It has been restored.");
+    });
+  }, []);
+
   const getSubject = useCallback((id: string) => subjects.find((s) => s.id === id), [subjects]);
   const toggleTheme = useCallback(() => {
     setIsDark((prev) => {
@@ -307,6 +412,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       isDark, toggleTheme, theme, setTheme, examGoal, setExamGoal, clearExamGoal, updateUserProfile, reloadStoreData,
       dataLoading, wrapWithDataLoading,
       profileMeta, preferences, privacy, saveProfileMeta, savePreferences, savePrivacy,
+      fullMocks, sectionalTests, qotdEntries,
+      addFullMock, editFullMock, deleteFullMock,
+      addSectional, editSectional, deleteSectional,
+      addQotdEntry, deleteQotdEntry,
     }}>
       <LoadingSplash open={dataLoading} />
       {children}
