@@ -16,6 +16,72 @@ export interface Session {
   date: string;
   moodRating: number; // 1-5
   isManualLog: boolean;
+  kind?: 'study' | 'analysis' | 'test';
+  linkedTestId?: string | null;
+  linkedTestType?: 'full' | 'sectional' | null;
+}
+
+export type MockProvider = 'TIME' | 'IMS' | 'CL' | 'AIMCAT' | 'OTHER';
+
+export interface FullMock {
+  id: string;
+  userId: string;
+  provider: MockProvider;
+  providerName: string;
+  testName: string;
+  date: string;
+  varcScore?: number | null;
+  varcAttempted?: number | null;
+  varcCorrect?: number | null;
+  varcPercentile?: number | null;
+  dilrScore?: number | null;
+  dilrAttempted?: number | null;
+  dilrCorrect?: number | null;
+  dilrPercentile?: number | null;
+  quantScore?: number | null;
+  quantAttempted?: number | null;
+  quantCorrect?: number | null;
+  quantPercentile?: number | null;
+  overallScore?: number | null;
+  overallPercentile?: number | null;
+  durationMin?: number | null;
+  tags: string[];
+  notes: string;
+  linkedSessionId?: string | null;
+  createdAt: string;
+}
+
+export interface SectionalTest {
+  id: string;
+  userId: string;
+  provider: MockProvider;
+  providerName: string;
+  testName: string;
+  section: string;
+  date: string;
+  score?: number | null;
+  attempted?: number | null;
+  correct?: number | null;
+  percentile?: number | null;
+  durationMin?: number | null;
+  tags: string[];
+  notes: string;
+  linkedSessionId?: string | null;
+  createdAt: string;
+}
+
+export interface QotdEntry {
+  id: string;
+  userId: string;
+  date: string;
+  topic: string;
+  source: string;
+  correct: boolean;
+  timeTakenSec?: number | null;
+  questionsCorrect?: number | null;
+  questionsTotal?: number | null;
+  note: string;
+  createdAt: string;
 }
 
 export interface Goal {

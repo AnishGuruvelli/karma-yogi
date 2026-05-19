@@ -23,6 +23,9 @@ type Repositories struct {
 	Timer          TimerStateRepository
 	Friends        FriendRepository
 	Auth           AuthRepository
+	FullMocks      FullMockRepository
+	Sectionals     SectionalTestRepository
+	Qotd           QotdEntryRepository
 }
 
 func NewRepositories(pool *pgxpool.Pool) Repositories {
@@ -38,6 +41,9 @@ func NewRepositories(pool *pgxpool.Pool) Repositories {
 		Timer:          &pgTimerStateRepo{pool: pool},
 		Friends:        &pgFriendRepo{pool: pool},
 		Auth:           &pgAuthRepo{pool: pool},
+		FullMocks:      &pgFullMockRepo{pool: pool},
+		Sectionals:     &pgSectionalTestRepo{pool: pool},
+		Qotd:           &pgQotdEntryRepo{pool: pool},
 	}
 }
 
@@ -139,17 +145,23 @@ func (r *pgUserRepo) UpdatePasswordHash(ctx context.Context, userID, passwordHas
 type pgSessionRepo struct{ pool *pgxpool.Pool }
 
 func (r *pgSessionRepo) Create(ctx context.Context, s domain.Session) (domain.Session, error) {
-	q := `INSERT INTO sessions (id,user_id,subject,subject_id,topic,duration_min,mood,started_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-	RETURNING id,user_id,subject_id,topic,duration_min,mood,started_at,created_at`
-	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Topic, s.SubjectID, s.Topic, s.DurationMin, s.Mood, s.StartedAt).Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt)
+	if s.Kind == "" {
+		s.Kind = "study"
+	}
+	q := `INSERT INTO sessions (id,user_id,subject,subject_id,topic,duration_min,mood,started_at,kind,linked_test_id,linked_test_type)
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+	RETURNING id,user_id,COALESCE(subject_id::text,''),COALESCE(topic,subject,'General study'),duration_min,mood,started_at,created_at,COALESCE(kind,'study'),linked_test_id,linked_test_type`
+	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Topic, s.SubjectID, s.Topic, s.DurationMin, s.Mood, s.StartedAt, s.Kind, s.LinkedTestID, s.LinkedTestType).
+		Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt, &s.Kind, &s.LinkedTestID, &s.LinkedTestType)
 	return s, err
 }
 func (r *pgSessionRepo) Update(ctx context.Context, s domain.Session) (domain.Session, error) {
 	q := `UPDATE sessions
 	SET subject_id=$3,topic=$4,duration_min=$5,mood=$6,started_at=$7
 	WHERE id=$1 AND user_id=$2
-	RETURNING id,user_id,COALESCE(subject_id::text,''),COALESCE(topic,subject,'General study'),duration_min,mood,started_at,created_at`
-	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.SubjectID, s.Topic, s.DurationMin, s.Mood, s.StartedAt).Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt)
+	RETURNING id,user_id,COALESCE(subject_id::text,''),COALESCE(topic,subject,'General study'),duration_min,mood,started_at,created_at,COALESCE(kind,'study'),linked_test_id,linked_test_type`
+	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.SubjectID, s.Topic, s.DurationMin, s.Mood, s.StartedAt).
+		Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt, &s.Kind, &s.LinkedTestID, &s.LinkedTestType)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Session{}, errors.New("not found")
@@ -167,7 +179,10 @@ func (r *pgSessionRepo) ListByUser(ctx context.Context, userID string, from, to 
 		duration_min,
 		mood,
 		started_at,
-		created_at
+		created_at,
+		COALESCE(kind,'study'),
+		linked_test_id,
+		linked_test_type
 	FROM sessions WHERE user_id=$1
 	AND ($2::timestamptz IS NULL OR started_at >= $2)
 	AND ($3::timestamptz IS NULL OR started_at <= $3)
@@ -180,7 +195,7 @@ func (r *pgSessionRepo) ListByUser(ctx context.Context, userID string, from, to 
 	out := []domain.Session{}
 	for rows.Next() {
 		var s domain.Session
-		if err := rows.Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.UserID, &s.SubjectID, &s.Topic, &s.DurationMin, &s.Mood, &s.StartedAt, &s.CreatedAt, &s.Kind, &s.LinkedTestID, &s.LinkedTestType); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -665,4 +680,236 @@ func (r *pgAuthRepo) GetRefreshToken(ctx context.Context, id string) (domain.Ref
 func (r *pgAuthRepo) RevokeRefreshToken(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE refresh_tokens SET revoked_at=now() WHERE id=$1`, id)
 	return err
+}
+
+// ── Full mocks ────────────────────────────────────────────────────────────────
+
+type pgFullMockRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgFullMockRepo) Create(ctx context.Context, m domain.FullMock) (domain.FullMock, error) {
+	if m.Tags == nil {
+		m.Tags = []string{}
+	}
+	q := `INSERT INTO full_mocks
+		(id,user_id,provider,provider_name,test_name,date,
+		 varc_score,varc_attempted,varc_correct,varc_percentile,
+		 dilr_score,dilr_attempted,dilr_correct,dilr_percentile,
+		 quant_score,quant_attempted,quant_correct,quant_percentile,
+		 overall_score,overall_percentile,duration_min,tags,notes,linked_session_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+		RETURNING id,user_id,provider,provider_name,test_name,date,
+		  varc_score,varc_attempted,varc_correct,varc_percentile,
+		  dilr_score,dilr_attempted,dilr_correct,dilr_percentile,
+		  quant_score,quant_attempted,quant_correct,quant_percentile,
+		  overall_score,overall_percentile,duration_min,tags,notes,linked_session_id,created_at`
+	err := r.pool.QueryRow(ctx, q,
+		m.ID, m.UserID, m.Provider, m.ProviderName, m.TestName, m.Date,
+		m.VARCScore, m.VARCAttempted, m.VARCCorrect, m.VARCPercentile,
+		m.DILRScore, m.DILRAttempted, m.DILRCorrect, m.DILRPercentile,
+		m.QuantScore, m.QuantAttempted, m.QuantCorrect, m.QuantPercentile,
+		m.OverallScore, m.OverallPercentile, m.DurationMin, m.Tags, m.Notes, m.LinkedSessionID,
+	).Scan(
+		&m.ID, &m.UserID, &m.Provider, &m.ProviderName, &m.TestName, &m.Date,
+		&m.VARCScore, &m.VARCAttempted, &m.VARCCorrect, &m.VARCPercentile,
+		&m.DILRScore, &m.DILRAttempted, &m.DILRCorrect, &m.DILRPercentile,
+		&m.QuantScore, &m.QuantAttempted, &m.QuantCorrect, &m.QuantPercentile,
+		&m.OverallScore, &m.OverallPercentile, &m.DurationMin, &m.Tags, &m.Notes, &m.LinkedSessionID, &m.CreatedAt,
+	)
+	return m, err
+}
+
+func (r *pgFullMockRepo) ListByUser(ctx context.Context, userID string) ([]domain.FullMock, error) {
+	q := `SELECT id,user_id,provider,provider_name,test_name,date,
+		varc_score,varc_attempted,varc_correct,varc_percentile,
+		dilr_score,dilr_attempted,dilr_correct,dilr_percentile,
+		quant_score,quant_attempted,quant_correct,quant_percentile,
+		overall_score,overall_percentile,duration_min,tags,notes,linked_session_id,created_at
+		FROM full_mocks WHERE user_id=$1 ORDER BY date DESC, created_at DESC`
+	rows, err := r.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.FullMock{}
+	for rows.Next() {
+		var m domain.FullMock
+		if err := rows.Scan(
+			&m.ID, &m.UserID, &m.Provider, &m.ProviderName, &m.TestName, &m.Date,
+			&m.VARCScore, &m.VARCAttempted, &m.VARCCorrect, &m.VARCPercentile,
+			&m.DILRScore, &m.DILRAttempted, &m.DILRCorrect, &m.DILRPercentile,
+			&m.QuantScore, &m.QuantAttempted, &m.QuantCorrect, &m.QuantPercentile,
+			&m.OverallScore, &m.OverallPercentile, &m.DurationMin, &m.Tags, &m.Notes, &m.LinkedSessionID, &m.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if m.Tags == nil {
+			m.Tags = []string{}
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgFullMockRepo) Update(ctx context.Context, m domain.FullMock) (domain.FullMock, error) {
+	if m.Tags == nil {
+		m.Tags = []string{}
+	}
+	q := `UPDATE full_mocks SET
+		tags=$3, notes=$4, linked_session_id=$5,
+		varc_score=$6,varc_attempted=$7,varc_correct=$8,varc_percentile=$9,
+		dilr_score=$10,dilr_attempted=$11,dilr_correct=$12,dilr_percentile=$13,
+		quant_score=$14,quant_attempted=$15,quant_correct=$16,quant_percentile=$17,
+		overall_score=$18,overall_percentile=$19
+		WHERE id=$1 AND user_id=$2
+		RETURNING id,user_id,provider,provider_name,test_name,date,
+		  varc_score,varc_attempted,varc_correct,varc_percentile,
+		  dilr_score,dilr_attempted,dilr_correct,dilr_percentile,
+		  quant_score,quant_attempted,quant_correct,quant_percentile,
+		  overall_score,overall_percentile,duration_min,tags,notes,linked_session_id,created_at`
+	err := r.pool.QueryRow(ctx, q,
+		m.ID, m.UserID, m.Tags, m.Notes, m.LinkedSessionID,
+		m.VARCScore, m.VARCAttempted, m.VARCCorrect, m.VARCPercentile,
+		m.DILRScore, m.DILRAttempted, m.DILRCorrect, m.DILRPercentile,
+		m.QuantScore, m.QuantAttempted, m.QuantCorrect, m.QuantPercentile,
+		m.OverallScore, m.OverallPercentile,
+	).Scan(
+		&m.ID, &m.UserID, &m.Provider, &m.ProviderName, &m.TestName, &m.Date,
+		&m.VARCScore, &m.VARCAttempted, &m.VARCCorrect, &m.VARCPercentile,
+		&m.DILRScore, &m.DILRAttempted, &m.DILRCorrect, &m.DILRPercentile,
+		&m.QuantScore, &m.QuantAttempted, &m.QuantCorrect, &m.QuantPercentile,
+		&m.OverallScore, &m.OverallPercentile, &m.DurationMin, &m.Tags, &m.Notes, &m.LinkedSessionID, &m.CreatedAt,
+	)
+	if m.Tags == nil {
+		m.Tags = []string{}
+	}
+	return m, err
+}
+
+func (r *pgFullMockRepo) Delete(ctx context.Context, userID, id string) error {
+	ct, err := r.pool.Exec(ctx, `DELETE FROM full_mocks WHERE id=$1 AND user_id=$2`, id, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return errors.New("not found")
+	}
+	return nil
+}
+
+// ── Sectional tests ───────────────────────────────────────────────────────────
+
+type pgSectionalTestRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgSectionalTestRepo) Create(ctx context.Context, s domain.SectionalTest) (domain.SectionalTest, error) {
+	if s.Tags == nil {
+		s.Tags = []string{}
+	}
+	q := `INSERT INTO sectional_tests
+		(id,user_id,provider,provider_name,test_name,section,date,score,attempted,correct,percentile,duration_min,tags,notes,linked_session_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		RETURNING id,user_id,provider,provider_name,test_name,section,date,score,attempted,correct,percentile,duration_min,tags,notes,linked_session_id,created_at`
+	err := r.pool.QueryRow(ctx, q,
+		s.ID, s.UserID, s.Provider, s.ProviderName, s.TestName, s.Section, s.Date,
+		s.Score, s.Attempted, s.Correct, s.Percentile, s.DurationMin, s.Tags, s.Notes, s.LinkedSessionID,
+	).Scan(
+		&s.ID, &s.UserID, &s.Provider, &s.ProviderName, &s.TestName, &s.Section, &s.Date,
+		&s.Score, &s.Attempted, &s.Correct, &s.Percentile, &s.DurationMin, &s.Tags, &s.Notes, &s.LinkedSessionID, &s.CreatedAt,
+	)
+	return s, err
+}
+
+func (r *pgSectionalTestRepo) ListByUser(ctx context.Context, userID string) ([]domain.SectionalTest, error) {
+	q := `SELECT id,user_id,provider,provider_name,test_name,section,date,score,attempted,correct,percentile,duration_min,tags,notes,linked_session_id,created_at
+		FROM sectional_tests WHERE user_id=$1 ORDER BY date DESC, created_at DESC`
+	rows, err := r.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.SectionalTest{}
+	for rows.Next() {
+		var s domain.SectionalTest
+		if err := rows.Scan(
+			&s.ID, &s.UserID, &s.Provider, &s.ProviderName, &s.TestName, &s.Section, &s.Date,
+			&s.Score, &s.Attempted, &s.Correct, &s.Percentile, &s.DurationMin, &s.Tags, &s.Notes, &s.LinkedSessionID, &s.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if s.Tags == nil {
+			s.Tags = []string{}
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgSectionalTestRepo) Update(ctx context.Context, s domain.SectionalTest) (domain.SectionalTest, error) {
+	if s.Tags == nil {
+		s.Tags = []string{}
+	}
+	q := `UPDATE sectional_tests SET tags=$3, notes=$4, linked_session_id=$5
+		WHERE id=$1 AND user_id=$2
+		RETURNING id,user_id,provider,provider_name,test_name,section,date,score,attempted,correct,percentile,duration_min,tags,notes,linked_session_id,created_at`
+	err := r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Tags, s.Notes, s.LinkedSessionID).Scan(
+		&s.ID, &s.UserID, &s.Provider, &s.ProviderName, &s.TestName, &s.Section, &s.Date,
+		&s.Score, &s.Attempted, &s.Correct, &s.Percentile, &s.DurationMin, &s.Tags, &s.Notes, &s.LinkedSessionID, &s.CreatedAt,
+	)
+	if s.Tags == nil {
+		s.Tags = []string{}
+	}
+	return s, err
+}
+
+func (r *pgSectionalTestRepo) Delete(ctx context.Context, userID, id string) error {
+	ct, err := r.pool.Exec(ctx, `DELETE FROM sectional_tests WHERE id=$1 AND user_id=$2`, id, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return errors.New("not found")
+	}
+	return nil
+}
+
+// ── QOTD entries ──────────────────────────────────────────────────────────────
+
+type pgQotdEntryRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgQotdEntryRepo) Create(ctx context.Context, e domain.QotdEntry) (domain.QotdEntry, error) {
+	q := `INSERT INTO qotd_entries (id,user_id,date,topic,source,correct,time_taken_sec,note)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		RETURNING id,user_id,date,topic,source,correct,time_taken_sec,note,created_at`
+	err := r.pool.QueryRow(ctx, q, e.ID, e.UserID, e.Date, e.Topic, e.Source, e.Correct, e.TimeTakenSec, e.Note).
+		Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenSec, &e.Note, &e.CreatedAt)
+	return e, err
+}
+
+func (r *pgQotdEntryRepo) ListByUser(ctx context.Context, userID string) ([]domain.QotdEntry, error) {
+	q := `SELECT id,user_id,date,topic,source,correct,time_taken_sec,note,created_at
+		FROM qotd_entries WHERE user_id=$1 ORDER BY date DESC, created_at DESC`
+	rows, err := r.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.QotdEntry{}
+	for rows.Next() {
+		var e domain.QotdEntry
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenSec, &e.Note, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgQotdEntryRepo) Delete(ctx context.Context, userID, id string) error {
+	ct, err := r.pool.Exec(ctx, `DELETE FROM qotd_entries WHERE id=$1 AND user_id=$2`, id, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return errors.New("not found")
+	}
+	return nil
 }

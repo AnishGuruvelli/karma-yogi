@@ -1,9 +1,9 @@
 # Karma Yogi — Product Requirements Document
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Author:** Anish Guruvelli
 **Status:** Living document — updated as features ship  
-**Last Updated:** 2026-05-08
+**Last Updated:** 2026-05-20
 
 ---
 
@@ -356,10 +356,11 @@ The Dashboard (`/`) is the primary landing page after login. It must communicate
 #### 8.2.8 Heatmap Card (Activity Calendar)
 
 - GitHub-style activity heatmap: one cell per day, intensity = minutes studied.
-- Shows from the first session month through today + current partial month.
 - Scrolls horizontally on mobile; overflow-y must be hidden to avoid scroll bleeding.
 - Portal tooltip on hover/tap showing date + minutes.
 - Cells use theme accent colors at 4 intensity levels (0, low, medium, high) based on percentile breakpoints relative to the user's max day.
+- **Subject filter dropdown**: next to the year toggle, a custom dropdown lets the user filter the heatmap to show only one subject's activity. Defaults to "All Subjects".
+- Year selector: toggle between the current and previous year.
 
 #### 8.2.9 Action Buttons
 
@@ -437,75 +438,109 @@ The timer is the primary real-time session entry surface.
 
 ### 8.5 Session Library (Sessions Page)
 
-Route `/sessions`. Full list of all logged sessions with search and filter.
+Route `/sessions`. Full list of all logged sessions across four tab types: Study, Mocks, Sectional, and QOTD.
 
-#### 8.5.1 List
+#### 8.5.1 Study Tab
 
-- Ordered by `startedAt` descending (most recent first).
-- Default page size: 30 sessions (server returns all; pagination is client-side in v1).
-- Each row: subject color chip, subject name, topic, date, duration, mood emoji.
-- Edit / delete inline (same as Dashboard recent sessions).
+- Lists all manual/timer study sessions (sessions where `kind !== "test"`).
+- Ordered by date descending; client-side pagination (50 per page).
+- Each card shows: subject color chip, subject name, topic, date+time, duration, mood emoji.
+- Clicking a card opens `LogSessionModal` pre-filled for edit.
+- Group labels: Today / Yesterday / Earlier.
 
-#### 8.5.2 Search
+#### 8.5.2 Full Mock Tab
 
-- Real-time client-side filter on subject name + topic text.
-- Clears results gracefully with an empty state message.
+- Lists all full-length mock test entries (`FullMock` records).
+- Each `MockCard` shows: test name, date, overall score (correct/total), percentile, duration, tags (topic-mistake tags).
+- Edit (pencil) opens `EditFullMockModal`; delete (trash, 2-tap confirmation) removes the entry.
+- Tags are free-form lowercase strings (e.g. `pnc`, `time management`). Autocomplete from previous tags shown while typing.
 
-#### 8.5.3 Filter
+#### 8.5.3 Sectional Test Tab
 
-- Filter by subject (multi-select).
-- Filter by date range (from / to date pickers).
-- Filter by mood (1–5 emoji checkboxes) — stretch goal for v1.
-- Active filters are shown as dismissible chips.
+- Lists all single-section test entries (`SectionalTest` records).
+- Each `SectionalCard` shows: test name, section, date, score, percentile, duration.
+- Edit / delete inline via `EditSectionalModal`.
 
-#### 8.5.4 Bulk Delete
+#### 8.5.4 QOTD Tab
 
-- Stretch goal for v1. Not included in initial scope.
+- Lists all "Question of the Day" entries.
+- Each entry shows: topic (QUANT / VA / RC / LR / DI), date, source, score (correct / total), time taken, note.
+- Edit via `EditQotdModal`; delete with 2-tap confirmation.
+
+#### 8.5.5 Log Test Modal
+
+Two-step modal (`LogTestModal`):
+1. **Step 1** — pick test type: Full Mock, Sectional, or QOTD.
+2. **Step 2** — fill the form for the chosen type.
+
+QOTD form fields: date, source (default "iQuanta"), topic (QUANT/VA/RC/LR/DI pill selector), questions correct/total, time taken (seconds), note.
+Full Mock form fields: test name, date, duration, topic-mistake tags (autocomplete from history), VA/RC/DI/LR/QA scores, overall score, percentile, notes.
+Sectional form fields: test name, section, date, duration, score, percentile, notes.
+
+#### 8.5.6 Duration Input (Session Logging)
+
+- Hours: increments/decrements by 1.
+- Minutes: increments/decrements by **5** (not 1) for faster entry.
+- Manual text input still accepts any value.
+- Quick-pick chips: 15m, 30m, 45m, 1h, 1h 30m, 2h.
 
 ---
 
 ### 8.6 Insights & Analytics
 
-Route `/insights`. Aggregated visualisations of the user's study history.
+Route `/insights`. Aggregated visualisations of the user's study history. Two top-level views toggled by a "Study / Mocks" pill selector:
 
-#### 8.6.1 Heatmap
+#### Study View
 
-- Same component as Dashboard heatmap (`HeatmapCard`).
-- Full-width on Insights page; shows complete history.
+##### 8.6.1 Heatmap
 
-#### 8.6.2 Weekly Bar Chart (`WeeklyStats`)
+- Same `HeatmapCard` component as Dashboard; includes subject filter and year toggle.
+
+##### 8.6.2 Weekly Bar Chart (`WeeklyStats`)
 
 - 7-day bar chart (Mon–Sun) for the selected week.
-- Week navigation: < (previous) and > (next) arrows; "Today" pill to jump back.
+- Week navigation arrows; "Today" pill to jump back.
 - Y-axis in hours; each bar labelled with day abbreviation.
 - Bars colored by theme accent.
-- Subject breakdown tooltip on tap/hover.
 
-#### 8.6.3 Subject Pie / Breakdown
+##### 8.6.3 Subject Pie / Breakdown
 
-- Proportional breakdown of total minutes by subject (all-time or current week toggle).
+- Proportional breakdown of total minutes by subject.
 - Subject color matches the user's assigned color.
 - Legend shows subject name + percentage + hours.
+- Legend items are clickable to show/hide individual series.
 
-#### 8.6.4 Peak Hour
+##### 8.6.4 Productivity / Peak Hour
 
-- Hour of day (0–23 local time) with the highest total minutes.
-- Displayed as a "peak study time" stat card.
-- Derived server-side from `GET /insights` or computed client-side from session data.
+- Bar chart of study minutes by hour of day, showing when the user is most productive.
+- Interactive legend (click to hide/show bars).
 
-#### 8.6.5 Best Day
+##### 8.6.5 Peak Performance (Best Day)
 
-- Calendar date with the highest single-day study total.
-- Displayed as a stat card with the date + minutes.
+- Bar chart showing highest-output days.
 
-#### 8.6.6 All-Time Stats
+#### Mocks View
 
-- Total hours logged (all time).
-- Total sessions.
-- Average session length.
-- Longest single session.
-- Average mood (1–5).
-- Active days (days with ≥ 1 session).
+##### 8.6.6 Top Weak Topics
+
+- Displays the most frequently occurring topic-mistake tags across all full mock entries.
+- Shown at the top of the Mocks view.
+
+##### 8.6.7 Score Trend
+
+- Line chart of overall mock scores over time.
+- Interactive legend to show/hide the score line.
+
+##### 8.6.8 Percentile Trend
+
+- Line chart of mock percentile over time.
+- Interactive legend to show/hide the percentile line.
+
+##### 8.6.9 Provider Comparison
+
+- Bar chart of average score per section (VA, RC, DI, LR, QA) broken down by test provider.
+- Subtitle clarifies it shows averages across all mocks.
+- Interactive legend to show/hide individual section bars.
 
 ---
 
@@ -857,6 +892,12 @@ Five named themes applied via `data-theme` attribute on `<html>`:
 | Leaderboard | GET | `/friends/leaderboard` |
 | Friend Session | POST | `/friends/sessions` |
 | Friend Profile | POST | `/friends/friend-profile` |
+| Full Mocks | GET / POST | `/mocks` |
+| Full Mock | GET / PATCH / DELETE | `/mocks/{id}` |
+| Sectional Tests | GET / POST | `/sectional-tests` |
+| Sectional Test | GET / PATCH / DELETE | `/sectional-tests/{id}` |
+| QOTD Entries | GET / POST | `/qotd` |
+| QOTD Entry | GET / PATCH / DELETE | `/qotd/{id}` |
 
 ### 10.3 Key Data Models
 
@@ -886,6 +927,54 @@ createdAt: datetime
 key: enum (10 keys)
 earned: boolean
 earnedAt: datetime | null
+```
+
+**FullMock**
+```
+id: UUID
+userId: UUID
+testName: string
+date: string (YYYY-MM-DD)
+durationMin: integer | null
+vaScore: integer | null
+rcScore: integer | null
+diScore: integer | null
+lrScore: integer | null
+qaScore: integer | null
+overallScore: integer | null
+percentile: number | null
+tags: string[]              // topic-mistake tags (lowercase)
+notes: string
+createdAt: datetime
+```
+
+**SectionalTest**
+```
+id: UUID
+userId: UUID
+testName: string
+section: string
+date: string (YYYY-MM-DD)
+durationMin: integer | null
+score: integer | null
+percentile: number | null
+notes: string
+createdAt: datetime
+```
+
+**QotdEntry**
+```
+id: UUID
+userId: UUID
+date: string (YYYY-MM-DD)
+topic: "QUANT" | "VA" | "RC" | "LR" | "DI"
+source: string              // e.g. "iQuanta"
+correct: boolean
+questionsCorrect: integer | null
+questionsTotal: integer | null
+timeTakenSec: integer | null
+note: string
+createdAt: datetime
 ```
 
 **TimerState** (free-form JSON blob, key fields)

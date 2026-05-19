@@ -17,14 +17,76 @@ type User struct {
 }
 
 type Session struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"userId"`
-	SubjectID   string    `json:"subjectId"`
-	Topic       string    `json:"topic"`
-	DurationMin int       `json:"durationMin"`
-	Mood        string    `json:"mood"`
-	StartedAt   time.Time `json:"startedAt"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID             string    `json:"id"`
+	UserID         string    `json:"userId"`
+	SubjectID      string    `json:"subjectId"`
+	Topic          string    `json:"topic"`
+	DurationMin    int       `json:"durationMin"`
+	Mood           string    `json:"mood"`
+	StartedAt      time.Time `json:"startedAt"`
+	CreatedAt      time.Time `json:"createdAt"`
+	Kind           string    `json:"kind"` // study | analysis | test
+	LinkedTestID   *string   `json:"linkedTestId,omitempty"`
+	LinkedTestType *string   `json:"linkedTestType,omitempty"` // full | sectional
+}
+
+type FullMock struct {
+	ID               string   `json:"id"`
+	UserID           string   `json:"userId"`
+	Provider         string   `json:"provider"`
+	ProviderName     string   `json:"providerName"`
+	TestName         string   `json:"testName"`
+	Date             string   `json:"date"`
+	VARCScore        *int     `json:"varcScore"`
+	VARCAttempted    *int     `json:"varcAttempted"`
+	VARCCorrect      *int     `json:"varcCorrect"`
+	VARCPercentile   *float64 `json:"varcPercentile"`
+	DILRScore        *int     `json:"dilrScore"`
+	DILRAttempted    *int     `json:"dilrAttempted"`
+	DILRCorrect      *int     `json:"dilrCorrect"`
+	DILRPercentile   *float64 `json:"dilrPercentile"`
+	QuantScore       *int     `json:"quantScore"`
+	QuantAttempted   *int     `json:"quantAttempted"`
+	QuantCorrect     *int     `json:"quantCorrect"`
+	QuantPercentile  *float64 `json:"quantPercentile"`
+	OverallScore     *int     `json:"overallScore"`
+	OverallPercentile *float64 `json:"overallPercentile"`
+	DurationMin      *int     `json:"durationMin"`
+	Tags             []string `json:"tags"`
+	Notes            string   `json:"notes"`
+	LinkedSessionID  *string  `json:"linkedSessionId"`
+	CreatedAt        time.Time `json:"createdAt"`
+}
+
+type SectionalTest struct {
+	ID              string   `json:"id"`
+	UserID          string   `json:"userId"`
+	Provider        string   `json:"provider"`
+	ProviderName    string   `json:"providerName"`
+	TestName        string   `json:"testName"`
+	Section         string   `json:"section"`
+	Date            string   `json:"date"`
+	Score           *int     `json:"score"`
+	Attempted       *int     `json:"attempted"`
+	Correct         *int     `json:"correct"`
+	Percentile      *float64 `json:"percentile"`
+	DurationMin     *int     `json:"durationMin"`
+	Tags            []string `json:"tags"`
+	Notes           string   `json:"notes"`
+	LinkedSessionID *string  `json:"linkedSessionId"`
+	CreatedAt       time.Time `json:"createdAt"`
+}
+
+type QotdEntry struct {
+	ID           string    `json:"id"`
+	UserID       string    `json:"userId"`
+	Date         string    `json:"date"`
+	Topic        string    `json:"topic"`
+	Source       string    `json:"source"`
+	Correct      bool      `json:"correct"`
+	TimeTakenSec *int      `json:"timeTakenSec"`
+	Note         string    `json:"note"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type Subject struct {

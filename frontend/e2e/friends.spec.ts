@@ -5,7 +5,7 @@ test.describe("Friends", () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page);
     await page.goto("/friends");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
   });
 
   test("friends page loads without error", async ({ page }) => {

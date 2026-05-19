@@ -5,7 +5,7 @@ test.describe("Insights", () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page);
     await page.goto("/insights");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
   });
 
   test("insights page loads without error", async ({ page }) => {
@@ -71,5 +71,34 @@ test.describe("Insights", () => {
     await expect(page.locator("body")).not.toContainText("Something went wrong");
     const hasPie = await page.locator("svg").count();
     expect(hasPie).toBeGreaterThanOrEqual(1);
+  });
+
+  test("Study / Mocks toggle buttons are present", async ({ page }) => {
+    // Both toggle buttons should be visible in the insights header area
+    const studyBtn = page.locator('button:has-text("Study")').first();
+    const mocksBtn = page.locator('button:has-text("Mocks")').first();
+    await expect(studyBtn).toBeVisible({ timeout: 8_000 });
+    await expect(mocksBtn).toBeVisible({ timeout: 3_000 });
+  });
+
+  test("switching to Mocks view does not crash", async ({ page }) => {
+    const mocksBtn = page.locator('button:has-text("Mocks")').first();
+    if (await mocksBtn.isVisible()) {
+      await mocksBtn.click();
+      await page.waitForTimeout(300);
+      await expect(page.locator("body")).not.toContainText("Something went wrong");
+    }
+  });
+
+  test("switching back to Study view restores study charts", async ({ page }) => {
+    const mocksBtn = page.locator('button:has-text("Mocks")').first();
+    const studyBtn = page.locator('button:has-text("Study")').first();
+    if (await mocksBtn.isVisible()) {
+      await mocksBtn.click();
+      await page.waitForTimeout(200);
+      await studyBtn.click();
+      await page.waitForTimeout(200);
+      await expect(page.locator('text=Weekly Overview').first()).toBeVisible({ timeout: 5_000 });
+    }
   });
 });

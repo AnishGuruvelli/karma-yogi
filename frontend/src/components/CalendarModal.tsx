@@ -1,15 +1,17 @@
 import { X } from 'lucide-react';
-import { StudyCalendar } from '@/components/StudyCalendar';
+import { StudyCalendar, MockCalendar } from '@/components/StudyCalendar';
 import type { Session } from '@/lib/types';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CalendarModalProps {
   open: boolean;
   onClose: () => void;
-  sessions: Session[];
+  sessions?: Session[];
+  mockDates?: string[];
+  title?: string;
 }
 
-export function CalendarModal({ open, onClose, sessions }: CalendarModalProps) {
+export function CalendarModal({ open, onClose, sessions, mockDates, title }: CalendarModalProps) {
   useBodyScrollLock(open);
   if (!open) return null;
 
@@ -20,14 +22,18 @@ export function CalendarModal({ open, onClose, sessions }: CalendarModalProps) {
         <div className="relative flex items-center justify-center border-b border-border px-4 py-4 sm:px-5">
           <button
             onClick={onClose}
-            className="absolute left-4 flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:text-foreground sm:left-5"
+            className="absolute left-4 flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground sm:left-5"
           >
             <X className="h-5 w-5" />
           </button>
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">Calendar</h2>
+          <h2 className="text-xl font-bold text-foreground sm:text-2xl">{title ?? 'Calendar'}</h2>
         </div>
         <div className="min-h-0 flex-1 p-0">
-          <StudyCalendar sessions={sessions} />
+          {mockDates ? (
+            <MockCalendar dates={mockDates} />
+          ) : (
+            <StudyCalendar sessions={sessions ?? []} />
+          )}
         </div>
       </div>
     </div>

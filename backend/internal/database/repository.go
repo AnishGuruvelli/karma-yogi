@@ -90,3 +90,23 @@ type AuthRepository interface {
 	GetRefreshToken(ctx context.Context, id string) (domain.RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, id string) error
 }
+
+type FullMockRepository interface {
+	Create(ctx context.Context, m domain.FullMock) (domain.FullMock, error)
+	ListByUser(ctx context.Context, userID string) ([]domain.FullMock, error)
+	Update(ctx context.Context, m domain.FullMock) (domain.FullMock, error)
+	Delete(ctx context.Context, userID, id string) error
+}
+
+type SectionalTestRepository interface {
+	Create(ctx context.Context, s domain.SectionalTest) (domain.SectionalTest, error)
+	ListByUser(ctx context.Context, userID string) ([]domain.SectionalTest, error)
+	Update(ctx context.Context, s domain.SectionalTest) (domain.SectionalTest, error)
+	Delete(ctx context.Context, userID, id string) error
+}
+
+type QotdEntryRepository interface {
+	Create(ctx context.Context, e domain.QotdEntry) (domain.QotdEntry, error)
+	ListByUser(ctx context.Context, userID string) ([]domain.QotdEntry, error)
+	Delete(ctx context.Context, userID, id string) error
+}

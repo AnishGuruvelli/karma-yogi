@@ -66,8 +66,9 @@ func main() {
 	friendSvc := service.NewFriendService(repos.Friends, repos.Subjects, repos.Sessions)
 	achievementSvc := service.NewAchievementService(repos.Sessions, repos.Friends)
 	studyStatsSvc := service.NewStudyStatsService(repos.Sessions)
+	mocksSvc := service.NewMocksService(repos.FullMocks, repos.Sectionals, repos.Qotd, repos.Sessions, repos.Subjects)
 
-	h := controller.NewHandlers(authSvc, userSvc, profileSvc, subjectSvc, sessSvc, goalSvc, examGoalSvc, insSvc, timerSvc, friendSvc, achievementSvc, studyStatsSvc)
+	h := controller.NewHandlers(authSvc, userSvc, profileSvc, subjectSvc, sessSvc, goalSvc, examGoalSvc, insSvc, timerSvc, friendSvc, achievementSvc, studyStatsSvc, mocksSvc)
 	router := httpx.NewRouter(h, tm, cfg.CORSAllowedOrigins)
 
 	srv := &http.Server{
