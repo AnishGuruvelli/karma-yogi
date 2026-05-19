@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { X, ChevronLeft, Loader2, Plus, CalendarIcon } from "lucide-react";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useStore } from "@/lib/store";
@@ -799,6 +799,13 @@ export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => 
     setStep(1);
     onClose();
   }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open, handleClose]);
 
   const handleSaveFull = async (payload: Omit<FullMock, "id" | "userId" | "createdAt">) => {
     const created = await addFullMock(payload);

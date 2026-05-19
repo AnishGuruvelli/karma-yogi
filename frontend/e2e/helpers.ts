@@ -13,7 +13,7 @@ export async function loginAs(page: Page, email = TEST_EMAIL, password = TEST_PA
   await page.click('button[type="submit"]');
 
   // Give the backend generous time to respond (rate-limits can add latency)
-  const navShown = await page.waitForSelector("nav", { timeout: 22_000 }).then(() => true).catch(() => false);
+  const navShown = await page.waitForSelector("nav", { timeout: 40_000 }).then(() => true).catch(() => false);
 
   if (!navShown) {
     // Login failed — check if we're still on the auth screen before trying to register
