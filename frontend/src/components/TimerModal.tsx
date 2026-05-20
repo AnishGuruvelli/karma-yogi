@@ -88,6 +88,9 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   const startTimeRef = useRef<Date | null>(null);
   // Holds a snapshot of current state for the keep-alive ping (avoids stale closure)
   const keepAlivePayloadRef = useRef<Parameters<typeof saveTimerState>[0] | null>(null);
+  // Refs for cross-device sync (avoid stale closures in async callbacks)
+  const hasStartedRef = useRef(false);
+  const isPausedRef = useRef(false);
 
   const computedStopwatchElapsed = (() => {
     if (!startedAtMs) return elapsed;
@@ -95,6 +98,31 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
     const seconds = Math.floor((effectiveNow - startedAtMs - pausedAccumMs) / 1000);
     return Math.max(0, seconds);
   })();
+
+  // Keep refs current so async callbacks don't capture stale values
+  useEffect(() => { hasStartedRef.current = hasStarted; }, [hasStarted]);
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+
+  // Pull the latest pause state from the server. Called on visibility/focus change
+  // and on a 30-second poll so that pausing on one device is reflected on another.
+  const syncFromServer = useCallback(async () => {
+    if (!hasStartedRef.current) return;
+    try {
+      const serverState = await fetchTimerState();
+      if (!serverState) return;
+      const serverPaused = Boolean(serverState.isPaused);
+      if (serverPaused === isPausedRef.current) return;
+      setIsPaused(serverPaused);
+      if (serverPaused) {
+        const pt = typeof serverState.pauseStartedAtMs === 'number' ? serverState.pauseStartedAtMs : Date.now();
+        setPauseStartedAtMs(pt);
+      } else {
+        setPausedAccumMs(typeof serverState.pausedAccumMs === 'number' ? serverState.pausedAccumMs : 0);
+        setPauseStartedAtMs(null);
+      }
+      setTickNowMs(Date.now());
+    } catch { /* network errors are silent */ }
+  }, []);
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -110,14 +138,24 @@ export function TimerModal({ open, onClose, onRequestOpen }: TimerModalProps) {
   }, [subjectId, sessions, subjects]);
 
   useEffect(() => {
-    const handleVisible = () => setTickNowMs(Date.now());
+    const handleVisible = () => {
+      setTickNowMs(Date.now());
+      if (!document.hidden) void syncFromServer();
+    };
     document.addEventListener('visibilitychange', handleVisible);
     window.addEventListener('focus', handleVisible);
     return () => {
       document.removeEventListener('visibilitychange', handleVisible);
       window.removeEventListener('focus', handleVisible);
     };
-  }, []);
+  }, [syncFromServer]);
+
+  // Poll every 30 s while timer is active to pick up pause/resume from another device
+  useEffect(() => {
+    if (!hasStarted) return;
+    const id = setInterval(() => void syncFromServer(), 120_000);
+    return () => clearInterval(id);
+  }, [hasStarted, syncFromServer]);
 
   useEffect(() => {
     if (restoredOnce) return;

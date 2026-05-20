@@ -634,7 +634,7 @@ function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "us
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!f.topic.trim()) { setError("Topic is required"); return; }
+    if (!f.topic.trim() || !f.timeTakenMin || !f.questionsCorrect || !f.questionsTotal) return;
     setError(null);
     setSaving(true);
     try {
@@ -643,7 +643,7 @@ function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "us
         topic: f.topic.trim(),
         source: f.source.trim() || "iQuanta",
         correct: f.correct,
-        timeTakenSec: (() => { const m = ni(f.timeTakenMin); return m && m > 0 ? m * 60 : null; })(),
+        timeTakenMin: ni(f.timeTakenMin),
         questionsCorrect: ni(f.questionsCorrect),
         questionsTotal: ni(f.questionsTotal),
         note: f.note.trim(),
@@ -713,36 +713,30 @@ function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "us
         </div>
       </div>
 
-      {/* Time */}
+      {/* Time · Correct · Total — one row */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time <span className="text-xs text-muted-foreground/70">(minutes, optional)</span></label>
-        <input
-          type="number"
-          value={f.timeTakenMin}
-          onChange={e => set("timeTakenMin", e.target.value)}
-          placeholder="e.g. 2"
-          className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
-        />
-      </div>
-
-      {/* Score */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Score <span className="text-xs text-muted-foreground/60">(optional)</span></label>
-        <div className="flex items-center gap-2">
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min) · Correct · Total</label>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            type="number"
+            value={f.timeTakenMin}
+            onChange={e => set("timeTakenMin", e.target.value)}
+            placeholder="Mins"
+            className="input-field rounded-xl p-3 text-sm tabular-nums"
+          />
           <input
             type="number"
             value={f.questionsCorrect}
             onChange={e => set("questionsCorrect", e.target.value)}
             placeholder="Correct"
-            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+            className="input-field rounded-xl p-3 text-sm tabular-nums"
           />
-          <span className="shrink-0 text-sm font-medium text-muted-foreground">out of</span>
           <input
             type="number"
             value={f.questionsTotal}
             onChange={e => set("questionsTotal", e.target.value)}
             placeholder="Total"
-            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+            className="input-field rounded-xl p-3 text-sm tabular-nums"
           />
         </div>
       </div>
@@ -761,21 +755,30 @@ function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "us
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={saving}
-        className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ boxShadow: "var(--shadow-md)" }}
-      >
-        {saving ? (
-          <span className="flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Saving…
-          </span>
-        ) : (
-          "Save QOTD Entry"
-        )}
-      </button>
+      {(() => {
+        const missing: string[] = [];
+        if (!f.topic) missing.push("topic");
+        if (!f.timeTakenMin) missing.push("time");
+        if (!f.questionsCorrect) missing.push("correct");
+        if (!f.questionsTotal) missing.push("total");
+        const isDisabled = saving || missing.length > 0;
+        const label = saving
+          ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving…</span>
+          : missing.length > 0
+            ? `Fill: ${missing.join(", ")}`
+            : "Save QOTD Entry";
+        return (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isDisabled}
+            className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ boxShadow: "var(--shadow-md)" }}
+          >
+            {label}
+          </button>
+        );
+      })()}
     </div>
   );
 }

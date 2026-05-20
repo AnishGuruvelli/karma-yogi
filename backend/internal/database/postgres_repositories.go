@@ -876,16 +876,16 @@ func (r *pgSectionalTestRepo) Delete(ctx context.Context, userID, id string) err
 type pgQotdEntryRepo struct{ pool *pgxpool.Pool }
 
 func (r *pgQotdEntryRepo) Create(ctx context.Context, e domain.QotdEntry) (domain.QotdEntry, error) {
-	q := `INSERT INTO qotd_entries (id,user_id,date,topic,source,correct,time_taken_sec,note)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		RETURNING id,user_id,date,topic,source,correct,time_taken_sec,note,created_at`
-	err := r.pool.QueryRow(ctx, q, e.ID, e.UserID, e.Date, e.Topic, e.Source, e.Correct, e.TimeTakenSec, e.Note).
-		Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenSec, &e.Note, &e.CreatedAt)
+	q := `INSERT INTO qotd_entries (id,user_id,date,topic,source,correct,time_taken_min,questions_correct,questions_total,note)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		RETURNING id,user_id,date,topic,source,correct,time_taken_min,questions_correct,questions_total,note,created_at`
+	err := r.pool.QueryRow(ctx, q, e.ID, e.UserID, e.Date, e.Topic, e.Source, e.Correct, e.TimeTakenMin, e.QuestionsCorrect, e.QuestionsTotal, e.Note).
+		Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenMin, &e.QuestionsCorrect, &e.QuestionsTotal, &e.Note, &e.CreatedAt)
 	return e, err
 }
 
 func (r *pgQotdEntryRepo) ListByUser(ctx context.Context, userID string) ([]domain.QotdEntry, error) {
-	q := `SELECT id,user_id,date,topic,source,correct,time_taken_sec,note,created_at
+	q := `SELECT id,user_id,date,topic,source,correct,time_taken_min,questions_correct,questions_total,note,created_at
 		FROM qotd_entries WHERE user_id=$1 ORDER BY date DESC, created_at DESC`
 	rows, err := r.pool.Query(ctx, q, userID)
 	if err != nil {
@@ -895,12 +895,21 @@ func (r *pgQotdEntryRepo) ListByUser(ctx context.Context, userID string) ([]doma
 	out := []domain.QotdEntry{}
 	for rows.Next() {
 		var e domain.QotdEntry
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenSec, &e.Note, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenMin, &e.QuestionsCorrect, &e.QuestionsTotal, &e.Note, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func (r *pgQotdEntryRepo) Update(ctx context.Context, userID, id string, e domain.QotdEntry) (domain.QotdEntry, error) {
+	q := `UPDATE qotd_entries SET date=$3,topic=$4,source=$5,correct=$6,time_taken_min=$7,questions_correct=$8,questions_total=$9,note=$10
+		WHERE id=$1 AND user_id=$2
+		RETURNING id,user_id,date,topic,source,correct,time_taken_min,questions_correct,questions_total,note,created_at`
+	err := r.pool.QueryRow(ctx, q, id, userID, e.Date, e.Topic, e.Source, e.Correct, e.TimeTakenMin, e.QuestionsCorrect, e.QuestionsTotal, e.Note).
+		Scan(&e.ID, &e.UserID, &e.Date, &e.Topic, &e.Source, &e.Correct, &e.TimeTakenMin, &e.QuestionsCorrect, &e.QuestionsTotal, &e.Note, &e.CreatedAt)
+	return e, err
 }
 
 func (r *pgQotdEntryRepo) Delete(ctx context.Context, userID, id string) error {

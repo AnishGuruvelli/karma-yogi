@@ -89,6 +89,7 @@ func NewRouter(h controller.Handlers, tm *auth.TokenManager, corsAllowed []strin
 			p.Delete("/sectionals/{id}", h.Mocks.DeleteSectional)
 			p.Post("/qotd", h.Mocks.CreateQotdEntry)
 			p.Get("/qotd", h.Mocks.ListQotdEntries)
+			p.Put("/qotd/{id}", h.Mocks.UpdateQotdEntry)
 			p.Delete("/qotd/{id}", h.Mocks.DeleteQotdEntry)
 		})
 	})

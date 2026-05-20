@@ -136,6 +136,23 @@ func (h *MocksHandler) ListQotdEntries(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (h *MocksHandler) UpdateQotdEntry(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
+	id := chi.URLParam(r, "id")
+	var req domain.QotdEntry
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	out, err := h.svc.UpdateQotdEntry(r.Context(), claims.UserID, id, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(out)
+}
+
 func (h *MocksHandler) DeleteQotdEntry(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.UserContextKey).(*auth.Claims)
 	if err := h.svc.DeleteQotdEntry(r.Context(), claims.UserID, chi.URLParam(r, "id")); err != nil {

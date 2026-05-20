@@ -52,7 +52,7 @@ function QotdEntryCard({ entry, onDelete }: { entry: QotdEntry; onDelete: () => 
         {entry.note && <div className="text-xs text-muted-foreground italic truncate">{entry.note}</div>}
       </div>
       <div className="shrink-0 text-right">
-        {entry.timeTakenSec != null && <div className="text-xs text-muted-foreground">{Math.round(entry.timeTakenSec / 60)}m {entry.timeTakenSec % 60}s</div>}
+        {entry.timeTakenMin != null && <div className="text-xs text-muted-foreground">{entry.timeTakenMin}m</div>}
         <div className="mt-1 flex items-center gap-1">
           <button
             type="button"

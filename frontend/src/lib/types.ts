@@ -77,7 +77,7 @@ export interface QotdEntry {
   topic: string;
   source: string;
   correct: boolean;
-  timeTakenSec?: number | null;
+  timeTakenMin?: number | null;
   questionsCorrect?: number | null;
   questionsTotal?: number | null;
   note: string;
