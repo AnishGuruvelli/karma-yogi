@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { MOOD_EMOJIS } from "@/lib/types";
@@ -80,7 +80,7 @@ const labelClass = "mb-1.5 block text-sm font-medium text-muted-foreground";
 
 export function LogSessionModal({ open, onClose, initialSession, onSave, onDelete }: LogSessionModalProps) {
   useBodyScrollLock(open);
-  const { subjects, sessions, addSession, addSubject } = useStore();
+  const { subjects, sessions, addSession, addSubject, fullMocks, sectionalTests } = useStore();
   const [subjectId, setSubjectId] = useState(() => getLastStudiedSubjectId(sessions, subjects));
   const [topic, setTopic] = useState(initialSession?.topic || "");
   const initialDuration = initialSession?.duration ?? 30;
@@ -106,6 +106,10 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
   const [isDeleting, setIsDeleting] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectColor, setNewSubjectColor] = useState("cyan");
+  const [kind, setKind] = useState<'study' | 'analysis'>('study');
+  const [linkedTestId, setLinkedTestId] = useState<string | null>(null);
+  const [linkedTestType, setLinkedTestType] = useState<'full' | 'sectional' | null>(null);
+  const [linkedTestSelectOpen, setLinkedTestSelectOpen] = useState(false);
   const initDoneRef = useRef(false);
   const selectedSubject = subjects.find((s) => s.id === subjectId);
   const colorMap: Record<string, string> = {
@@ -116,6 +120,22 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     purple: "#a78bfa",
   };
   const CREATE_SUBJECT_VALUE = "__create_subject__";
+
+  const linkedTestOptions = useMemo(() => {
+    const full = fullMocks.map((m) => ({
+      id: m.id,
+      type: 'full' as const,
+      label: `${m.testName} · ${format(new Date(`${m.date}T12:00:00`), 'd MMM')}`,
+      date: m.date,
+    }));
+    const sectional = sectionalTests.map((s) => ({
+      id: s.id,
+      type: 'sectional' as const,
+      label: `${s.testName} (${s.section}) · ${format(new Date(`${s.date}T12:00:00`), 'd MMM')}`,
+      date: s.date,
+    }));
+    return [...full, ...sectional].sort((a, b) => b.date.localeCompare(a.date));
+  }, [fullMocks, sectionalTests]);
 
   const totalMinutes = (hours ?? 0) * 60 + (minutes ?? 0);
 
@@ -181,6 +201,9 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
     setSubjectSelectOpen(false);
     setNewSubjectName("");
     setNewSubjectColor("cyan");
+    setKind('study');
+    setLinkedTestId(null);
+    setLinkedTestType(null);
   }, [open, initialSession, sessions, subjects]);
 
   useEffect(() => {
@@ -237,6 +260,9 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
       date: sessionDate,
       moodRating: mood!,
       isManualLog: true,
+      kind: kind as 'study' | 'analysis',
+      linkedTestId: kind === 'analysis' ? linkedTestId : null,
+      linkedTestType: kind === 'analysis' ? linkedTestType : null,
     };
     setIsSaving(true);
     try {
@@ -281,7 +307,7 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
             <div className="min-h-0 overflow-y-auto overscroll-contain p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <h2 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                  {initialSession ? "Edit Session" : "Log Session"}
+                  {initialSession ? "Edit Session" : kind === 'analysis' ? "Log Analysis Session" : "Log Session"}
                 </h2>
                 <button
                   type="button"
@@ -294,6 +320,58 @@ export function LogSessionModal({ open, onClose, initialSession, onSave, onDelet
               </div>
 
               <div className="space-y-4 pb-[max(env(safe-area-inset-bottom),0.5rem)] font-sans">
+                {!initialSession && (
+                  <div>
+                    <label className={labelClass}>Kind</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setKind('study'); setLinkedTestId(null); setLinkedTestType(null); }}
+                        className={cn("rounded-xl py-3 text-sm font-semibold", kind === 'study' ? "bg-primary text-primary-foreground" : "border border-border bg-card text-foreground hover:bg-muted")}
+                        style={kind === 'study' ? { boxShadow: "var(--shadow-md)" } : undefined}
+                      >
+                        Study
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKind('analysis')}
+                        className={cn("rounded-xl py-3 text-sm font-semibold", kind === 'analysis' ? "bg-primary text-primary-foreground" : "border border-border bg-card text-foreground hover:bg-muted")}
+                        style={kind === 'analysis' ? { boxShadow: "var(--shadow-md)" } : undefined}
+                      >
+                        Test Analysis
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {kind === 'analysis' && !initialSession && (
+                  <div>
+                    <label className={labelClass}>Linked test</label>
+                    <Select
+                      value={linkedTestId ?? "__none__"}
+                      onValueChange={(val) => {
+                        if (!val || val === "__none__") { setLinkedTestId(null); setLinkedTestType(null); return; }
+                        const opt = linkedTestOptions.find((o) => o.id === val);
+                        if (opt) { setLinkedTestId(opt.id); setLinkedTestType(opt.type); }
+                      }}
+                      open={linkedTestSelectOpen}
+                      onOpenChange={setLinkedTestSelectOpen}
+                    >
+                      <SelectTrigger className="input-field flex h-12 w-full items-center justify-between rounded-xl px-3 text-sm font-medium shadow-none ring-0 focus:ring-0 data-[placeholder]:text-muted-foreground data-[state=open]:shadow-none sm:h-[3.25rem] sm:px-4 sm:text-base">
+                        <SelectValue placeholder="— Select a test —" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[80] max-h-64 rounded-xl border-border bg-popover p-1 shadow-xl">
+                        <SelectItem value="__none__">— Select a test —</SelectItem>
+                        {linkedTestOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={opt.id}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div>
                   <label className={labelClass}>Subject</label>
                   <Select value={subjectId} onValueChange={handleSubjectChange} open={subjectSelectOpen} onOpenChange={setSubjectSelectOpen}>
