@@ -585,16 +585,25 @@ export function EditQotdModal({ entry, onClose }: EditQotdModalProps) {
             </div>
           </div>
 
-          {/* Time · Correct · Total — one row */}
+          {/* Time */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min) · Correct · Total</label>
-            <div className="grid grid-cols-3 gap-2">
-              <input type="number" min={0} value={timeTakenMin} onChange={e => setTimeTakenMin(e.target.value)}
-                placeholder="Mins" className="input-field rounded-xl p-3 text-sm tabular-nums" />
+            <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min)</label>
+            <input type="number" min={0} value={timeTakenMin} onChange={e => setTimeTakenMin(e.target.value)}
+              placeholder="e.g. 2" className="input-field w-full rounded-xl p-3 text-sm tabular-nums" />
+          </div>
+
+          <hr className="border-border" />
+
+          {/* Score */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted-foreground">Score</label>
+            <div className="flex items-center gap-2">
               <input type="number" min={0} value={questionsCorrect} onChange={e => setQuestionsCorrect(e.target.value)}
-                placeholder="Correct" className="input-field rounded-xl p-3 text-sm tabular-nums" />
+                placeholder="Correct" className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums" />
+              <span className="shrink-0 text-sm font-medium text-muted-foreground">out of</span>
               <input type="number" min={0} value={questionsTotal} onChange={e => setQuestionsTotal(e.target.value)}
-                placeholder="Total" className="input-field rounded-xl p-3 text-sm tabular-nums" />
+                placeholder="Total" className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums" />
+              <span className="shrink-0 text-sm text-muted-foreground">questions</span>
             </div>
           </div>
 

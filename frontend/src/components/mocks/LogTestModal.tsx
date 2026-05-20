@@ -713,31 +713,40 @@ function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "us
         </div>
       </div>
 
-      {/* Time · Correct · Total — one row */}
+      {/* Time */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min) · Correct · Total</label>
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            type="number"
-            value={f.timeTakenMin}
-            onChange={e => set("timeTakenMin", e.target.value)}
-            placeholder="Mins"
-            className="input-field rounded-xl p-3 text-sm tabular-nums"
-          />
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min)</label>
+        <input
+          type="number"
+          value={f.timeTakenMin}
+          onChange={e => set("timeTakenMin", e.target.value)}
+          placeholder="e.g. 2"
+          className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+        />
+      </div>
+
+      <hr className="border-border" />
+
+      {/* Score */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Score</label>
+        <div className="flex items-center gap-2">
           <input
             type="number"
             value={f.questionsCorrect}
             onChange={e => set("questionsCorrect", e.target.value)}
             placeholder="Correct"
-            className="input-field rounded-xl p-3 text-sm tabular-nums"
+            className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums"
           />
+          <span className="shrink-0 text-sm font-medium text-muted-foreground">out of</span>
           <input
             type="number"
             value={f.questionsTotal}
             onChange={e => set("questionsTotal", e.target.value)}
             placeholder="Total"
-            className="input-field rounded-xl p-3 text-sm tabular-nums"
+            className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums"
           />
+          <span className="shrink-0 text-sm text-muted-foreground">questions</span>
         </div>
       </div>
 
