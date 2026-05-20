@@ -215,6 +215,10 @@ func (s *MocksService) ListQotdEntries(ctx context.Context, userID string) ([]do
 	return s.qotd.ListByUser(ctx, userID)
 }
 
+func (s *MocksService) UpdateQotdEntry(ctx context.Context, userID, id string, e domain.QotdEntry) (domain.QotdEntry, error) {
+	return s.qotd.Update(ctx, userID, id, e)
+}
+
 func (s *MocksService) DeleteQotdEntry(ctx context.Context, userID, id string) error {
 	return s.qotd.Delete(ctx, userID, id)
 }

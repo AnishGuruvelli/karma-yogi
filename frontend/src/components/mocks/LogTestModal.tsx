@@ -615,27 +615,26 @@ function SectionalForm({ onSave }: { onSave: (s: Omit<SectionalTest, "id" | "use
 
 // ── QOTD FORM ─────────────────────────────────────────────────────────────────
 
-const QOTD_TOPICS = ["QUANT", "VA", "RC", "LR", "DI"];
-
 interface QotdState {
   date: Date;
   topic: string;
   source: string;
   correct: boolean;
-  timeTakenSec: string;
+  timeTakenMin: string;
   questionsCorrect: string;
   questionsTotal: string;
   note: string;
 }
 
-function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "createdAt">) => Promise<void> }) {
-  const [f, setF] = useState<QotdState>({ date: new Date(), topic: "QUANT", source: "iQuanta", correct: false, timeTakenSec: "", questionsCorrect: "", questionsTotal: "", note: "" });
+function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "createdAt">) => Promise<void>; subjects: { id: string; name: string }[] }) {
+  const topicOptions = subjects.map(s => s.name);
+  const [f, setF] = useState<QotdState>({ date: new Date(), topic: subjects[0]?.name ?? "", source: "iQuanta", correct: false, timeTakenMin: "", questionsCorrect: "", questionsTotal: "", note: "" });
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof QotdState>(k: K, v: QotdState[K]) => setF(p => ({ ...p, [k]: v }));
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!f.topic.trim()) { setError("Topic is required"); return; }
+    if (!f.topic.trim() || !f.timeTakenMin || !f.questionsCorrect || !f.questionsTotal) return;
     setError(null);
     setSaving(true);
     try {
@@ -644,7 +643,7 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
         topic: f.topic.trim(),
         source: f.source.trim() || "iQuanta",
         correct: f.correct,
-        timeTakenSec: ni(f.timeTakenSec),
+        timeTakenMin: ni(f.timeTakenMin),
         questionsCorrect: ni(f.questionsCorrect),
         questionsTotal: ni(f.questionsTotal),
         note: f.note.trim(),
@@ -696,7 +695,7 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
       <div>
         <label className="mb-2 block text-sm font-medium text-muted-foreground">Topic</label>
         <div className="flex flex-wrap gap-2">
-          {QOTD_TOPICS.map(t => (
+          {topicOptions.map(t => (
             <button
               key={t}
               type="button"
@@ -716,26 +715,28 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
 
       {/* Time */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time <span className="text-xs text-muted-foreground/70">(seconds, optional)</span></label>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min)</label>
         <input
           type="number"
-          value={f.timeTakenSec}
-          onChange={e => set("timeTakenSec", e.target.value)}
-          placeholder="e.g. 120"
+          value={f.timeTakenMin}
+          onChange={e => set("timeTakenMin", e.target.value)}
+          placeholder="e.g. 2"
           className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
         />
       </div>
 
+      <hr className="border-border" />
+
       {/* Score */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Score <span className="text-xs text-muted-foreground/60">(optional)</span></label>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Score</label>
         <div className="flex items-center gap-2">
           <input
             type="number"
             value={f.questionsCorrect}
             onChange={e => set("questionsCorrect", e.target.value)}
             placeholder="Correct"
-            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+            className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums"
           />
           <span className="shrink-0 text-sm font-medium text-muted-foreground">out of</span>
           <input
@@ -743,8 +744,9 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
             value={f.questionsTotal}
             onChange={e => set("questionsTotal", e.target.value)}
             placeholder="Total"
-            className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
+            className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums"
           />
+          <span className="shrink-0 text-sm text-muted-foreground">questions</span>
         </div>
       </div>
 
@@ -762,21 +764,30 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={saving}
-        className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ boxShadow: "var(--shadow-md)" }}
-      >
-        {saving ? (
-          <span className="flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Saving…
-          </span>
-        ) : (
-          "Save QOTD Entry"
-        )}
-      </button>
+      {(() => {
+        const missing: string[] = [];
+        if (!f.topic) missing.push("topic");
+        if (!f.timeTakenMin) missing.push("time");
+        if (!f.questionsCorrect) missing.push("correct");
+        if (!f.questionsTotal) missing.push("total");
+        const isDisabled = saving || missing.length > 0;
+        const label = saving
+          ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving…</span>
+          : missing.length > 0
+            ? `Fill: ${missing.join(", ")}`
+            : "Save QOTD Entry";
+        return (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isDisabled}
+            className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ boxShadow: "var(--shadow-md)" }}
+          >
+            {label}
+          </button>
+        );
+      })()}
     </div>
   );
 }
@@ -785,7 +796,7 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
 
 export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useBodyScrollLock(open);
-  const { addFullMock, addSectional, addQotdEntry, fullMocks, sectionalTests } = useStore();
+  const { addFullMock, addSectional, addQotdEntry, fullMocks, sectionalTests, subjects } = useStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<TestKind>("full");
 
@@ -894,7 +905,7 @@ export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => 
           <>
             {kind === "full" && <FullMockForm onSave={handleSaveFull} allTags={allMockTags} />}
             {kind === "sectional" && <SectionalForm onSave={handleSaveSectional} />}
-            {kind === "qotd" && <QotdForm onSave={handleSaveQotd} />}
+            {kind === "qotd" && <QotdForm onSave={handleSaveQotd} subjects={subjects} />}
           </>
         )}
       </div>

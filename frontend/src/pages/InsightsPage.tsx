@@ -200,12 +200,12 @@ function MocksInsightsView({ filteredMocks, sectionalTests, fullMocks }: { filte
 
       {/* Provider Comparison */}
       {hasProviderData && (
-        <ChartCard title="Provider Comparison" subtitle="Avg score per section across all mocks · click legend to show/hide">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={providerCompare} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-              <CartesianGrid stroke={gridStroke} strokeOpacity={0.35} vertical={false} />
-              <XAxis dataKey="section" tick={axisTick} axisLine={false} tickLine={false} />
-              <YAxis tick={axisTick} axisLine={false} tickLine={false} />
+        <ChartCard title="Provider Performance Comparison" subtitle="Comparing avg sectional scores: TIME vs IMS">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart layout="vertical" data={providerCompare} margin={{ top: 10, right: 50, left: 10, bottom: 0 }}>
+              <CartesianGrid stroke={gridStroke} strokeOpacity={0.35} horizontal={false} />
+              <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="section" tick={{ ...axisTick, fontWeight: 600 }} axisLine={false} tickLine={false} width={46} />
               <Tooltip content={(props) => <MockTooltip {...props} />} />
               <Legend
                 wrapperStyle={{ paddingTop: 12, cursor: "pointer" }}
@@ -213,7 +213,7 @@ function MocksInsightsView({ filteredMocks, sectionalTests, fullMocks }: { filte
                 formatter={(value) => legendFormatter(value, hiddenProvider, barColor[value as BarSeries] ?? "#888")}
               />
               {BAR_SERIES.map((key) => (
-                <Bar key={key} dataKey={key} fill={barColor[key]} radius={[6, 6, 0, 0]} hide={hiddenProvider.has(key)} />
+                <Bar key={key} dataKey={key} fill={barColor[key]} radius={[0, 6, 6, 0]} hide={hiddenProvider.has(key)} label={{ position: "right", fontSize: 11, fill: "hsl(var(--muted-foreground))", formatter: (v: number) => v > 0 ? v.toFixed(1) : "" }} />
               ))}
             </BarChart>
           </ResponsiveContainer>

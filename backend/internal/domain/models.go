@@ -78,15 +78,17 @@ type SectionalTest struct {
 }
 
 type QotdEntry struct {
-	ID           string    `json:"id"`
-	UserID       string    `json:"userId"`
-	Date         string    `json:"date"`
-	Topic        string    `json:"topic"`
-	Source       string    `json:"source"`
-	Correct      bool      `json:"correct"`
-	TimeTakenSec *int      `json:"timeTakenSec"`
-	Note         string    `json:"note"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID               string    `json:"id"`
+	UserID           string    `json:"userId"`
+	Date             string    `json:"date"`
+	Topic            string    `json:"topic"`
+	Source           string    `json:"source"`
+	Correct          bool      `json:"correct"`
+	TimeTakenMin     *int      `json:"timeTakenMin"`
+	QuestionsCorrect *int      `json:"questionsCorrect"`
+	QuestionsTotal   *int      `json:"questionsTotal"`
+	Note             string    `json:"note"`
+	CreatedAt        time.Time `json:"createdAt"`
 }
 
 type Subject struct {

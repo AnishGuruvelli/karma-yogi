@@ -493,7 +493,7 @@ export function EditSectionalModal({ test, onClose }: EditSectionalModalProps) {
 
 // ── EDIT QOTD ─────────────────────────────────────────────────────────────────
 
-const QOTD_TOPICS = ["QUANT", "VA", "RC", "LR", "DI"] as const;
+// QOTD_TOPICS removed — topics come from user subjects via props
 
 interface EditQotdModalProps {
   entry: QotdEntry;
@@ -502,13 +502,15 @@ interface EditQotdModalProps {
 
 export function EditQotdModal({ entry, onClose }: EditQotdModalProps) {
   useBodyScrollLock(true);
-  const { editQotdEntry } = useStore();
+  const { editQotdEntry, subjects } = useStore();
+  const topicOptions = subjects.map(s => s.name);
 
   const [date, setDate] = useState<Date>(parseDateStr(entry.date));
   const [topic, setTopic] = useState(entry.topic);
   const [source, setSource] = useState(entry.source ?? "");
   const correct = entry.correct;
-  const [timeTakenSec, setTimeTakenSec] = useState(entry.timeTakenSec != null ? String(entry.timeTakenSec) : "");
+  // Display stored seconds as minutes; multiply back to seconds on save
+  const [timeTakenMin, setTimeTakenMin] = useState(entry.timeTakenMin != null ? String(entry.timeTakenMin) : "");
   const [questionsCorrect, setQuestionsCorrect] = useState(entry.questionsCorrect != null ? String(entry.questionsCorrect) : "");
   const [questionsTotal, setQuestionsTotal] = useState(entry.questionsTotal != null ? String(entry.questionsTotal) : "");
   const [note, setNote] = useState(entry.note ?? "");
@@ -517,12 +519,13 @@ export function EditQotdModal({ entry, onClose }: EditQotdModalProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const m = timeTakenMin ? parseInt(timeTakenMin, 10) : null;
       const ok = await editQotdEntry(entry.id, {
         date: format(date, "yyyy-MM-dd"),
         topic,
         source: source.trim(),
         correct,
-        timeTakenSec: timeTakenSec ? parseInt(timeTakenSec, 10) : null,
+        timeTakenMin: m && m > 0 ? m : null,
         questionsCorrect: questionsCorrect ? parseInt(questionsCorrect, 10) : null,
         questionsTotal: questionsTotal ? parseInt(questionsTotal, 10) : null,
         note: note.trim(),
@@ -571,7 +574,7 @@ export function EditQotdModal({ entry, onClose }: EditQotdModalProps) {
           <div>
             <label className="mb-2 block text-sm font-medium text-muted-foreground">Topic</label>
             <div className="flex flex-wrap gap-2">
-              {QOTD_TOPICS.map(t => (
+              {topicOptions.map(t => (
                 <button key={t} type="button" onClick={() => setTopic(t)}
                   className={cn("rounded-full border px-3 py-1.5 text-sm font-medium",
                     topic === t ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"
@@ -582,33 +585,37 @@ export function EditQotdModal({ entry, onClose }: EditQotdModalProps) {
             </div>
           </div>
 
+          {/* Time */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted-foreground">Time (min)</label>
+            <input type="number" min={0} value={timeTakenMin} onChange={e => setTimeTakenMin(e.target.value)}
+              placeholder="e.g. 2" className="input-field w-full rounded-xl p-3 text-sm tabular-nums" />
+          </div>
+
+          <hr className="border-border" />
+
           {/* Score */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-muted-foreground">Score <span className="text-xs text-muted-foreground/70">(optional)</span></label>
+            <label className="mb-2 block text-sm font-medium text-muted-foreground">Score</label>
             <div className="flex items-center gap-2">
               <input type="number" min={0} value={questionsCorrect} onChange={e => setQuestionsCorrect(e.target.value)}
-                placeholder="Correct" className="input-field w-full rounded-xl p-3 text-sm tabular-nums" />
-              <span className="shrink-0 text-sm text-muted-foreground">out of</span>
+                placeholder="Correct" className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums" />
+              <span className="shrink-0 text-sm font-medium text-muted-foreground">out of</span>
               <input type="number" min={0} value={questionsTotal} onChange={e => setQuestionsTotal(e.target.value)}
-                placeholder="Total" className="input-field w-full rounded-xl p-3 text-sm tabular-nums" />
+                placeholder="Total" className="input-field flex-1 rounded-xl p-3 text-sm tabular-nums" />
+              <span className="shrink-0 text-sm text-muted-foreground">questions</span>
             </div>
           </div>
 
           {/* Source */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-muted-foreground">Source <span className="text-xs text-muted-foreground/70">(optional)</span></label>
+            <label className="mb-2 block text-sm font-medium text-muted-foreground">Source</label>
             <input type="text" value={source} onChange={e => setSource(e.target.value)} placeholder="e.g. IMS QOTD, TIME daily" className="input-field w-full rounded-xl p-3 text-sm" />
-          </div>
-
-          {/* Time taken */}
-          <div>
-            <label className="mb-2 block text-sm font-medium text-muted-foreground">Time taken <span className="text-xs text-muted-foreground/70">(seconds, optional)</span></label>
-            <input type="number" min={0} value={timeTakenSec} onChange={e => setTimeTakenSec(e.target.value)} placeholder="e.g. 90" className="input-field w-full rounded-xl p-3 text-sm tabular-nums" />
           </div>
 
           {/* Note */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-muted-foreground">Note <span className="text-xs text-muted-foreground/70">(optional)</span></label>
+            <label className="mb-2 block text-sm font-medium text-muted-foreground">Note</label>
             <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="What tripped you up..." className="input-field w-full resize-none rounded-xl p-3 text-sm" />
           </div>
 

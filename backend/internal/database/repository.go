@@ -108,5 +108,6 @@ type SectionalTestRepository interface {
 type QotdEntryRepository interface {
 	Create(ctx context.Context, e domain.QotdEntry) (domain.QotdEntry, error)
 	ListByUser(ctx context.Context, userID string) ([]domain.QotdEntry, error)
+	Update(ctx context.Context, userID, id string, e domain.QotdEntry) (domain.QotdEntry, error)
 	Delete(ctx context.Context, userID, id string) error
 }
