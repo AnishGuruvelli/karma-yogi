@@ -615,21 +615,20 @@ function SectionalForm({ onSave }: { onSave: (s: Omit<SectionalTest, "id" | "use
 
 // ── QOTD FORM ─────────────────────────────────────────────────────────────────
 
-const QOTD_TOPICS = ["QUANT", "VA", "RC", "LR", "DI"];
-
 interface QotdState {
   date: Date;
   topic: string;
   source: string;
   correct: boolean;
-  timeTakenSec: string;
+  timeTakenMin: string;
   questionsCorrect: string;
   questionsTotal: string;
   note: string;
 }
 
-function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "createdAt">) => Promise<void> }) {
-  const [f, setF] = useState<QotdState>({ date: new Date(), topic: "QUANT", source: "iQuanta", correct: false, timeTakenSec: "", questionsCorrect: "", questionsTotal: "", note: "" });
+function QotdForm({ onSave, subjects }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "createdAt">) => Promise<void>; subjects: { id: string; name: string }[] }) {
+  const topicOptions = subjects.map(s => s.name);
+  const [f, setF] = useState<QotdState>({ date: new Date(), topic: subjects[0]?.name ?? "", source: "iQuanta", correct: false, timeTakenMin: "", questionsCorrect: "", questionsTotal: "", note: "" });
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof QotdState>(k: K, v: QotdState[K]) => setF(p => ({ ...p, [k]: v }));
   const [error, setError] = useState<string | null>(null);
@@ -644,7 +643,7 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
         topic: f.topic.trim(),
         source: f.source.trim() || "iQuanta",
         correct: f.correct,
-        timeTakenSec: ni(f.timeTakenSec),
+        timeTakenSec: (() => { const m = ni(f.timeTakenMin); return m && m > 0 ? m * 60 : null; })(),
         questionsCorrect: ni(f.questionsCorrect),
         questionsTotal: ni(f.questionsTotal),
         note: f.note.trim(),
@@ -696,7 +695,7 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
       <div>
         <label className="mb-2 block text-sm font-medium text-muted-foreground">Topic</label>
         <div className="flex flex-wrap gap-2">
-          {QOTD_TOPICS.map(t => (
+          {topicOptions.map(t => (
             <button
               key={t}
               type="button"
@@ -716,12 +715,12 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
 
       {/* Time */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time <span className="text-xs text-muted-foreground/70">(seconds, optional)</span></label>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Time <span className="text-xs text-muted-foreground/70">(minutes, optional)</span></label>
         <input
           type="number"
-          value={f.timeTakenSec}
-          onChange={e => set("timeTakenSec", e.target.value)}
-          placeholder="e.g. 120"
+          value={f.timeTakenMin}
+          onChange={e => set("timeTakenMin", e.target.value)}
+          placeholder="e.g. 2"
           className="input-field w-full rounded-xl p-3 text-sm tabular-nums"
         />
       </div>
@@ -785,7 +784,7 @@ function QotdForm({ onSave }: { onSave: (e: Omit<QotdEntry, "id" | "userId" | "c
 
 export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useBodyScrollLock(open);
-  const { addFullMock, addSectional, addQotdEntry, fullMocks, sectionalTests } = useStore();
+  const { addFullMock, addSectional, addQotdEntry, fullMocks, sectionalTests, subjects } = useStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<TestKind>("full");
 
@@ -894,7 +893,7 @@ export function LogTestModal({ open, onClose }: { open: boolean; onClose: () => 
           <>
             {kind === "full" && <FullMockForm onSave={handleSaveFull} allTags={allMockTags} />}
             {kind === "sectional" && <SectionalForm onSave={handleSaveSectional} />}
-            {kind === "qotd" && <QotdForm onSave={handleSaveQotd} />}
+            {kind === "qotd" && <QotdForm onSave={handleSaveQotd} subjects={subjects} />}
           </>
         )}
       </div>
